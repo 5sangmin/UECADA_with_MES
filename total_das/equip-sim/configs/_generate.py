@@ -64,28 +64,29 @@ def power_tag() -> dict:
 
 
 def event_tags() -> list[dict]:
-    """공통 이벤트 태그 3개 — state.py 의 _consume_event() 가 소비."""
+    """공통 이벤트 태그 3개 — state.py 의 _consume_event() 가 소비.
+
+    NOTE: writable 은 TagConfig 의 @property 로 role='event' 이면 자동 True.
+          JSON 에 writable 키를 포함하면 TagConfig(**t) 에서 TypeError 발생.
+    """
     return [
         {
             "name": "load_request",
             "role": "event",
             "data_type": "bool",
             "base_value": False,
-            "writable": True,
         },
         {
             "name": "unload_request",
             "role": "event",
             "data_type": "bool",
             "base_value": False,
-            "writable": True,
         },
         {
             "name": "reset_error",
             "role": "event",
             "data_type": "bool",
             "base_value": False,
-            "writable": True,
         },
     ]
 
