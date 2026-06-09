@@ -18,7 +18,6 @@
       "role": "event",
       "data_type": "bool",
       "base_value": false,
-      "writable": true,
       "mc": {
         "device": "M",
         "address": 1
@@ -29,7 +28,6 @@
       "role": "event",
       "data_type": "bool",
       "base_value": false,
-      "writable": true,
       "mc": {
         "device": "M",
         "address": 2
@@ -40,7 +38,6 @@
       "role": "event",
       "data_type": "bool",
       "base_value": false,
-      "writable": true,
       "mc": {
         "device": "M",
         "address": 3

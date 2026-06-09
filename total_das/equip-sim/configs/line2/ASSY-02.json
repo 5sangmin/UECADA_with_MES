@@ -13,22 +13,19 @@
       "name": "load_request",
       "role": "event",
       "data_type": "bool",
-      "base_value": false,
-      "writable": true
+      "base_value": false
     },
     {
       "name": "unload_request",
       "role": "event",
       "data_type": "bool",
-      "base_value": false,
-      "writable": true
+      "base_value": false
     },
     {
       "name": "reset_error",
       "role": "event",
       "data_type": "bool",
-      "base_value": false,
-      "writable": true
+      "base_value": false
     },
     {
       "name": "tightening_torque_sp",
