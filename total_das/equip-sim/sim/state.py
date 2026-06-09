@@ -8,7 +8,8 @@
     WARNING  ──sensor 정상──►  RUNNING  (자동 복귀)
     WARNING  ──sensor err──►  ERROR
     ERROR  ──reset_error=True──►  IDLE
-    COMPLETE  ──unload_request=True──►  IDLE  (cycle_time 갱신)
+    COMPLETE  ──unload_request=True──►  IDLE
+    # cycle_time 기록: RUNNING/WARNING → COMPLETE 진입 순간
     power=OFF 시 모든 상태 IDLE 강제, progress=0
 
 외부 쓰기 진입점:

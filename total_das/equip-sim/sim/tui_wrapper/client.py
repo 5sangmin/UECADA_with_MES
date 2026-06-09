@@ -89,3 +89,7 @@ class TuiClient:
         if resp.get("status") == p.STATUS_OK:
             return True, _sanitize_single_line(f"{name} ⇦ {resp.get('value')}")
         return False, str(resp.get("reason", "write failed"))
+    
+    def request(self, msg: dict[str, Any]) -> dict[str, Any]:
+        """범용 RPC — op 딕셔너리를 그대로 서버에 전송하고 응답 반환."""
+        return self._round_trip(msg)
