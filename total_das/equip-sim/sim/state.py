@@ -25,6 +25,8 @@ import random
 import threading
 import time
 from typing import Any, Dict, Optional
+import math
+from collections import deque
 
 from .config import SimConfig, TagConfig
 from .log import get_logger
@@ -74,6 +76,9 @@ class EquipmentState:
 
         # 상태머신 내부 변수
         self._cycle_start: float = 0.0   # RUNNING 진입 시각 (time.monotonic)
+        CYCLE_HISTORY_LEN = 20
+        self._cycle_last: float = 0.0
+        self._cycle_history: deque[float] = deque(maxlen=CYCLE_HISTORY_LEN)
 
     # ------------------------------------------------------------------ helpers
 
@@ -279,6 +284,16 @@ class EquipmentState:
                     new_progress = progress + speed * dt
                     self._set_progress(new_progress)
                     if self._get_progress() >= 100.0:
+                        # RUNNING→COMPLETE 진입 순간에 cycle_time 기록
+                        elapsed = time.monotonic() - self._cycle_start
+                        self._cycle_last = round(elapsed, 3)
+                        self._cycle_history.append(elapsed)
+                        if self._cycle_time_name:
+                            self._values[self._cycle_time_name] = self._cycle_last
+                            log.info(
+                                "[%s] cycle_time = %.3f s",
+                                self.cfg.equipment_name, elapsed,
+                            )
                         self._set_status(ES.COMPLETE)
 
             elif status == ES.WARNING:
@@ -292,6 +307,11 @@ class EquipmentState:
                     if health == ES.RUNNING:
                         self._set_status(ES.RUNNING)
                     if self._get_progress() >= 100.0:
+                        elapsed = time.monotonic() - self._cycle_start
+                        self._cycle_last = round(elapsed, 3)
+                        self._cycle_history.append(elapsed)
+                        if self._cycle_time_name:
+                            self._values[self._cycle_time_name] = self._cycle_last
                         self._set_status(ES.COMPLETE)
 
             elif status == ES.ERROR:
@@ -301,18 +321,26 @@ class EquipmentState:
 
             elif status == ES.COMPLETE:
                 if unload_req:
-                    elapsed = time.monotonic() - self._cycle_start
-                    if self._cycle_time_name:
-                        self._values[self._cycle_time_name] = round(elapsed, 3)
-                        log.info(
-                            "[%s] cycle_time = %.3f s",
-                            self.cfg.equipment_name, elapsed,
-                        )
                     self._set_progress(0.0)
                     self._set_status(ES.IDLE)
 
     # ------------------------------------------------------------------ 읽기
-
+    def cycle_time_stats(self) -> dict:
+        """최근 사이클 시간 통계 (last / mean / stddev)."""
+        h = list(self._cycle_history)
+        n = len(h)
+        mean = sum(h) / n if n > 0 else 0.0
+        stddev = (
+            math.sqrt(sum((x - mean) ** 2 for x in h) / n)
+            if n >= 2 else 0.0
+        )
+        return {
+            "last":   self._cycle_last,
+            "mean":   round(mean, 3),
+            "stddev": round(stddev, 3),
+            "count":  n,
+        }
+    
     def read_all(self) -> Dict[str, Any]:
         """외부 노출 값 dict. stddev, warn_lo/hi, err_lo/hi 등 내부 파라미터는 포함 안 함."""
         with self._lock:

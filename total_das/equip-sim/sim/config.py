@@ -109,6 +109,9 @@ class TagConfig:
     # --- 공통 ---
     base_value: Any = 0
 
+    # --- 단위 ---
+    unit: str = ""          # 표시 단위 (예: "RPM", "°C", "MPa"). 외부 미노출.
+    
     # --- sensor ---
     stddev: float = 0.0          # 노이즈 표준편차 (외부 미노출)
     source_sp: Optional[str] = None  # 참조할 setpoint 태그 이름

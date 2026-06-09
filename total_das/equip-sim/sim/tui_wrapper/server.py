@@ -84,30 +84,32 @@ class _Handler(socketserver.BaseRequestHandler):
             ok = self.state.set_external(name, value)
             if not ok:
                 tag = self.state.get_tag(name)
-                if tag is None:
-                    reason = f"unknown tag: '{name}'"
-                else:
-                    reason = f"read-only tag: '{name}' (role={tag.role})"
+                reason = (
+                    f"unknown tag: '{name}'" if tag is None
+                    else f"read-only tag: '{name}' (role={tag.role})"
+                )
                 return p.resp_err(f"write rejected: {reason}")
             return p.resp_ok({"name": name, "value": self.state.read(name)})
+        if op == p.OP_CYCLE_TIME:                          # ← 추가
+            return p.resp_ok(self.state.cycle_time_stats())
         return p.resp_err(f"unknown op: {op!r}")
-
+    
     def _read_tags(self) -> list[dict[str, Any]]:
         values = self.state.read_all()
         out: list[dict[str, Any]] = []
-        for t in self.state.cfg.tags:  # type: TagConfig
+        for t in self.state.cfg.tags:
             info = p.TagInfo(
-                name=t.name,
-                role=t.role,
-                data_type=t.data_type,
-                writable=t.writable,
-                source_sp=t.source_sp,
+                name=t.name, role=t.role, data_type=t.data_type,
+                writable=t.writable, source_sp=t.source_sp,
                 value=values.get(t.name),
                 unit=getattr(t, "unit", "") or "",
+                warn_lo=getattr(t, "warn_lo", None),
+                warn_hi=getattr(t, "warn_hi", None),
+                err_lo=getattr(t, "err_lo",  None),
+                err_hi=getattr(t, "err_hi",  None),
             )
             out.append(info.to_json())
         return out
-
 
 # ---------------------------------------------------------------------------
 # 서버 (ThreadingUnixStreamServer 가 stdlib 에 없어서 직접 합성)

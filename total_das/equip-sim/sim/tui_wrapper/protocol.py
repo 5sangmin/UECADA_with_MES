@@ -36,6 +36,7 @@ MAX_LINE = 64 * 1024
 OP_PING = "ping"
 OP_READ = "read"
 OP_WRITE = "write"
+OP_CYCLE_TIME = "get_cycle_time"   # ← 추가
 
 STATUS_OK = "ok"
 STATUS_ERR = "err"
@@ -43,39 +44,40 @@ STATUS_ERR = "err"
 
 @dataclass
 class TagInfo:
-    """READ 응답에 실리는 태그 1개 분의 정적 메타 + 현재값."""
     name: str
-    role: str            # power / setpoint / sensor / counter / alarm / fault_inject
-                         # status / progress / cycle_time / event
-    data_type: str       # bool / int / float
+    role: str
+    data_type: str
     writable: bool
     source_sp: Optional[str]
     value: Any
-    unit: str = field(default="")  # 단위 문자열 (예: "RPM", "°C", "%") — 옵션
+    unit: str = field(default="")
+    warn_lo: Optional[float] = field(default=None)   # ← 추가
+    warn_hi: Optional[float] = field(default=None)   # ← 추가
+    err_lo:  Optional[float] = field(default=None)   # ← 추가
+    err_hi:  Optional[float] = field(default=None)   # ← 추가
 
     def to_json(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "role": self.role,
-            "data_type": self.data_type,
-            "writable": self.writable,
-            "source_sp": self.source_sp,
-            "value": self.value,
+        d = {
+            "name": self.name, "role": self.role,
+            "data_type": self.data_type, "writable": self.writable,
+            "source_sp": self.source_sp, "value": self.value,
             "unit": self.unit,
         }
+        for f in ("warn_lo", "warn_hi", "err_lo", "err_hi"):
+            v = getattr(self, f)
+            if v is not None:
+                d[f] = v
+        return d
 
     @classmethod
     def from_json(cls, d: dict[str, Any]) -> "TagInfo":
         return cls(
-            name=d["name"],
-            role=d["role"],
-            data_type=d["data_type"],
-            writable=bool(d["writable"]),
-            source_sp=d.get("source_sp"),
-            value=d.get("value"),
-            unit=d.get("unit", ""),
+            name=d["name"], role=d["role"], data_type=d["data_type"],
+            writable=bool(d["writable"]), source_sp=d.get("source_sp"),
+            value=d.get("value"), unit=d.get("unit", ""),
+            warn_lo=d.get("warn_lo"), warn_hi=d.get("warn_hi"),
+            err_lo=d.get("err_lo"),  err_hi=d.get("err_hi"),
         )
-
 
 # ---------------------------------------------------------------------------
 # encode / decode
@@ -138,3 +140,26 @@ def resp_ok(payload: Optional[dict[str, Any]] = None) -> dict[str, Any]:
 
 def resp_err(reason: str) -> dict[str, Any]:
     return {"status": STATUS_ERR, "reason": reason}
+
+# ---------------------------------------------------------------------------
+# CycleTime 요청 / 응답
+# ---------------------------------------------------------------------------
+@dataclass
+class CycleTimeInfo:
+    last:   float = 0.0
+    mean:   float = 0.0
+    stddev: float = 0.0
+    count:  int   = 0
+
+
+def req_cycle_time() -> dict[str, Any]:
+    return {"op": OP_CYCLE_TIME}
+
+
+def parse_cycle_time(resp: dict[str, Any]) -> CycleTimeInfo:
+    return CycleTimeInfo(
+        last=float(resp.get("last", 0.0)),
+        mean=float(resp.get("mean", 0.0)),
+        stddev=float(resp.get("stddev", 0.0)),
+        count=int(resp.get("count", 0)),
+    )
