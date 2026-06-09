@@ -410,8 +410,14 @@ class SimTuiApp(App):
 # ---------------------------------------------------------------------------
 
 
-def main() -> None:
+def main(socket_path: str | None = None) -> int:
+    """TUI 앱 실행. 반환값 0 = 정상 종료."""
     SimTuiApp().run()
+    return 0
+
+
+# __main__.py 가 `from .application import run` 으로 호출하므로 별칭 유지.
+run = main
 
 
 if __name__ == "__main__":
