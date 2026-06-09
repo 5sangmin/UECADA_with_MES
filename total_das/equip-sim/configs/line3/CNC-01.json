@@ -14,6 +14,16 @@
       }
     },
     {
+      "name": "status",
+      "role": "status",
+      "data_type": "int",
+      "base_value": 0,
+      "mb": {
+        "kind": "hr_int",
+        "address": 4
+      }
+    },
+    {
       "name": "load_request",
       "role": "event",
       "data_type": "bool",
@@ -44,10 +54,75 @@
       }
     },
     {
+      "name": "inject_warning",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "mb": {
+        "kind": "coil",
+        "address": 4
+      }
+    },
+    {
+      "name": "inject_error",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "mb": {
+        "kind": "coil",
+        "address": 5
+      }
+    },
+    {
+      "name": "heartbeat",
+      "role": "counter",
+      "data_type": "int",
+      "base_value": 0,
+      "step": 1,
+      "unit": "tick",
+      "mb": {
+        "kind": "hr_int",
+        "address": 8
+      }
+    },
+    {
+      "name": "part_count",
+      "role": "counter",
+      "data_type": "int",
+      "base_value": 0,
+      "step": 1,
+      "unit": "ea",
+      "mb": {
+        "kind": "hr_int",
+        "address": 10
+      }
+    },
+    {
+      "name": "alarm_active",
+      "role": "alarm",
+      "data_type": "bool",
+      "base_value": false,
+      "mb": {
+        "kind": "coil",
+        "address": 10
+      }
+    },
+    {
+      "name": "alarm_code",
+      "role": "alarm",
+      "data_type": "int",
+      "base_value": 0,
+      "mb": {
+        "kind": "hr_int",
+        "address": 6
+      }
+    },
+    {
       "name": "spindle_speed_sp",
       "role": "setpoint",
       "data_type": "int",
       "base_value": 600,
+      "unit": "rpm",
       "mb": {
         "kind": "hr_int",
         "address": 0
@@ -57,7 +132,8 @@
       "name": "tool_usage_sp",
       "role": "setpoint",
       "data_type": "float",
-      "base_value": 30.0,
+      "base_value": 53.1,
+      "unit": "%",
       "mb": {
         "kind": "hr_float",
         "address": 1000
@@ -68,6 +144,7 @@
       "role": "setpoint",
       "data_type": "float",
       "base_value": 18.0,
+      "unit": "L/min",
       "mb": {
         "kind": "hr_float",
         "address": 1004
@@ -78,7 +155,12 @@
       "role": "sensor",
       "data_type": "int",
       "source_sp": "spindle_speed_sp",
-      "stddev": 25.0,
+      "stddev": 15.0,
+      "unit": "rpm",
+      "warn_lo": 530,
+      "err_lo": 460,
+      "warn_hi": 670,
+      "err_hi": 720,
       "mb": {
         "kind": "hr_int",
         "address": 2
@@ -89,7 +171,10 @@
       "role": "sensor",
       "data_type": "float",
       "source_sp": "tool_usage_sp",
-      "stddev": 1.5,
+      "stddev": 1.2,
+      "unit": "%",
+      "warn_hi": 75.0,
+      "err_hi": 90.0,
       "mb": {
         "kind": "hr_float",
         "address": 1002
@@ -100,7 +185,12 @@
       "role": "sensor",
       "data_type": "float",
       "source_sp": "coolant_flow_sp",
-      "stddev": 0.8,
+      "stddev": 0.6,
+      "unit": "L/min",
+      "warn_lo": 14.0,
+      "err_lo": 10.0,
+      "warn_hi": 24.0,
+      "err_hi": 28.0,
       "mb": {
         "kind": "hr_float",
         "address": 1006
@@ -108,13 +198,25 @@
     },
     {
       "name": "progress",
-      "role": "sensor",
+      "role": "progress",
       "data_type": "float",
-      "base_value": 0.005555555555555556,
-      "stddev": 0.0005555555555555556,
+      "base_value": 0.0,
+      "progress_speed": 0.5556,
+      "unit": "%",
       "mb": {
         "kind": "hr_float",
         "address": 1008
+      }
+    },
+    {
+      "name": "cycle_time",
+      "role": "cycle_time",
+      "data_type": "float",
+      "base_value": 180.0,
+      "unit": "s",
+      "mb": {
+        "kind": "hr_float",
+        "address": 1010
       }
     }
   ],

@@ -14,6 +14,16 @@
       }
     },
     {
+      "name": "status",
+      "role": "status",
+      "data_type": "int",
+      "base_value": 0,
+      "mb": {
+        "kind": "hr_int",
+        "address": 4
+      }
+    },
+    {
       "name": "load_request",
       "role": "event",
       "data_type": "bool",
@@ -44,10 +54,75 @@
       }
     },
     {
+      "name": "inject_warning",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "mb": {
+        "kind": "coil",
+        "address": 4
+      }
+    },
+    {
+      "name": "inject_error",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "mb": {
+        "kind": "coil",
+        "address": 5
+      }
+    },
+    {
+      "name": "heartbeat",
+      "role": "counter",
+      "data_type": "int",
+      "base_value": 0,
+      "step": 1,
+      "unit": "tick",
+      "mb": {
+        "kind": "hr_int",
+        "address": 8
+      }
+    },
+    {
+      "name": "part_count",
+      "role": "counter",
+      "data_type": "int",
+      "base_value": 0,
+      "step": 1,
+      "unit": "ea",
+      "mb": {
+        "kind": "hr_int",
+        "address": 10
+      }
+    },
+    {
+      "name": "alarm_active",
+      "role": "alarm",
+      "data_type": "bool",
+      "base_value": false,
+      "mb": {
+        "kind": "coil",
+        "address": 10
+      }
+    },
+    {
+      "name": "alarm_code",
+      "role": "alarm",
+      "data_type": "int",
+      "base_value": 0,
+      "mb": {
+        "kind": "hr_int",
+        "address": 6
+      }
+    },
+    {
       "name": "cleaning_concentration_sp",
       "role": "setpoint",
       "data_type": "float",
       "base_value": 3.2,
+      "unit": "%",
       "mb": {
         "kind": "hr_float",
         "address": 1000
@@ -58,6 +133,7 @@
       "role": "setpoint",
       "data_type": "float",
       "base_value": 62.0,
+      "unit": "degC",
       "mb": {
         "kind": "hr_float",
         "address": 1002
@@ -68,6 +144,7 @@
       "role": "setpoint",
       "data_type": "float",
       "base_value": 4.0,
+      "unit": "bar",
       "mb": {
         "kind": "hr_float",
         "address": 1004
@@ -78,7 +155,12 @@
       "role": "sensor",
       "data_type": "float",
       "source_sp": "cleaning_concentration_sp",
-      "stddev": 0.15,
+      "stddev": 0.12,
+      "unit": "%",
+      "warn_lo": 2.6,
+      "err_lo": 2.0,
+      "warn_hi": 3.8,
+      "err_hi": 4.5,
       "mb": {
         "kind": "hr_float",
         "address": 1006
@@ -89,7 +171,12 @@
       "role": "sensor",
       "data_type": "float",
       "source_sp": "cleaning_temperature_sp",
-      "stddev": 1.0,
+      "stddev": 0.8,
+      "unit": "degC",
+      "warn_lo": 56.0,
+      "err_lo": 50.0,
+      "warn_hi": 68.0,
+      "err_hi": 75.0,
       "mb": {
         "kind": "hr_float",
         "address": 1008
@@ -100,7 +187,12 @@
       "role": "sensor",
       "data_type": "float",
       "source_sp": "cleaning_pressure_sp",
-      "stddev": 0.2,
+      "stddev": 0.15,
+      "unit": "bar",
+      "warn_lo": 3.3,
+      "err_lo": 2.7,
+      "warn_hi": 4.7,
+      "err_hi": 5.3,
       "mb": {
         "kind": "hr_float",
         "address": 1010
@@ -108,13 +200,25 @@
     },
     {
       "name": "progress",
-      "role": "sensor",
+      "role": "progress",
       "data_type": "float",
-      "base_value": 0.016666666666666666,
-      "stddev": 0.0016666666666666668,
+      "base_value": 0.0,
+      "progress_speed": 1.6667,
+      "unit": "%",
       "mb": {
         "kind": "hr_float",
         "address": 1012
+      }
+    },
+    {
+      "name": "cycle_time",
+      "role": "cycle_time",
+      "data_type": "float",
+      "base_value": 60.0,
+      "unit": "s",
+      "mb": {
+        "kind": "hr_float",
+        "address": 1014
       }
     }
   ],

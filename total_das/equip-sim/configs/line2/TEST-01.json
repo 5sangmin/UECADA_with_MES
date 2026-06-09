@@ -10,6 +10,12 @@
       "base_value": true
     },
     {
+      "name": "status",
+      "role": "status",
+      "data_type": "int",
+      "base_value": 0
+    },
+    {
       "name": "load_request",
       "role": "event",
       "data_type": "bool",
@@ -28,30 +34,82 @@
       "base_value": false
     },
     {
+      "name": "inject_warning",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false
+    },
+    {
+      "name": "inject_error",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false
+    },
+    {
+      "name": "heartbeat",
+      "role": "counter",
+      "data_type": "int",
+      "base_value": 0,
+      "step": 1,
+      "unit": "tick"
+    },
+    {
+      "name": "part_count",
+      "role": "counter",
+      "data_type": "int",
+      "base_value": 0,
+      "step": 1,
+      "unit": "ea"
+    },
+    {
+      "name": "alarm_active",
+      "role": "alarm",
+      "data_type": "bool",
+      "base_value": false
+    },
+    {
+      "name": "alarm_code",
+      "role": "alarm",
+      "data_type": "int",
+      "base_value": 0
+    },
+    {
       "name": "bore_dimension_sp",
       "role": "setpoint",
       "data_type": "float",
-      "base_value": 40.0
+      "base_value": 40.0,
+      "unit": "mm"
     },
     {
       "name": "hole_dimension_sp",
       "role": "setpoint",
       "data_type": "float",
-      "base_value": 10.2
+      "base_value": 10.2,
+      "unit": "mm"
     },
     {
       "name": "bore_dimension",
       "role": "sensor",
       "data_type": "float",
       "source_sp": "bore_dimension_sp",
-      "stddev": 0.01
+      "stddev": 0.006,
+      "unit": "mm",
+      "warn_lo": 39.975,
+      "err_lo": 39.95,
+      "warn_hi": 40.025,
+      "err_hi": 40.05
     },
     {
       "name": "hole_dimension",
       "role": "sensor",
       "data_type": "float",
       "source_sp": "hole_dimension_sp",
-      "stddev": 0.025
+      "stddev": 0.015,
+      "unit": "mm",
+      "warn_lo": 10.16,
+      "err_lo": 10.12,
+      "warn_hi": 10.24,
+      "err_hi": 10.28
     },
     {
       "name": "result_ok",
@@ -62,10 +120,18 @@
     },
     {
       "name": "progress",
-      "role": "sensor",
+      "role": "progress",
       "data_type": "float",
-      "base_value": 0.008333333333333333,
-      "stddev": 0.0008333333333333334
+      "base_value": 0.0,
+      "progress_speed": 0.8333,
+      "unit": "%"
+    },
+    {
+      "name": "cycle_time",
+      "role": "cycle_time",
+      "data_type": "float",
+      "base_value": 120.0,
+      "unit": "s"
     }
   ],
   "host": "0.0.0.0",

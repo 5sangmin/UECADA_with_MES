@@ -2,15 +2,15 @@
 
 섹션:
     [P] Power / Setpoint  — 전원 토글, SP 수치 편집
-    [A] Alarm / Counter   — alarm 활성 표시, counter 값 조회, fault_inject 토글
-    [S] Status            — status/progress/cycle_time 등 RO 태그 조회
+    [A] Alarm / Counter   — alarm 활성 표시, counter 값 조회, fault inject event 전송/복귀
+    [S] Status            — status/progress/cycle_time/sensor 등 RO 태그 조회
 
 단축키:
-    ↑↓←→ / wasd          포커스 이동
-    Enter                 선택 / 편집 확정
+    ↑ / ↓ / w / s         현재 섹션 내 포커스 이동
+    ← / → / a / d         섹션 전환 (P → A → S → P)
+    Enter                 선택 / 편집 확정 / fault inject event 전송
     Esc                   편집 취소
-    [ / ]                 섹션 전환 (P → A → S → P)
-    R                     reset_error 이벤트 전송
+    R                     reset_error 이벤트 전송(정상상태 복귀)
     l                     load_request 이벤트 전송
     U                     unload_request 이벤트 전송
     Q                     종료
@@ -34,45 +34,59 @@ from .protocol import SOCKET_PATH, TagInfo
 
 
 # ─── 색상 토큰 ─────────────────────────────────────────────────────────
-DARK_TEXT       = "#010101"
-LIGHT_LABEL_BG  = "#f3f3f3"
-CARD_BG         = "#bdbdbd"
-SCREEN_BG       = "#8a8a8a"
-BORDER          = "#efefef"
-ALARM_CARD_BG   = "#e8d5d5"
+DARK_TEXT = "#010101"
+LIGHT_LABEL_BG = "#f3f3f3"
+CARD_BG = "#bdbdbd"
+SCREEN_BG = "#8a8a8a"
+BORDER = "#efefef"
+ALARM_CARD_BG = "#e8d5d5"
 COUNTER_CARD_BG = "#d5e0e8"
-STATUS_CARD_BG  = "#d5e8d8"
-FAULT_CARD_BG   = "#ede5d5"
+STATUS_CARD_BG = "#d5e8d8"
+FAULT_CARD_BG = "#ede5d5"
+FAULT_FOCUSED_BG = "#5a2a00"
+FAULT_FOCUSED_TEXT = "#ffffff"
+
 
 # ─── 레이아웃 상수 ───────────────────────────────────────────────
-BASE_BOX_W          = 25
-MIN_BOX_W           = 14
-TARGET_BOX_W        = 25
-GRID_GUTTER         = 1
-PAIR_GAP            = 1
-CARD_INNER_PADDING  = 2
-CARD_BORDER         = 2
-CARD_CONTENT_EXTRA  = PAIR_GAP + CARD_INNER_PADDING + CARD_BORDER
+BASE_BOX_W = 25
+MIN_BOX_W = 14
+TARGET_BOX_W = 25
+GRID_GUTTER = 1
+PAIR_GAP = 1
+CARD_INNER_PADDING = 2
+CARD_BORDER = 2
+CARD_CONTENT_EXTRA = PAIR_GAP + CARD_INNER_PADDING + CARD_BORDER
+
 
 # ─── 섹션 상수 ─────────────────────────────────────────────────
-SEC_POWER   = "P"   # Power + Setpoint
-SEC_ALARM   = "A"   # Alarm + Counter + fault_inject
-SEC_STATUS  = "S"   # Status / progress / cycle_time / 기타 RO
+SEC_POWER = "P"
+SEC_ALARM = "A"
+SEC_STATUS = "S"
 
 SECTION_ORDER = [SEC_POWER, SEC_ALARM, SEC_STATUS]
-SECTION_LABEL = {SEC_POWER: "[P]ower/Setpoint", SEC_ALARM: "[A]larm/Counter", SEC_STATUS: "[S]tatus"}
+SECTION_LABEL = {
+    SEC_POWER: "Power/Setpoint",
+    SEC_ALARM: "Alarm/Counter",
+    SEC_STATUS: "Status",
+}
+
+
+# ─── event 이름 ──────────────────────────────────────────
+FAULT_EVENT_NAMES = ("inject_warning", "inject_error")
+RECOVERY_EVENT_NAME = "reset_error"
+
 
 # ─── 가이드 바 텍스트 ──────────────────────────────────────────────────
 GUIDE_NORMAL = (
-    "[bold red]⇦⇧⇨⇩[/] [black]이동[/]  "
-    "[bold red]Enter[/] 선택  "
-    "[bold red][][/]/[bold red]][/] 섹션전환  "
-    "[bold red]R[/]reset [bold red]l[/]load [bold red]U[/]unload  "
+    "[bold red]⇧⇩[/] [black]이동[/]  "
+    "[bold red]⇦⇨[/] [black]섹션전환[/]  "
+    "[bold red]Enter[/] 선택  \n"
+    "[bold red]R[/] 정상복귀 [bold red]l[/] 로드 [bold red]U[/] 언로드  "
     "[bold red]Q[/] 종료"
 )
 GUIDE_EDIT = (
-    "[bold red]⇦⇧⇨⇩[/] [black]이동[/]  "
-    "[bold red]Enter[/] 확인  "
+    "[bold red]⇧⇩[/] [black]이동[/]  "
+    "[bold red]Enter[/] 확인  \n"
     "[bold red]Esc[/] 취소"
 )
 
@@ -137,15 +151,27 @@ class UiState:
 
     def _build_focus_items(self) -> None:
         items: list[FocusItem] = []
+
         power = next((t for t in self.tags if t.role == "power"), None)
         if power:
             items.append(FocusItem(kind="power", name=power.name, section=SEC_POWER))
+
         for t in self.tags:
             if t.role == "setpoint":
                 items.append(FocusItem(kind="sp", name=t.name, section=SEC_POWER))
+
         for t in self.tags:
-            if t.role == "fault_inject" and t.writable:
-                items.append(FocusItem(kind="fault_inject", name=t.name, section=SEC_ALARM))
+            if t.role == "event" and t.name in FAULT_EVENT_NAMES and t.writable:
+                items.append(FocusItem(kind="fault_event", name=t.name, section=SEC_ALARM))
+
+        if any(
+            t.role == "event" and t.name == RECOVERY_EVENT_NAME and t.writable
+            for t in self.tags
+        ):
+            items.append(
+                FocusItem(kind="recovery_event", name=RECOVERY_EVENT_NAME, section=SEC_ALARM)
+            )
+
         self.focus_items = items
 
     def prev_in_section(self) -> None:
@@ -216,6 +242,7 @@ _STATUS_COLORS = {
     4: "bold white on blue",
 }
 
+
 def _status_markup(val: Any) -> str:
     try:
         v = int(val)
@@ -226,15 +253,28 @@ def _status_markup(val: Any) -> str:
     return f"[{color}]  {name}  [/]"
 
 
+def _event_display_name(tag_name: str) -> str:
+    if tag_name == "inject_warning":
+        return "Inject Warning"
+    if tag_name == "inject_error":
+        return "Inject Error"
+    if tag_name == "reset_error":
+        return "Recover Normal"
+    return tag_name
+
+
 # ─── Textual 위젯 ─────────────────────────────────────────────────────
 class TitleBar(Static):
     pass
 
+
 class SectionTabBar(Static):
     pass
 
+
 class GuideBar(Static):
     pass
+
 
 class StatusBar(Static):
     pass
@@ -258,6 +298,7 @@ class PowerTrack(Static):
 
 class TagLabel(Static):
     pass
+
 
 class TagValue(Static):
     editing = reactive(False)
@@ -353,7 +394,7 @@ class SpCard(Container):
 
 
 class InfoRow(Static):
-    """단순 레이블=값 한 줄 카드 (alarm / counter / status / RO 태그)."""
+    """단순 레이블=값 한 줄 카드."""
     pass
 
 
@@ -569,14 +610,16 @@ InfoRow.-active-alarm {{
 }}
 
 InfoRow.-focused-fault {{
-    border: solid yellow;
-    background: #f5e8c0;
+    background: {FAULT_FOCUSED_BG};
+    color: {FAULT_FOCUSED_TEXT};
+    text-style: bold;
+    border-left: wide yellow;
 }}
 
 GuideBar {{
-    height: 1;
-    min-height: 1;
-    max-height: 1;
+    height: 2;
+    min-height: 2;
+    max-height: 2;
     background: #efefef;
     color: {DARK_TEXT};
     padding: 0 1;
@@ -602,19 +645,15 @@ class TuiApp(App):
     CSS = _CSS
 
     BINDINGS = [
-        Binding("up,left",       "prev_focus",    show=False),
-        Binding("down,right",    "next_focus",    show=False),
-        Binding("enter",         "activate",      show=False),
-        Binding("escape",        "cancel_edit",   show=False),
-        Binding("]",             "next_section",  show=False),
-        Binding("[",             "prev_section",  show=False),
-        Binding("q",             "quit_app",      show=False),
-        Binding("w", "prev_focus", show=False),
-        Binding("a", "prev_focus", show=False),
-        Binding("s", "next_focus", show=False),
-        Binding("d", "next_focus", show=False),
-        Binding("r", "send_reset",  show=False),
-        Binding("l", "send_load",   show=False),
+        Binding("up,w", "prev_focus", show=False),
+        Binding("down,s", "next_focus", show=False),
+        Binding("left,a", "prev_section", show=False),
+        Binding("right,d", "next_section", show=False),
+        Binding("enter", "activate", show=False),
+        Binding("escape", "cancel_edit", show=False),
+        Binding("q", "quit_app", show=False),
+        Binding("r", "send_reset", show=False),
+        Binding("l", "send_load", show=False),
         Binding("u", "send_unload", show=False),
     ]
 
@@ -625,20 +664,20 @@ class TuiApp(App):
         self.equipment_name = "equipment"
         self.poll_client: Optional[TuiClient] = None
 
-        self.root_col     = Vertical(id="root")
-        self.title_bar    = TitleBar()
-        self.tab_bar      = SectionTabBar()
-        self.power_wrap   = Horizontal(id="power-wrap")
-        self.power_track  = PowerTrack()
-        self.sp_grid      = Grid(id="sp-grid")
+        self.root_col = Vertical(id="root")
+        self.title_bar = TitleBar()
+        self.tab_bar = SectionTabBar()
+        self.power_wrap = Horizontal(id="power-wrap")
+        self.power_track = PowerTrack()
+        self.sp_grid = Grid(id="sp-grid")
         self.sp_cards: dict[str, SpCard] = {}
 
-        self.alarm_panel   = Vertical(id="alarm-panel")
+        self.alarm_panel = Vertical(id="alarm-panel")
         self.counter_panel = Vertical(id="counter-panel")
-        self.fault_panel   = Vertical(id="fault-panel")
-        self.status_panel  = Vertical(id="status-panel")
+        self.fault_panel = Vertical(id="fault-panel")
+        self.status_panel = Vertical(id="status-panel")
 
-        self.guide_bar  = GuideBar()
+        self.guide_bar = GuideBar()
         self.status_bar = StatusBar()
 
         self.box_width = BASE_BOX_W
@@ -677,10 +716,15 @@ class TuiApp(App):
 
     def _compute_layout(self) -> tuple[int, int]:
         width = max(self.size.width, 40)
-        max_columns = min(5, max(1,
-            len(self.sp_cards) or
-            len([i for i in self.state.focus_items if i.kind == "sp"]) or 1
-        ))
+        max_columns = min(
+            5,
+            max(
+                1,
+                len(self.sp_cards)
+                or len([i for i in self.state.focus_items if i.kind == "sp"])
+                or 1,
+            ),
+        )
         for columns in range(max_columns, 0, -1):
             available = width - ((columns - 1) * GRID_GUTTER)
             card_width = available // columns
@@ -711,12 +755,12 @@ class TuiApp(App):
 
     def _apply_section_visibility(self) -> None:
         sec = self.state.section
-        self.power_wrap.display = (sec == SEC_POWER)
-        self.sp_grid.display    = (sec == SEC_POWER)
-        self.alarm_panel.display   = (sec == SEC_ALARM)
-        self.counter_panel.display = (sec == SEC_ALARM)
-        self.fault_panel.display   = (sec == SEC_ALARM)
-        self.status_panel.display  = (sec == SEC_STATUS)
+        self.power_wrap.display = sec == SEC_POWER
+        self.sp_grid.display = sec == SEC_POWER
+        self.alarm_panel.display = sec == SEC_ALARM
+        self.counter_panel.display = sec == SEC_ALARM
+        self.fault_panel.display = sec == SEC_ALARM
+        self.status_panel.display = sec == SEC_STATUS
 
     async def _boot_connect(self) -> None:
         try:
@@ -744,7 +788,7 @@ class TuiApp(App):
         if name:
             return name
         line = os.environ.get("LINE_ID", "")
-        cfg  = os.environ.get("SIM_CONFIG", "")
+        cfg = os.environ.get("SIM_CONFIG", "")
         if cfg:
             from pathlib import Path
             eq = Path(cfg).stem
@@ -770,11 +814,10 @@ class TuiApp(App):
         self._refresh_bars_only()
 
     def _ensure_sp_cards(self) -> None:
-        current_names = [
-            item.name for item in self.state.focus_items if item.kind == "sp"
-        ]
+        current_names = [item.name for item in self.state.focus_items if item.kind == "sp"]
         current_set = set(current_names)
         mounted_set = set(self.sp_cards.keys())
+
         for name in current_names:
             if name not in self.sp_cards:
                 card = SpCard(name, self.box_width)
@@ -782,15 +825,22 @@ class TuiApp(App):
                 self.sp_grid.mount(card)
             else:
                 self.sp_cards[name].set_sizes(self.box_width)
+
         for name in mounted_set - current_set:
             card = self.sp_cards.pop(name)
             card.remove()
+
         for name, card in self.sp_cards.items():
             card.display = name in current_set
             card.set_sizes(self.box_width)
 
     def _refresh_title_only(self) -> None:
         self.title_bar.update(f"[bold {DARK_TEXT}]{self.equipment_name[:40]}[/]")
+
+    def _make_plain_row(self, text: str) -> InfoRow:
+        row = InfoRow("", markup=False)
+        row.update(text)
+        return row
 
     def _refresh_dynamic_parts(self) -> None:
         self._apply_section_visibility()
@@ -815,9 +865,7 @@ class TuiApp(App):
 
     def _refresh_power(self) -> None:
         power = next((t for t in self.state.tags if t.role == "power"), None)
-        self.power_track.powered = (
-            bool(power.value) if power and power.value is not None else False
-        )
+        self.power_track.powered = bool(power.value) if power and power.value is not None else False
         cur = self.state.current()
         self.power_track.focused = cur is not None and cur.kind == "power"
 
@@ -826,6 +874,7 @@ class TuiApp(App):
         for t in self.state.tags:
             if t.role == "sensor" and t.source_sp:
                 sensors_by_sp.setdefault(t.source_sp, t)
+
         current = self.state.current()
         for name, card in self.sp_cards.items():
             sp = self.state.by_name.get(name)
@@ -833,11 +882,8 @@ class TuiApp(App):
                 card.display = False
                 continue
             actual = sensors_by_sp.get(name)
-            is_current = (
-                current is not None
-                and current.kind == "sp"
-                and current.name == name
-            )
+            is_current = current is not None and current.kind == "sp" and current.name == name
+
             card.set_data(
                 sp_label=sp.name,
                 sp_value=(
@@ -857,65 +903,93 @@ class TuiApp(App):
 
     def _update_alarm_panel(self) -> None:
         alarms = [t for t in self.state.tags if t.role == "alarm"]
+
         for w in list(self.alarm_panel.query(InfoRow)):
             w.remove()
+
         if not alarms:
-            self.alarm_panel.mount(InfoRow("(alarm 태그 없음)"))
+            self.alarm_panel.mount(self._make_plain_row("(alarm 태그 없음)"))
             return
+
         for t in alarms:
-            active = bool(t.value)
-            label = f"{'[●]' if active else '[ ]'} {t.name}"
-            row = InfoRow(label)
-            if active:
+            if t.data_type == "bool":
+                active = bool(t.value)
+                label = f"{'●' if active else '○'} {t.name}"
+            else:
+                label = f"{t.name:<24} {_format_value(t.value, t.data_type, t.unit)}"
+
+            row = self._make_plain_row(label)
+            if t.name == "alarm_active" and bool(t.value):
                 row.add_class("-active-alarm")
             self.alarm_panel.mount(row)
 
     def _update_counter_panel(self) -> None:
         counters = [t for t in self.state.tags if t.role == "counter"]
+
         for w in list(self.counter_panel.query(InfoRow)):
             w.remove()
+
         if not counters:
-            self.counter_panel.mount(InfoRow("(counter 태그 없음)"))
+            self.counter_panel.mount(self._make_plain_row("(counter 태그 없음)"))
             return
+
         for t in counters:
             val = _format_value(t.value, t.data_type, t.unit)
-            self.counter_panel.mount(InfoRow(f"{t.name:<24} {val}"))
+            self.counter_panel.mount(self._make_plain_row(f"{t.name:<24} {val}"))
 
     def _update_fault_panel(self) -> None:
+        event_names = set(FAULT_EVENT_NAMES) | {RECOVERY_EVENT_NAME}
         faults = [
             t for t in self.state.tags
-            if t.role == "fault_inject" and t.writable
+            if t.role == "event" and t.name in event_names and t.writable
         ]
+
         for w in list(self.fault_panel.query(InfoRow)):
             w.remove()
+
         if not faults:
-            self.fault_panel.mount(InfoRow("(fault_inject 태그 없음)"))
+            self.fault_panel.mount(self._make_plain_row("(fault event 태그 없음)"))
             return
+
         current = self.state.current()
         for t in faults:
-            active = bool(t.value)
             is_cur = (
                 current is not None
-                and current.kind == "fault_inject"
                 and current.name == t.name
+                and current.kind in {"fault_event", "recovery_event"}
             )
-            label = f"{'[ON] ' if active else '[OFF]'} {t.name}"
-            row = InfoRow(label)
+
+            prefix = "RECOVER" if t.name == RECOVERY_EVENT_NAME else "TRIGGER"
+            row = self._make_plain_row(f"{prefix:<8} {_event_display_name(t.name)}")
+
             if is_cur:
                 row.add_class("-focused-fault")
-            if active:
-                row.add_class("-active-alarm")
+
             self.fault_panel.mount(row)
 
     def _update_status_panel(self) -> None:
-        status_roles = {"status", "progress", "cycle_time", "event", "sensor"}
+        status_roles = {"status", "progress", "cycle_time", "sensor"}
         targets = [t for t in self.state.tags if t.role in status_roles]
+
         for w in list(self.status_panel.query(InfoRow)):
             w.remove()
+
         if not targets:
-            self.status_panel.mount(InfoRow("(status 태그 없음)"))
+            self.status_panel.mount(self._make_plain_row("(status 태그 없음)"))
             return
-        for t in targets:
+
+        ordered_targets = []
+        status_tags = [t for t in targets if t.role == "status"]
+        cycle_tags = [t for t in targets if t.role == "cycle_time"]
+        sensor_tags = [t for t in targets if t.role == "sensor"]
+        progress_tags = [t for t in targets if t.role == "progress"]
+
+        ordered_targets.extend(status_tags)
+        ordered_targets.extend(cycle_tags)
+        ordered_targets.extend(sensor_tags)
+        ordered_targets.extend(progress_tags)
+
+        for t in ordered_targets:
             if t.role == "status":
                 markup = _status_markup(t.value)
                 row = InfoRow(f"{t.name:<20} {markup}")
@@ -925,18 +999,18 @@ class TuiApp(App):
                     bar_len = 20
                     filled = int(pct / 100 * bar_len)
                     bar = "█" * filled + "░" * (bar_len - filled)
-                    row = InfoRow(f"{t.name:<20} [{bar}] {pct:5.1f}%")
+                    row = self._make_plain_row(f"{t.name:<20} [{bar}] {pct:5.1f}%")
                 except Exception:
-                    row = InfoRow(f"{t.name:<20} {t.value}")
+                    row = self._make_plain_row(f"{t.name:<20} {t.value}")
             else:
                 val = _format_value(t.value, t.data_type, t.unit)
-                row = InfoRow(f"{t.name:<24} {val}")
+                row = self._make_plain_row(f"{t.name:<24} {val}")
+
             self.status_panel.mount(row)
 
     def _refresh_bars_only(self) -> None:
-        self.guide_bar.update(
-            GUIDE_EDIT if self.state.editing else GUIDE_NORMAL
-        )
+        self.guide_bar.update(GUIDE_EDIT if self.state.editing else GUIDE_NORMAL)
+
         if self.state.notice:
             text = f"★ {self.state.notice}"
         elif not self.state.connected:
@@ -975,16 +1049,19 @@ class TuiApp(App):
         cur = self.state.current()
         if cur is None:
             return
+
         if self.state.editing:
             self._commit_edit()
             return
+
         if cur.kind == "power":
             self._toggle_power(cur.name)
         elif cur.kind == "sp":
             self.state.editing = True
             self.state.edit_buf = ""
-        elif cur.kind == "fault_inject":
-            self._toggle_bool_tag(cur.name)
+        elif cur.kind in {"fault_event", "recovery_event"}:
+            self._fire_event(cur.name)
+
         self._refresh_dynamic_parts()
 
     def action_cancel_edit(self) -> None:
@@ -998,7 +1075,7 @@ class TuiApp(App):
         self.exit()
 
     def action_send_reset(self) -> None:
-        self._fire_event("reset_error")
+        self._fire_event(RECOVERY_EVENT_NAME)
 
     def action_send_load(self) -> None:
         self._fire_event("load_request")
@@ -1011,8 +1088,21 @@ class TuiApp(App):
         if tag is None:
             self.state.set_notice(f"태그 없음: {tag_name}")
             return
+
         ok, msg = self._safe_write(tag_name, True)
-        self.state.set_notice(f"{tag_name} " + ("전송" if ok else f"실패: {msg}"))
+        if ok:
+            if tag_name == RECOVERY_EVENT_NAME:
+                notice = "정상상태 복귀 전송"
+            elif tag_name == "inject_warning":
+                notice = "warning fault 전송"
+            elif tag_name == "inject_error":
+                notice = "error fault 전송"
+            else:
+                notice = f"{tag_name} 전송"
+        else:
+            notice = f"{tag_name} 실패: {msg}"
+
+        self.state.set_notice(notice)
         self._refresh_dynamic_parts()
 
     async def on_key(self, event) -> None:
@@ -1039,25 +1129,17 @@ class TuiApp(App):
             (f"POWER {'ON' if new else 'OFF'}") if ok else f"power 실패: {msg}"
         )
 
-    def _toggle_bool_tag(self, name: str) -> None:
-        tag = self.state.by_name.get(name)
-        if tag is None:
-            return
-        new = not bool(tag.value)
-        ok, msg = self._safe_write(name, new)
-        self.state.set_notice(
-            f"{name} → {'ON' if new else 'OFF'}" if ok else f"write 실패: {msg}"
-        )
-
     def _commit_edit(self) -> None:
         cur = self.state.current()
         if cur is None:
             return
+
         tag = self.state.by_name.get(cur.name)
         if tag is None:
             self.state.editing = False
             self.state.edit_buf = ""
             return
+
         try:
             if tag.data_type == "float":
                 val: Any = float(self.state.edit_buf)
@@ -1071,6 +1153,7 @@ class TuiApp(App):
             self.state.edit_buf = ""
             self._refresh_dynamic_parts()
             return
+
         ok, msg = self._safe_write(cur.name, val)
         self.state.set_notice(msg if ok else f"write 실패: {msg}")
         self.state.editing = False

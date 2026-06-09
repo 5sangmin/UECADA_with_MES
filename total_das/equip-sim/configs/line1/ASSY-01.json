@@ -10,6 +10,12 @@
       "base_value": true
     },
     {
+      "name": "status",
+      "role": "status",
+      "data_type": "int",
+      "base_value": 0
+    },
+    {
       "name": "load_request",
       "role": "event",
       "data_type": "bool",
@@ -28,50 +34,116 @@
       "base_value": false
     },
     {
+      "name": "inject_warning",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false
+    },
+    {
+      "name": "inject_error",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false
+    },
+    {
+      "name": "heartbeat",
+      "role": "counter",
+      "data_type": "int",
+      "base_value": 0,
+      "step": 1,
+      "unit": "tick"
+    },
+    {
+      "name": "part_count",
+      "role": "counter",
+      "data_type": "int",
+      "base_value": 0,
+      "step": 1,
+      "unit": "ea"
+    },
+    {
+      "name": "alarm_active",
+      "role": "alarm",
+      "data_type": "bool",
+      "base_value": false
+    },
+    {
+      "name": "alarm_code",
+      "role": "alarm",
+      "data_type": "int",
+      "base_value": 0
+    },
+    {
       "name": "tightening_torque_sp",
       "role": "setpoint",
       "data_type": "float",
-      "base_value": 40.0
+      "base_value": 40.0,
+      "unit": "Nm"
     },
     {
       "name": "tightening_angle_sp",
       "role": "setpoint",
       "data_type": "float",
-      "base_value": 90.0
+      "base_value": 90.0,
+      "unit": "deg"
     },
     {
       "name": "press_force_sp",
       "role": "setpoint",
       "data_type": "float",
-      "base_value": 1800.0
+      "base_value": 1800.0,
+      "unit": "N"
     },
     {
       "name": "tightening_torque",
       "role": "sensor",
       "data_type": "float",
       "source_sp": "tightening_torque_sp",
-      "stddev": 0.5
+      "stddev": 0.5,
+      "unit": "Nm",
+      "warn_lo": 37.0,
+      "err_lo": 34.0,
+      "warn_hi": 43.0,
+      "err_hi": 46.0
     },
     {
       "name": "tightening_angle",
       "role": "sensor",
       "data_type": "float",
       "source_sp": "tightening_angle_sp",
-      "stddev": 2.0
+      "stddev": 1.5,
+      "unit": "deg",
+      "warn_lo": 84.0,
+      "err_lo": 78.0,
+      "warn_hi": 96.0,
+      "err_hi": 102.0
     },
     {
       "name": "press_force",
       "role": "sensor",
       "data_type": "float",
       "source_sp": "press_force_sp",
-      "stddev": 60.0
+      "stddev": 50.0,
+      "unit": "N",
+      "warn_lo": 1620.0,
+      "err_lo": 1450.0,
+      "warn_hi": 1980.0,
+      "err_hi": 2150.0
     },
     {
       "name": "progress",
-      "role": "sensor",
+      "role": "progress",
       "data_type": "float",
-      "base_value": 0.008333333333333333,
-      "stddev": 0.0008333333333333334
+      "base_value": 0.0,
+      "progress_speed": 0.8333,
+      "unit": "%"
+    },
+    {
+      "name": "cycle_time",
+      "role": "cycle_time",
+      "data_type": "float",
+      "base_value": 120.0,
+      "unit": "s"
     }
   ],
   "host": "0.0.0.0",

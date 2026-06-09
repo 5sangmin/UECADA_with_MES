@@ -14,6 +14,16 @@
       }
     },
     {
+      "name": "status",
+      "role": "status",
+      "data_type": "int",
+      "base_value": 0,
+      "mc": {
+        "device": "D",
+        "address": 10
+      }
+    },
+    {
       "name": "load_request",
       "role": "event",
       "data_type": "bool",
@@ -44,10 +54,75 @@
       }
     },
     {
+      "name": "inject_warning",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "mc": {
+        "device": "M",
+        "address": 4
+      }
+    },
+    {
+      "name": "inject_error",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "mc": {
+        "device": "M",
+        "address": 5
+      }
+    },
+    {
+      "name": "heartbeat",
+      "role": "counter",
+      "data_type": "int",
+      "base_value": 0,
+      "step": 1,
+      "unit": "tick",
+      "mc": {
+        "device": "D",
+        "address": 14
+      }
+    },
+    {
+      "name": "part_count",
+      "role": "counter",
+      "data_type": "int",
+      "base_value": 0,
+      "step": 1,
+      "unit": "ea",
+      "mc": {
+        "device": "D",
+        "address": 16
+      }
+    },
+    {
+      "name": "alarm_active",
+      "role": "alarm",
+      "data_type": "bool",
+      "base_value": false,
+      "mc": {
+        "device": "M",
+        "address": 10
+      }
+    },
+    {
+      "name": "alarm_code",
+      "role": "alarm",
+      "data_type": "int",
+      "base_value": 0,
+      "mc": {
+        "device": "D",
+        "address": 12
+      }
+    },
+    {
       "name": "injection_pressure_sp",
       "role": "setpoint",
       "data_type": "float",
       "base_value": 80.0,
+      "unit": "MPa",
       "mc": {
         "device": "D",
         "address": 0
@@ -58,6 +133,7 @@
       "role": "setpoint",
       "data_type": "float",
       "base_value": 215.0,
+      "unit": "degC",
       "mc": {
         "device": "D",
         "address": 2
@@ -68,6 +144,7 @@
       "role": "setpoint",
       "data_type": "float",
       "base_value": 40.0,
+      "unit": "L/min",
       "mc": {
         "device": "D",
         "address": 4
@@ -79,6 +156,11 @@
       "data_type": "float",
       "source_sp": "injection_pressure_sp",
       "stddev": 1.5,
+      "unit": "MPa",
+      "warn_lo": 73.0,
+      "err_lo": 68.0,
+      "warn_hi": 87.0,
+      "err_hi": 93.0,
       "mc": {
         "device": "D",
         "address": 100
@@ -90,6 +172,11 @@
       "data_type": "float",
       "source_sp": "mold_temperature_sp",
       "stddev": 1.2,
+      "unit": "degC",
+      "warn_lo": 205.0,
+      "err_lo": 195.0,
+      "warn_hi": 225.0,
+      "err_hi": 235.0,
       "mc": {
         "device": "D",
         "address": 102
@@ -100,7 +187,12 @@
       "role": "sensor",
       "data_type": "float",
       "source_sp": "cooling_flow_sp",
-      "stddev": 1.5,
+      "stddev": 1.0,
+      "unit": "L/min",
+      "warn_lo": 34.0,
+      "err_lo": 28.0,
+      "warn_hi": 48.0,
+      "err_hi": 54.0,
       "mc": {
         "device": "D",
         "address": 104
@@ -108,13 +200,25 @@
     },
     {
       "name": "progress",
-      "role": "sensor",
+      "role": "progress",
       "data_type": "float",
-      "base_value": 0.016666666666666666,
-      "stddev": 0.0016666666666666668,
+      "base_value": 0.0,
+      "progress_speed": 1.6667,
+      "unit": "%",
       "mc": {
         "device": "D",
         "address": 106
+      }
+    },
+    {
+      "name": "cycle_time",
+      "role": "cycle_time",
+      "data_type": "float",
+      "base_value": 60.0,
+      "unit": "s",
+      "mc": {
+        "device": "D",
+        "address": 108
       }
     }
   ],
