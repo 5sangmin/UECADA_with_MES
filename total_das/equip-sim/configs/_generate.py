@@ -1,10 +1,13 @@
 """3개 라인 × 9개 설비 = 27개 config 일괄 생성기.
 
+
 README.md (2026-05-13 개정 3) 반영:
+
 
 - 공통 태그: power (bool, RW), progress (float, sensor, 기준 1/cycle_sec)
   * progress 는 매 tick 마다 base ± N(0, 10%×base) 생성. Node-RED 가 누적해서
     cycle_time 을 계산하므로 시뮬레이터는 단순 센서값만 송출.
+
 
 - 설비별 공정 태그:
     CAST-01   MC Protocol (TCP)  injection_pressure / mold_temperature / cooling_flow
@@ -19,6 +22,7 @@ README.md (2026-05-13 개정 3) 반영:
     TEST-01/02  OPC UA            bore_dimension / hole_dimension / result_ok (bool RO)
                                   + sp 2개  (bore_sp, hole_sp)
 
+
 - 호스트 포트 (TCP, base + 100*(N-1)):
     CAST-01: 5001 / 5101 / 5201   (MC)
     WASH-01: 5021 / 5121 / 5221   (Modbus TCP)
@@ -29,21 +33,26 @@ README.md (2026-05-13 개정 3) 반영:
     DAS OPCUA: 4860 / 4960 / 5060
     Node-RED UI: 2880 / 3880 / 4880
 
+
 - CNC-01/02/03 는 포트 없음. 시리얼 디바이스 경로만 가짐:
     /dev/cnc01.slave  /dev/cnc02.slave  /dev/cnc03.slave
   (Node-RED 쪽은 /dev/cnc0X.master)
 """
 from __future__ import annotations
 
+
 import json
 from pathlib import Path
 
+
 OUT_ROOT = Path(__file__).parent
+
 
 
 # ---------------------------------------------------------------------------
 # 공통 태그
 # ---------------------------------------------------------------------------
+
 
 def power_tag() -> dict:
     return {
@@ -52,6 +61,33 @@ def power_tag() -> dict:
         "data_type": "bool",
         "base_value": True,
     }
+
+
+def event_tags() -> list[dict]:
+    """공통 이벤트 태그 3개 — state.py 의 _consume_event() 가 소비."""
+    return [
+        {
+            "name": "load_request",
+            "role": "event",
+            "data_type": "bool",
+            "base_value": False,
+            "writable": True,
+        },
+        {
+            "name": "unload_request",
+            "role": "event",
+            "data_type": "bool",
+            "base_value": False,
+            "writable": True,
+        },
+        {
+            "name": "reset_error",
+            "role": "event",
+            "data_type": "bool",
+            "base_value": False,
+            "writable": True,
+        },
+    ]
 
 
 def progress_tag(cycle_sec: int) -> dict:
@@ -65,9 +101,11 @@ def progress_tag(cycle_sec: int) -> dict:
     }
 
 
+
 # ---------------------------------------------------------------------------
 # 설비별 공정 태그 (모두 sensor + setpoint 평탄 dict)
 # ---------------------------------------------------------------------------
+
 
 def cast_process_tags() -> list[dict]:
     # injection_pressure  30~120 MPa, mold_temperature 190~240 ℃, cooling_flow 20~60 L/min
@@ -82,6 +120,7 @@ def cast_process_tags() -> list[dict]:
         {"name": "cooling_flow",       "role": "sensor", "data_type": "float",
          "source_sp": "cooling_flow_sp", "stddev": 1.5},
     ]
+
 
 
 def cnc_process_tags() -> list[dict]:
@@ -99,6 +138,7 @@ def cnc_process_tags() -> list[dict]:
     ]
 
 
+
 def wash_process_tags() -> list[dict]:
     # cleaning_concentration 2~5 %, cleaning_temperature 50~75 ℃, cleaning_pressure 2~6 bar
     return [
@@ -112,6 +152,7 @@ def wash_process_tags() -> list[dict]:
         {"name": "cleaning_pressure",      "role": "sensor", "data_type": "float",
          "source_sp": "cleaning_pressure_sp", "stddev": 0.20},
     ]
+
 
 
 def assy_process_tags() -> list[dict]:
@@ -129,6 +170,7 @@ def assy_process_tags() -> list[dict]:
     ]
 
 
+
 def test_process_tags() -> list[dict]:
     # bore_dimension 40.000 ± 0.020 mm, hole_dimension 10.200 ± 0.050 mm,
     # result_ok bool RO. (leak_rate / flow_value 제거)
@@ -144,6 +186,7 @@ def test_process_tags() -> list[dict]:
     ]
 
 
+
 # ---------------------------------------------------------------------------
 # 설비 사양 (한 라인 기준)
 #
@@ -154,9 +197,11 @@ def test_process_tags() -> list[dict]:
 #   serial 경로: /dev/cnc0{slot}.slave (시뮬)  /dev/cnc0{slot}.master (Node-RED)
 # ---------------------------------------------------------------------------
 
+
 EQUIPMENT_SPECS = [
     # (eq_id,     protocol,         base_port, process_fn,         cycle_sec, serial_slot)
     ("CAST-01",  "mcprotocol",      5001,      cast_process_tags,  60,        None),
+
 
     # CNC 는 RTU-over-TCP (Moxa NPort 스타일) 으로 시뮬이 직접 TCP listen.
     # base_port 는 컨테이너 내부 포트 (5101/02/03) — 라인 무관하게 동일.
@@ -164,29 +209,37 @@ EQUIPMENT_SPECS = [
     ("CNC-02",   "modbus-rtu-tcp",  5102,      cnc_process_tags,   180,       2),
     ("CNC-03",   "modbus-rtu-tcp",  5103,      cnc_process_tags,   180,       3),
 
+
     ("WASH-01",  "modbus",          5021,      wash_process_tags,  60,        None),
+
 
     ("ASSY-01",  "opcua",           4841,      assy_process_tags,  120,       None),
     ("ASSY-02",  "opcua",           4842,      assy_process_tags,  120,       None),
+
 
     ("TEST-01",  "opcua",           4851,      test_process_tags,  120,       None),
     ("TEST-02",  "opcua",           4852,      test_process_tags,  120,       None),
 ]
 
+
 LINES = (1, 2, 3)
 PORT_STRIDE = 100
+
 
 # DAS / 노드레드 UI 베이스 포트
 DAS_OPCUA_BASE = 4860
 NODERED_UI_BASE = 2880   # 라인별 stride=1000 (2880 / 3880 / 4880) — 다른 규칙
 
 
+
 def line_port(base_port: int, line_no: int) -> int:
     return base_port + (line_no - 1) * PORT_STRIDE
 
 
+
 def das_opcua_port(line_no: int) -> int:
     return DAS_OPCUA_BASE + (line_no - 1) * PORT_STRIDE
+
 
 
 def nodered_ui_port(line_no: int) -> int:
@@ -194,12 +247,15 @@ def nodered_ui_port(line_no: int) -> int:
     return NODERED_UI_BASE + (line_no - 1) * 1000
 
 
+
 def cnc_serial_slave(slot: int) -> str:
     """시뮬레이터 쪽 RTU 슬레이브 디바이스 경로 (compose 에서 mount).
+
 
     /dev/vserial 공유 볼륨에 socat 가 심볼릭 링크를 떨괴다.
     """
     return f"/dev/vserial/cnc0{slot}.slave"
+
 
 
 def cnc_serial_master(slot: int) -> str:
@@ -207,10 +263,14 @@ def cnc_serial_master(slot: int) -> str:
     return f"/dev/vserial/cnc0{slot}.master"
 
 
+
 # ---------------------------------------------------------------------------
 # MC Protocol 매핑 (CAST-01 전용)
 #
 #   M0    power               (bit, RW)
+#   M1    load_request        (bit, RW)
+#   M2    unload_request      (bit, RW)
+#   M3    reset_error         (bit, RW)
 #   D0    injection_pressure_sp  float (2 word)  -> D0,D1
 #   D2    mold_temperature_sp    float           -> D2,D3
 #   D4    cooling_flow_sp        float           -> D4,D5
@@ -220,8 +280,12 @@ def cnc_serial_master(slot: int) -> str:
 #   D106  progress               float           -> D106,D107
 # ---------------------------------------------------------------------------
 
+
 MC_MAPPING_CAST = {
     "power":                  {"device": "M", "address": 0},
+    "load_request":           {"device": "M", "address": 1},
+    "unload_request":         {"device": "M", "address": 2},
+    "reset_error":            {"device": "M", "address": 3},
     "injection_pressure_sp":  {"device": "D", "address": 0},
     "mold_temperature_sp":    {"device": "D", "address": 2},
     "cooling_flow_sp":        {"device": "D", "address": 4},
@@ -232,11 +296,15 @@ MC_MAPPING_CAST = {
 }
 
 
+
 # ---------------------------------------------------------------------------
 # Modbus (TCP/RTU 공통) 매핑 강제 — coil/HR 절대 주소를 config 에 박는다.
 #
 # CNC-01/02/03 (Modbus RTU):
 #   Coil 0      power
+#   Coil 1      load_request    (RW event)
+#   Coil 2      unload_request  (RW event)
+#   Coil 3      reset_error     (RW event)
 #   HR    0     spindle_speed_sp        (uint16)
 #   HR    2     spindle_speed           (uint16)
 #   HR  1000    tool_usage_sp           (float, 2 word, big-endian)
@@ -247,6 +315,9 @@ MC_MAPPING_CAST = {
 #
 # WASH-01 (Modbus TCP):
 #   Coil 0      power
+#   Coil 1      load_request    (RW event)
+#   Coil 2      unload_request  (RW event)
+#   Coil 3      reset_error     (RW event)
 #   HR  1000    cleaning_concentration_sp  (float)
 #   HR  1002    cleaning_temperature_sp    (float)
 #   HR  1004    cleaning_pressure_sp       (float)
@@ -256,8 +327,12 @@ MC_MAPPING_CAST = {
 #   HR  1012    progress                   (float)
 # ---------------------------------------------------------------------------
 
+
 MB_MAPPING_CNC = {
     "power":            {"kind": "coil",     "address": 0},
+    "load_request":     {"kind": "coil",     "address": 1},
+    "unload_request":   {"kind": "coil",     "address": 2},
+    "reset_error":      {"kind": "coil",     "address": 3},
     "spindle_speed_sp": {"kind": "hr_int",   "address": 0},
     "spindle_speed":    {"kind": "hr_int",   "address": 2},
     "tool_usage_sp":    {"kind": "hr_float", "address": 1000},
@@ -267,8 +342,12 @@ MB_MAPPING_CNC = {
     "progress":         {"kind": "hr_float", "address": 1008},
 }
 
+
 MB_MAPPING_WASH = {
     "power":                       {"kind": "coil",     "address": 0},
+    "load_request":                {"kind": "coil",     "address": 1},
+    "unload_request":              {"kind": "coil",     "address": 2},
+    "reset_error":                 {"kind": "coil",     "address": 3},
     "cleaning_concentration_sp":   {"kind": "hr_float", "address": 1000},
     "cleaning_temperature_sp":     {"kind": "hr_float", "address": 1002},
     "cleaning_pressure_sp":        {"kind": "hr_float", "address": 1004},
@@ -279,13 +358,16 @@ MB_MAPPING_WASH = {
 }
 
 
+
 # ---------------------------------------------------------------------------
 # config 빌드
 # ---------------------------------------------------------------------------
 
+
 def build_tags(process_tags: list[dict], protocol: str, cycle_sec: int,
                eq_id: str) -> list[dict]:
-    tags = [power_tag()] + process_tags + [progress_tag(cycle_sec)]
+    tags = [power_tag()] + event_tags() + process_tags + [progress_tag(cycle_sec)]
+
 
     if protocol == "mcprotocol":
         for t in tags:
@@ -296,6 +378,7 @@ def build_tags(process_tags: list[dict], protocol: str, cycle_sec: int,
                     f"(CAST 의 모든 tag 는 mc 매핑이 있어야 합니다)"
                 )
             t["mc"] = mc
+
 
     elif protocol in ("modbus", "modbus-rtu", "modbus-rtu-tcp"):
         if eq_id == "WASH-01":
@@ -312,7 +395,9 @@ def build_tags(process_tags: list[dict], protocol: str, cycle_sec: int,
                 )
             t["mb"] = mb
 
+
     return tags
+
 
 
 def build_config(equipment_id: str, protocol: str, base_port: int | None,
@@ -323,6 +408,7 @@ def build_config(equipment_id: str, protocol: str, base_port: int | None,
         "sampling_ms": 1000,
         "tags": build_tags(process_fn(), protocol, cycle_sec, equipment_id),
     }
+
 
     if protocol == "modbus-rtu":
         # 시리얼 슬레이브 (현재 파이프라인에서는 사용하지 않음 — RTU-over-TCP 로 이동)
@@ -343,10 +429,13 @@ def build_config(equipment_id: str, protocol: str, base_port: int | None,
         cfg["host"] = "0.0.0.0"
         cfg["port"] = base_port  # LINE_PORT 치환은 안 함 (라인별 디렉터리에 박힌 값 사용)
 
+
     if protocol == "opcua":
         cfg["namespace"] = "${LINE_ID:-LINE-00}_" + equipment_id
 
+
     return cfg
+
 
 
 def main() -> None:
@@ -370,6 +459,7 @@ def main() -> None:
     for p in written:
         print(f"wrote {p.relative_to(OUT_ROOT.parent)}")
     print(f"total {len(written)} files")
+
 
 
 if __name__ == "__main__":
