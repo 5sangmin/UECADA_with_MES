@@ -1,3 +1,20 @@
+"""TUI wrapper application — Textual 기반 시뮬 제어반.
+
+섹션:
+    [P] Power / Setpoint  — 전원 토글, SP 수치 편집
+    [A] Alarm / Counter   — alarm 활성 표시, counter 값 조회, fault_inject 토글
+    [S] Status            — status/progress/cycle_time 등 RO 태그 조회
+
+단축키:
+    ↑↓←→ / hjkl / wasd   포커스 이동
+    Enter                 선택 / 편집 확정
+    Esc                   편집 취소
+    Tab / Shift-Tab       섹션 전환 (P → A → S → P)
+    R                     reset_error 이벤트 전송
+    L                     load_request 이벤트 전송
+    U                     unload_request 이벤트 전송
+    Q                     종료
+"""
 from __future__ import annotations
 
 import asyncio
@@ -16,27 +33,56 @@ from .client import TuiClient
 from .protocol import SOCKET_PATH, TagInfo
 
 
-DARK_TEXT = "#010101"
-LIGHT_LABEL_BG = "#f3f3f3"
-CARD_BG = "#bdbdbd"
-SCREEN_BG = "#8a8a8a"
-BORDER = "#efefef"
-BASE_BOX_W = 25
-MIN_BOX_W = 14
-TARGET_BOX_W = 25
-GRID_GUTTER = 1
-PAIR_GAP = 1
-CARD_INNER_PADDING = 2
-CARD_BORDER = 2
-CARD_CONTENT_EXTRA = PAIR_GAP + CARD_INNER_PADDING + CARD_BORDER
-GUIDE_NORMAL = "[bold red]⇦⇧⇨⇩[/] [black]이동[/]  [bold red]Enter[/] 선택  [bold red]Q[/] 종료"
-GUIDE_EDIT = "[bold red]⇦⇧⇨⇩[/] [black]이동[/]  [bold red]Enter[/] 확인  [bold red]Esc[/] 취소"
+# ─── 색상 토큰 ────────────────────────────────────────────────────────────────
+DARK_TEXT       = "#010101"
+LIGHT_LABEL_BG  = "#f3f3f3"
+CARD_BG         = "#bdbdbd"
+SCREEN_BG       = "#8a8a8a"
+BORDER          = "#efefef"
+ALARM_CARD_BG   = "#e8d5d5"
+COUNTER_CARD_BG = "#d5e0e8"
+STATUS_CARD_BG  = "#d5e8d8"
+FAULT_CARD_BG   = "#ede5d5"
+
+# ─── 레이아웃 상수 ────────────────────────────────────────────────────────────
+BASE_BOX_W          = 25
+MIN_BOX_W           = 14
+TARGET_BOX_W        = 25
+GRID_GUTTER         = 1
+PAIR_GAP            = 1
+CARD_INNER_PADDING  = 2
+CARD_BORDER         = 2
+CARD_CONTENT_EXTRA  = PAIR_GAP + CARD_INNER_PADDING + CARD_BORDER
+
+# ─── 섹션 상수 ───────────────────────────────────────────────────────────────
+SEC_POWER   = "P"   # Power + Setpoint
+SEC_ALARM   = "A"   # Alarm + Counter + fault_inject
+SEC_STATUS  = "S"   # Status / progress / cycle_time / 기타 RO
+
+SECTION_ORDER = [SEC_POWER, SEC_ALARM, SEC_STATUS]
+SECTION_LABEL = {SEC_POWER: "[P]ower/SP", SEC_ALARM: "[A]larm/Ctr", SEC_STATUS: "[S]tatus"}
+
+# ─── 가이드 바 텍스트 ─────────────────────────────────────────────────────────
+GUIDE_NORMAL = (
+    "[bold red]⇦⇧⇨⇩[/] [black]이동[/]  "
+    "[bold red]Enter[/] 선택  "
+    "[bold red]Tab[/] 섹션전환  "
+    "[bold red]R[/]reset [bold red]L[/]load [bold red]U[/]unload  "
+    "[bold red]Q[/] 종료"
+)
+GUIDE_EDIT = (
+    "[bold red]⇦⇧⇨⇩[/] [black]이동[/]  "
+    "[bold red]Enter[/] 확인  "
+    "[bold red]Esc[/] 취소"
+)
 
 
+# ─── 데이터 클래스 ────────────────────────────────────────────────────────────
 @dataclass
 class FocusItem:
-    kind: str
+    kind: str   # power / sp / fault_inject
     name: str
+    section: str  # SEC_POWER / SEC_ALARM / SEC_STATUS
 
 
 @dataclass
@@ -45,6 +91,7 @@ class UiState:
     by_name: dict[str, TagInfo] = field(default_factory=dict)
     focus_items: list[FocusItem] = field(default_factory=list)
     focus_idx: int = 0
+    section: str = SEC_POWER
     editing: bool = False
     edit_buf: str = ""
     notice: str = ""
@@ -54,13 +101,23 @@ class UiState:
     socket_path: str = SOCKET_PATH
 
     def current(self) -> Optional[FocusItem]:
-        if not self.focus_items:
+        items = self._section_items()
+        if not items:
             return None
-        if self.focus_idx >= len(self.focus_items):
-            self.focus_idx = 0
-        return self.focus_items[self.focus_idx]
+        # focus_idx 는 전체 focus_items 기준. 섹션 필터 후 첫 번째가 기본.
+        sec_items = [i for i in self.focus_items if i.section == self.section]
+        if not sec_items:
+            return None
+        # 현재 focus_idx 가 이 섹션 아이템 안에 있으면 그걸 쓰고, 아니면 첫 번째
+        cur = self.focus_items[self.focus_idx] if self.focus_items else None
+        if cur and cur.section == self.section:
+            return cur
+        return sec_items[0]
 
-    def set_notice(self, msg: str, seconds: float = 2.0) -> None:
+    def _section_items(self) -> list[FocusItem]:
+        return [i for i in self.focus_items if i.section == self.section]
+
+    def set_notice(self, msg: str, seconds: float = 2.5) -> None:
         self.notice = msg
         self.notice_until = time.monotonic() + seconds
 
@@ -85,40 +142,108 @@ class UiState:
 
     def _build_focus_items(self) -> None:
         items: list[FocusItem] = []
+        # --- SEC_POWER ---
         power = next((t for t in self.tags if t.role == "power"), None)
         if power:
-            items.append(FocusItem(kind="power", name=power.name))
+            items.append(FocusItem(kind="power", name=power.name, section=SEC_POWER))
         for t in self.tags:
             if t.role == "setpoint":
-                items.append(FocusItem(kind="sp", name=t.name))
+                items.append(FocusItem(kind="sp", name=t.name, section=SEC_POWER))
+        # --- SEC_ALARM ---
+        for t in self.tags:
+            if t.role == "fault_inject" and t.writable:
+                items.append(FocusItem(kind="fault_inject", name=t.name, section=SEC_ALARM))
         self.focus_items = items
 
+    def prev_in_section(self) -> None:
+        sec = [i for i, fi in enumerate(self.focus_items) if fi.section == self.section]
+        if not sec:
+            return
+        cur_pos = self.focus_idx
+        # sec 안에서 현재 위치 찾기
+        if cur_pos in sec:
+            idx_in_sec = sec.index(cur_pos)
+            self.focus_idx = sec[(idx_in_sec - 1) % len(sec)]
+        else:
+            self.focus_idx = sec[-1]
 
-def _format_value(v: Any, data_type: str) -> str:
+    def next_in_section(self) -> None:
+        sec = [i for i, fi in enumerate(self.focus_items) if fi.section == self.section]
+        if not sec:
+            return
+        cur_pos = self.focus_idx
+        if cur_pos in sec:
+            idx_in_sec = sec.index(cur_pos)
+            self.focus_idx = sec[(idx_in_sec + 1) % len(sec)]
+        else:
+            self.focus_idx = sec[0]
+
+    def next_section(self) -> None:
+        idx = SECTION_ORDER.index(self.section)
+        self.section = SECTION_ORDER[(idx + 1) % len(SECTION_ORDER)]
+        # 섹션 이동 시 해당 섹션 첫 포커서블 아이템으로
+        sec = [i for i, fi in enumerate(self.focus_items) if fi.section == self.section]
+        if sec:
+            self.focus_idx = sec[0]
+
+    def prev_section(self) -> None:
+        idx = SECTION_ORDER.index(self.section)
+        self.section = SECTION_ORDER[(idx - 1) % len(SECTION_ORDER)]
+        sec = [i for i, fi in enumerate(self.focus_items) if fi.section == self.section]
+        if sec:
+            self.focus_idx = sec[0]
+
+
+# ─── 값 포매터 ────────────────────────────────────────────────────────────────
+def _format_value(v: Any, data_type: str, unit: str = "") -> str:
     if v is None:
         return "----"
     if data_type == "bool" or isinstance(v, bool):
         return "ON" if v else "OFF"
     if data_type == "float":
         try:
-            return f"{float(v):.2f}"
+            s = f"{float(v):.2f}"
         except Exception:
-            return str(v)
-    if data_type == "int":
+            s = str(v)
+    elif data_type == "int":
         try:
-            return f"{int(v)}"
+            s = f"{int(v)}"
         except Exception:
-            return str(v)
-    return str(v)
+            s = str(v)
+    else:
+        s = str(v)
+    return f"{s} {unit}".rstrip() if unit else s
 
 
+# ─── 상태 레이블 ──────────────────────────────────────────────────────────────
+_STATUS_NAMES = {0: "IDLE", 1: "RUNNING", 2: "WARNING", 3: "ERROR", 4: "COMPLETE"}
+_STATUS_COLORS = {
+    0: "bold white on #555555",
+    1: "bold white on green",
+    2: "bold black on yellow",
+    3: "bold white on red",
+    4: "bold white on blue",
+}
+
+def _status_markup(val: Any) -> str:
+    try:
+        v = int(val)
+    except Exception:
+        return str(val)
+    name = _STATUS_NAMES.get(v, f"?({v})")
+    color = _STATUS_COLORS.get(v, "bold white")
+    return f"[{color}]  {name}  [/]"
+
+
+# ─── Textual 위젯 ─────────────────────────────────────────────────────────────
 class TitleBar(Static):
     pass
 
+class SectionTabBar(Static):
+    pass
 
 class GuideBar(Static):
     pass
-
 
 class StatusBar(Static):
     pass
@@ -142,7 +267,6 @@ class PowerTrack(Static):
 
 class TagLabel(Static):
     pass
-
 
 class TagValue(Static):
     editing = reactive(False)
@@ -171,9 +295,13 @@ class TagColumn(Container):
             widget.styles.min_width = box_width
             widget.styles.max_width = box_width
 
-    def set_data(self, label: str, value: str, *, markup: str, editing: bool = False) -> None:
+    def set_data(
+        self, label: str, value: str, *, markup: str, editing: bool = False
+    ) -> None:
         clipped = label[: self.box_width]
-        self.label_widget.update(f"[bold {DARK_TEXT} on {LIGHT_LABEL_BG}]{clipped:<{self.box_width}}[/]")
+        self.label_widget.update(
+            f"[bold {DARK_TEXT} on {LIGHT_LABEL_BG}]{clipped:<{self.box_width}}[/]"
+        )
         self.value_widget.update(markup.format(value=f"{value:^{self.box_width}}"))
         self.value_widget.editing = editing
 
@@ -187,7 +315,9 @@ class SpCard(Container):
         self.row = Horizontal(classes="sp-row")
         self.sp_col = TagColumn(f"sp-label-{sp_name}", f"sp-value-{sp_name}", box_width)
         self.gap = Static(classes="pair-gap")
-        self.actual_col = TagColumn(f"actual-label-{sp_name}", f"actual-value-{sp_name}", box_width)
+        self.actual_col = TagColumn(
+            f"actual-label-{sp_name}", f"actual-value-{sp_name}", box_width
+        )
 
     def compose(self) -> ComposeResult:
         with self.row:
@@ -231,173 +361,264 @@ class SpCard(Container):
             )
 
 
+class InfoRow(Static):
+    """단순 레이블=값 한 줄 카드 (alarm / counter / status / RO 태그)."""
+    pass
+
+
+# ─── CSS ─────────────────────────────────────────────────────────────────────
+_CSS = f"""
+Screen {{
+    background: {SCREEN_BG};
+    color: white;
+    overflow: hidden hidden;
+}}
+
+#root {{
+    layout: vertical;
+    height: 100%;
+    width: 100%;
+    padding: 0 1;
+    overflow: hidden hidden;
+}}
+
+TitleBar {{
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    border: solid {BORDER};
+    background: #d7d7d7;
+    color: {DARK_TEXT};
+    text-style: bold;
+    content-align: left middle;
+    padding: 0 1;
+    margin: 1 0 0 0;
+}}
+
+SectionTabBar {{
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    background: #c0c0c0;
+    color: {DARK_TEXT};
+    padding: 0 1;
+    margin: 0 0 1 0;
+    content-align: left middle;
+}}
+
+#power-wrap {{
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    margin: 0 0 1 0;
+}}
+
+PowerTrack {{
+    width: 24;
+    height: 3;
+    min-height: 3;
+    max-height: 3;
+    border: solid {BORDER};
+    background: #dadada;
+    color: {DARK_TEXT};
+    content-align: center middle;
+    text-style: bold;
+    padding: 0 1;
+}}
+
+PowerTrack.-focused {{
+    border: solid yellow;
+}}
+
+PowerTrack.-on {{
+    background: #d7e8d7;
+}}
+
+PowerTrack.-off {{
+    background: #edd6d6;
+}}
+
+#sp-grid {{
+    height: 1fr;
+    min-height: 1fr;
+    grid-size: 2;
+    grid-columns: 1fr 1fr;
+    grid-gutter: 1 1;
+    overflow: hidden hidden;
+}}
+
+SpCard {{
+    height: 6;
+    min-height: 6;
+    max-height: 6;
+    border: solid {BORDER};
+    background: {CARD_BG};
+    padding: 0 1;
+    overflow: hidden hidden;
+}}
+
+SpCard.-focused {{
+    border: solid yellow;
+}}
+
+.sp-row {{
+    layout: horizontal;
+    width: 100%;
+    height: 100%;
+    align: center middle;
+}}
+
+TagColumn {{
+    layout: vertical;
+    width: 1fr;
+    height: 100%;
+    align: center middle;
+    overflow: hidden hidden;
+}}
+
+TagLabel {{
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    background: {LIGHT_LABEL_BG};
+    color: {DARK_TEXT};
+    text-style: bold;
+    content-align: left middle;
+    overflow: hidden hidden;
+}}
+
+.value-gap {{
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+}}
+
+TagValue {{
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    background: black;
+    color: white;
+    text-style: bold;
+    content-align: center middle;
+    overflow: hidden hidden;
+}}
+
+TagValue.-editing {{
+    color: yellow;
+}}
+
+.pair-gap {{
+    width: 1;
+    min-width: 1;
+    max-width: 1;
+    height: 100%;
+}}
+
+#alarm-panel {{
+    height: 1fr;
+    overflow-y: auto;
+    background: {ALARM_CARD_BG};
+    border: solid {BORDER};
+    padding: 0 1;
+    margin: 0 0 1 0;
+}}
+
+#counter-panel {{
+    height: 1fr;
+    overflow-y: auto;
+    background: {COUNTER_CARD_BG};
+    border: solid {BORDER};
+    padding: 0 1;
+    margin: 0 0 1 0;
+}}
+
+#fault-panel {{
+    height: auto;
+    overflow-y: auto;
+    background: {FAULT_CARD_BG};
+    border: solid {BORDER};
+    padding: 0 1;
+    margin: 0 0 1 0;
+}}
+
+#status-panel {{
+    height: 1fr;
+    overflow-y: auto;
+    background: {STATUS_CARD_BG};
+    border: solid {BORDER};
+    padding: 0 1;
+}}
+
+.panel-title {{
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    background: #888888;
+    color: white;
+    text-style: bold;
+    content-align: left middle;
+    padding: 0 1;
+    margin: 0 0 0 0;
+}}
+
+InfoRow {{
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    color: {DARK_TEXT};
+    content-align: left middle;
+    padding: 0 1;
+}}
+
+InfoRow.-active-alarm {{
+    background: #e05050;
+    color: white;
+    text-style: bold;
+}}
+
+InfoRow.-focused-fault {{
+    border: solid yellow;
+    background: #f5e8c0;
+}}
+
+GuideBar {{
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    background: #efefef;
+    color: {DARK_TEXT};
+    padding: 0 1;
+    margin: 0;
+    overflow: hidden hidden;
+}}
+
+StatusBar {{
+    height: 1;
+    min-height: 1;
+    max-height: 1;
+    background: #d9d9d9;
+    color: {DARK_TEXT};
+    padding: 0 1;
+    margin: 0;
+    overflow: hidden hidden;
+}}
+"""
+
+
+# ─── TuiApp ──────────────────────────────────────────────────────────────────
 class TuiApp(App):
-    CSS = f"""
-    Screen {{
-        background: {SCREEN_BG};
-        color: white;
-        overflow: hidden hidden;
-    }}
-
-    #root {{
-        layout: vertical;
-        height: 100%;
-        width: 100%;
-        padding: 0 1;
-        overflow: hidden hidden;
-    }}
-
-    TitleBar {{
-        height: 3;
-        min-height: 3;
-        max-height: 3;
-        border: solid {BORDER};
-        background: #d7d7d7;
-        color: {DARK_TEXT};
-        text-style: bold;
-        content-align: left middle;
-        padding: 0 1;
-        margin: 1 0 1 0;
-    }}
-
-    #power-wrap {{
-        height: 3;
-        min-height: 3;
-        max-height: 3;
-        margin: 0 0 1 0;
-    }}
-
-    PowerTrack {{
-        width: 24;
-        height: 3;
-        min-height: 3;
-        max-height: 3;
-        border: solid {BORDER};
-        background: #dadada;
-        color: {DARK_TEXT};
-        content-align: center middle;
-        text-style: bold;
-        padding: 0 1;
-    }}
-
-    PowerTrack.-focused {{
-        border: solid yellow;
-    }}
-
-    PowerTrack.-on {{
-        background: #d7e8d7;
-    }}
-
-    PowerTrack.-off {{
-        background: #edd6d6;
-    }}
-
-    #sp-grid {{
-        height: 1fr;
-        min-height: 1fr;
-        grid-size: 2;
-        grid-columns: 1fr 1fr;
-        grid-gutter: 1 1;
-        overflow: hidden hidden;
-    }}
-
-    SpCard {{
-        height: 6;
-        min-height: 6;
-        max-height: 6;
-        border: solid {BORDER};
-        background: {CARD_BG};
-        padding: 0 1;
-        overflow: hidden hidden;
-    }}
-
-    SpCard.-focused {{
-        border: solid yellow;
-    }}
-
-    .sp-row {{
-        layout: horizontal;
-        width: 100%;
-        height: 100%;
-        align: center middle;
-    }}
-
-    TagColumn {{
-        layout: vertical;
-        width: 1fr;
-        height: 100%;
-        align: center middle;
-        overflow: hidden hidden;
-    }}
-
-    TagLabel {{
-        height: 1;
-        min-height: 1;
-        max-height: 1;
-        background: {LIGHT_LABEL_BG};
-        color: {DARK_TEXT};
-        text-style: bold;
-        content-align: left middle;
-        overflow: hidden hidden;
-    }}
-
-    .value-gap {{
-        height: 1;
-        min-height: 1;
-        max-height: 1;
-    }}
-
-    TagValue {{
-        height: 1;
-        min-height: 1;
-        max-height: 1;
-        background: black;
-        color: white;
-        text-style: bold;
-        content-align: center middle;
-        overflow: hidden hidden;
-    }}
-
-    TagValue.-editing {{
-        color: yellow;
-    }}
-
-    .pair-gap {{
-        width: 1;
-        min-width: 1;
-        max-width: 1;
-        height: 100%;
-    }}
-
-    GuideBar {{
-        height: 1;
-        min-height: 1;
-        max-height: 1;
-        background: #efefef;
-        color: {DARK_TEXT};
-        padding: 0 1;
-        margin: 0;
-        overflow: hidden hidden;
-    }}
-
-    StatusBar {{
-        height: 1;
-        min-height: 1;
-        max-height: 1;
-        background: #d9d9d9;
-        color: {DARK_TEXT};
-        padding: 0 1;
-        margin: 0;
-        overflow: hidden hidden;
-    }}
-    """
+    CSS = _CSS
 
     BINDINGS = [
-        Binding("up,left", "prev_focus", show=False),
-        Binding("down,right", "next_focus", show=False),
-        Binding("enter", "activate", show=False),
-        Binding("escape", "cancel_edit", show=False),
-        Binding("q", "quit_app", show=False),
+        Binding("up,left",       "prev_focus",    show=False),
+        Binding("down,right",    "next_focus",    show=False),
+        Binding("enter",         "activate",      show=False),
+        Binding("escape",        "cancel_edit",   show=False),
+        Binding("tab",           "next_section",  show=False),
+        Binding("shift+tab",     "prev_section",  show=False),
+        Binding("q",             "quit_app",      show=False),
+        # 이동 대체키
         Binding("w", "prev_focus", show=False),
         Binding("a", "prev_focus", show=False),
         Binding("s", "next_focus", show=False),
@@ -406,6 +627,10 @@ class TuiApp(App):
         Binding("j", "next_focus", show=False),
         Binding("k", "prev_focus", show=False),
         Binding("l", "next_focus", show=False),
+        # 이벤트 단축키
+        Binding("r", "send_reset",  show=False),
+        Binding("L", "send_load",   show=False),
+        Binding("u", "send_unload", show=False),
     ]
 
     def __init__(self, socket_path: str = SOCKET_PATH) -> None:
@@ -414,23 +639,49 @@ class TuiApp(App):
         self.state = UiState(socket_path=socket_path)
         self.equipment_name = "equipment"
         self.poll_client: Optional[TuiClient] = None
-        self.root_col = Vertical(id="root")
-        self.title_bar = TitleBar()
-        self.power_wrap = Horizontal(id="power-wrap")
-        self.power_track = PowerTrack()
-        self.sp_grid = Grid(id="sp-grid")
-        self.guide_bar = GuideBar()
-        self.status_bar = StatusBar()
+
+        # ── Power/SP 섹션 위젯
+        self.root_col     = Vertical(id="root")
+        self.title_bar    = TitleBar()
+        self.tab_bar      = SectionTabBar()
+        self.power_wrap   = Horizontal(id="power-wrap")
+        self.power_track  = PowerTrack()
+        self.sp_grid      = Grid(id="sp-grid")
         self.sp_cards: dict[str, SpCard] = {}
+
+        # ── Alarm/Counter/Fault 섹션 위젯
+        self.alarm_panel   = Vertical(id="alarm-panel")
+        self.counter_panel = Vertical(id="counter-panel")
+        self.fault_panel   = Vertical(id="fault-panel")
+
+        # ── Status 섹션 위젯
+        self.status_panel  = Vertical(id="status-panel")
+
+        self.guide_bar  = GuideBar()
+        self.status_bar = StatusBar()
+
         self.box_width = BASE_BOX_W
         self._last_layout_sig: tuple[int, int] | None = None
 
+    # ── 컴포즈 ────────────────────────────────────────────────────────────────
     def compose(self) -> ComposeResult:
         with self.root_col:
             yield self.title_bar
+            yield self.tab_bar
+            # SEC_POWER 섹션
             with self.power_wrap:
                 yield self.power_track
             yield self.sp_grid
+            # SEC_ALARM 섹션
+            with self.alarm_panel:
+                yield Static("── ALARM ──", classes="panel-title")
+            with self.counter_panel:
+                yield Static("── COUNTER ──", classes="panel-title")
+            with self.fault_panel:
+                yield Static("── FAULT INJECT ──", classes="panel-title")
+            # SEC_STATUS 섹션
+            with self.status_panel:
+                yield Static("── STATUS ──", classes="panel-title")
             yield self.guide_bar
             yield self.status_bar
 
@@ -439,6 +690,7 @@ class TuiApp(App):
         self._configure_layout(force=True)
         self._ensure_sp_cards()
         self._refresh_title_only()
+        self._apply_section_visibility()
         self._refresh_dynamic_parts()
         self.set_interval(1.0, self._poll_tick)
         self.set_interval(0.2, self._ui_tick)
@@ -446,10 +698,13 @@ class TuiApp(App):
     def on_resize(self) -> None:
         self._configure_layout()
 
+    # ── 레이아웃 ──────────────────────────────────────────────────────────────
     def _compute_layout(self) -> tuple[int, int]:
         width = max(self.size.width, 40)
-        max_columns = min(5, max(1, len(self.sp_cards) or len([i for i in self.state.focus_items if i.kind == "sp"]) or 1))
-
+        max_columns = min(5, max(1,
+            len(self.sp_cards) or
+            len([i for i in self.state.focus_items if i.kind == "sp"]) or 1
+        ))
         for columns in range(max_columns, 0, -1):
             available = width - ((columns - 1) * GRID_GUTTER)
             card_width = available // columns
@@ -457,7 +712,6 @@ class TuiApp(App):
             box_width = usable // 2
             if box_width >= TARGET_BOX_W:
                 return columns, TARGET_BOX_W
-
         for columns in range(max_columns, 0, -1):
             available = width - ((columns - 1) * GRID_GUTTER)
             card_width = available // columns
@@ -465,7 +719,6 @@ class TuiApp(App):
             box_width = usable // 2
             if box_width >= MIN_BOX_W:
                 return columns, box_width
-
         return 1, MIN_BOX_W
 
     def _configure_layout(self, force: bool = False) -> None:
@@ -480,6 +733,19 @@ class TuiApp(App):
             card.set_sizes(self.box_width)
         self._refresh_dynamic_parts()
 
+    def _apply_section_visibility(self) -> None:
+        sec = self.state.section
+        # Power/SP
+        self.power_wrap.display = (sec == SEC_POWER)
+        self.sp_grid.display    = (sec == SEC_POWER)
+        # Alarm/Counter/Fault
+        self.alarm_panel.display   = (sec == SEC_ALARM)
+        self.counter_panel.display = (sec == SEC_ALARM)
+        self.fault_panel.display   = (sec == SEC_ALARM)
+        # Status
+        self.status_panel.display  = (sec == SEC_STATUS)
+
+    # ── 연결 ──────────────────────────────────────────────────────────────────
     async def _boot_connect(self) -> None:
         try:
             boot = TuiClient(socket_path=self.socket_path)
@@ -498,7 +764,6 @@ class TuiApp(App):
         except Exception as e:
             self.exit(message=f"초기 연결 실패: {e}")
             return
-
         self.poll_client = TuiClient(socket_path=self.socket_path)
         self.poll_client.connect()
 
@@ -507,13 +772,14 @@ class TuiApp(App):
         if name:
             return name
         line = os.environ.get("LINE_ID", "")
-        cfg = os.environ.get("SIM_CONFIG", "")
+        cfg  = os.environ.get("SIM_CONFIG", "")
         if cfg:
             from pathlib import Path
             eq = Path(cfg).stem
             return f"{line}_{eq}" if line else eq
         return "equipment"
 
+    # ── 폴링 / UI 틱 ─────────────────────────────────────────────────────────
     async def _poll_tick(self) -> None:
         if self.poll_client is None:
             return
@@ -532,11 +798,13 @@ class TuiApp(App):
         self.state.clear_expired_notice()
         self._refresh_bars_only()
 
+    # ── SP 카드 관리 ──────────────────────────────────────────────────────────
     def _ensure_sp_cards(self) -> None:
-        current_names = [item.name for item in self.state.focus_items if item.kind == "sp"]
+        current_names = [
+            item.name for item in self.state.focus_items if item.kind == "sp"
+        ]
         current_set = set(current_names)
         mounted_set = set(self.sp_cards.keys())
-
         for name in current_names:
             if name not in self.sp_cards:
                 card = SpCard(name, self.box_width)
@@ -544,26 +812,43 @@ class TuiApp(App):
                 self.sp_grid.mount(card)
             else:
                 self.sp_cards[name].set_sizes(self.box_width)
-
         for name in mounted_set - current_set:
             card = self.sp_cards.pop(name)
             card.remove()
-
         for name, card in self.sp_cards.items():
             card.display = name in current_set
             card.set_sizes(self.box_width)
 
+    # ── 전체 화면 갱신 ────────────────────────────────────────────────────────
     def _refresh_title_only(self) -> None:
-        self.title_bar.update(f"[bold {DARK_TEXT}]{self.equipment_name[:24]}[/]")
+        self.title_bar.update(f"[bold {DARK_TEXT}]{self.equipment_name[:40]}[/]")
 
     def _refresh_dynamic_parts(self) -> None:
+        self._apply_section_visibility()
+        self._refresh_tab_bar()
         self._refresh_power()
         self._update_sp_cards()
+        self._update_alarm_panel()
+        self._update_counter_panel()
+        self._update_fault_panel()
+        self._update_status_panel()
         self._refresh_bars_only()
+
+    def _refresh_tab_bar(self) -> None:
+        parts = []
+        for sec in SECTION_ORDER:
+            label = SECTION_LABEL[sec]
+            if sec == self.state.section:
+                parts.append(f"[bold white on #444444] {label} [/]")
+            else:
+                parts.append(f"[{DARK_TEXT} on #c0c0c0] {label} [/]")
+        self.tab_bar.update("  ".join(parts))
 
     def _refresh_power(self) -> None:
         power = next((t for t in self.state.tags if t.role == "power"), None)
-        self.power_track.powered = bool(power.value) if power and power.value is not None else False
+        self.power_track.powered = (
+            bool(power.value) if power and power.value is not None else False
+        )
         cur = self.state.current()
         self.power_track.focused = cur is not None and cur.kind == "power"
 
@@ -572,7 +857,6 @@ class TuiApp(App):
         for t in self.state.tags:
             if t.role == "sensor" and t.source_sp:
                 sensors_by_sp.setdefault(t.source_sp, t)
-
         current = self.state.current()
         for name, card in self.sp_cards.items():
             sp = self.state.by_name.get(name)
@@ -580,39 +864,148 @@ class TuiApp(App):
                 card.display = False
                 continue
             actual = sensors_by_sp.get(name)
-            is_current = current is not None and current.kind == "sp" and current.name == name
+            is_current = (
+                current is not None
+                and current.kind == "sp"
+                and current.name == name
+            )
             card.set_data(
-                sp_label=f"{sp.name}",
-                sp_value=self.state.edit_buf if (self.state.editing and is_current) else _format_value(sp.value, sp.data_type),
+                sp_label=sp.name,
+                sp_value=(
+                    self.state.edit_buf
+                    if (self.state.editing and is_current)
+                    else _format_value(sp.value, sp.data_type, sp.unit)
+                ),
                 actual_label=actual.name if actual else "",
-                actual_value=_format_value(actual.value, actual.data_type) if actual else "",
+                actual_value=(
+                    _format_value(actual.value, actual.data_type, actual.unit)
+                    if actual else ""
+                ),
                 has_actual=actual is not None,
                 editing=self.state.editing and is_current,
                 focused=is_current,
             )
 
+    # ── Alarm 패널 ────────────────────────────────────────────────────────────
+    def _update_alarm_panel(self) -> None:
+        alarms = [t for t in self.state.tags if t.role == "alarm"]
+        # 기존 InfoRow 제거 후 재마운트
+        for w in list(self.alarm_panel.query(InfoRow)):
+            w.remove()
+        if not alarms:
+            self.alarm_panel.mount(InfoRow("(alarm 태그 없음)"))
+            return
+        for t in alarms:
+            active = bool(t.value)
+            label = f"{'[●]' if active else '[ ]'} {t.name}"
+            row = InfoRow(label)
+            if active:
+                row.add_class("-active-alarm")
+            self.alarm_panel.mount(row)
+
+    # ── Counter 패널 ─────────────────────────────────────────────────────────
+    def _update_counter_panel(self) -> None:
+        counters = [t for t in self.state.tags if t.role == "counter"]
+        for w in list(self.counter_panel.query(InfoRow)):
+            w.remove()
+        if not counters:
+            self.counter_panel.mount(InfoRow("(counter 태그 없음)"))
+            return
+        for t in counters:
+            val = _format_value(t.value, t.data_type, t.unit)
+            self.counter_panel.mount(InfoRow(f"{t.name:<24} {val}"))
+
+    # ── Fault Inject 패널 ────────────────────────────────────────────────────
+    def _update_fault_panel(self) -> None:
+        faults = [
+            t for t in self.state.tags
+            if t.role == "fault_inject" and t.writable
+        ]
+        for w in list(self.fault_panel.query(InfoRow)):
+            w.remove()
+        if not faults:
+            self.fault_panel.mount(InfoRow("(fault_inject 태그 없음)"))
+            return
+        current = self.state.current()
+        for t in faults:
+            active = bool(t.value)
+            is_cur = (
+                current is not None
+                and current.kind == "fault_inject"
+                and current.name == t.name
+            )
+            label = f"{'[ON] ' if active else '[OFF]'} {t.name}"
+            row = InfoRow(label)
+            if is_cur:
+                row.add_class("-focused-fault")
+            if active:
+                row.add_class("-active-alarm")
+            self.fault_panel.mount(row)
+
+    # ── Status 패널 ──────────────────────────────────────────────────────────
+    def _update_status_panel(self) -> None:
+        status_roles = {"status", "progress", "cycle_time", "event", "sensor"}
+        targets = [t for t in self.state.tags if t.role in status_roles]
+        for w in list(self.status_panel.query(InfoRow)):
+            w.remove()
+        if not targets:
+            self.status_panel.mount(InfoRow("(status 태그 없음)"))
+            return
+        for t in targets:
+            if t.role == "status":
+                markup = _status_markup(t.value)
+                row = InfoRow(f"{t.name:<20} {markup}")
+            elif t.role == "progress":
+                try:
+                    pct = float(t.value or 0)
+                    bar_len = 20
+                    filled = int(pct / 100 * bar_len)
+                    bar = "█" * filled + "░" * (bar_len - filled)
+                    row = InfoRow(f"{t.name:<20} [{bar}] {pct:5.1f}%")
+                except Exception:
+                    row = InfoRow(f"{t.name:<20} {t.value}")
+            else:
+                val = _format_value(t.value, t.data_type, t.unit)
+                row = InfoRow(f"{t.name:<24} {val}")
+            self.status_panel.mount(row)
+
     def _refresh_bars_only(self) -> None:
-        self.guide_bar.update(GUIDE_EDIT if self.state.editing else GUIDE_NORMAL)
+        self.guide_bar.update(
+            GUIDE_EDIT if self.state.editing else GUIDE_NORMAL
+        )
         if self.state.notice:
             text = f"★ {self.state.notice}"
         elif not self.state.connected:
             text = "연결끊김"
         elif self.state.last_error:
-            text = f"✗ {self.state.last_error[:24]}"
+            text = f"✗ {self.state.last_error[:40]}"
         else:
             text = " "
-        self.status_bar.update(text[:80])
+        self.status_bar.update(text[:100])
 
+    # ── 바인딩 액션 ───────────────────────────────────────────────────────────
     def action_prev_focus(self) -> None:
-        if self.state.editing or not self.state.focus_items:
+        if self.state.editing:
             return
-        self.state.focus_idx = (self.state.focus_idx - 1) % len(self.state.focus_items)
+        self.state.prev_in_section()
         self._refresh_dynamic_parts()
 
     def action_next_focus(self) -> None:
-        if self.state.editing or not self.state.focus_items:
+        if self.state.editing:
             return
-        self.state.focus_idx = (self.state.focus_idx + 1) % len(self.state.focus_items)
+        self.state.next_in_section()
+        self._refresh_dynamic_parts()
+
+    def action_next_section(self) -> None:
+        if self.state.editing:
+            return
+        self.state.next_section()
+        self._refresh_dynamic_parts()
+
+    def action_prev_section(self) -> None:
+        if self.state.editing:
+            return
+        self.state.prev_section()
         self._refresh_dynamic_parts()
 
     def action_activate(self) -> None:
@@ -627,6 +1020,8 @@ class TuiApp(App):
         elif cur.kind == "sp":
             self.state.editing = True
             self.state.edit_buf = ""
+        elif cur.kind == "fault_inject":
+            self._toggle_bool_tag(cur.name)
         self._refresh_dynamic_parts()
 
     def action_cancel_edit(self) -> None:
@@ -639,6 +1034,28 @@ class TuiApp(App):
     def action_quit_app(self) -> None:
         self.exit()
 
+    def action_send_reset(self) -> None:
+        """R 키 — reset_error 이벤트 태그 True 로 전송."""
+        self._fire_event("reset_error")
+
+    def action_send_load(self) -> None:
+        """L 키 — load_request 이벤트 태그 True 로 전송."""
+        self._fire_event("load_request")
+
+    def action_send_unload(self) -> None:
+        """U 키 — unload_request 이벤트 태그 True 로 전송."""
+        self._fire_event("unload_request")
+
+    def _fire_event(self, tag_name: str) -> None:
+        tag = self.state.by_name.get(tag_name)
+        if tag is None:
+            self.state.set_notice(f"태그 없음: {tag_name}")
+            return
+        ok, msg = self._safe_write(tag_name, True)
+        self.state.set_notice(f"{tag_name} " + ("전송" if ok else f"실패: {msg}"))
+        self._refresh_dynamic_parts()
+
+    # ── 키 입력 (편집 모드) ───────────────────────────────────────────────────
     async def on_key(self, event) -> None:
         if not self.state.editing:
             return
@@ -653,13 +1070,26 @@ class TuiApp(App):
             self._refresh_dynamic_parts()
             event.prevent_default()
 
+    # ── 내부 write 헬퍼 ──────────────────────────────────────────────────────
     def _toggle_power(self, name: str) -> None:
         tag = self.state.by_name.get(name)
         if tag is None:
             return
         new = not bool(tag.value)
         ok, msg = self._safe_write(name, new)
-        self.state.set_notice((f"POWER {'ON' if new else 'OFF'}") if ok else f"power 실패: {msg}")
+        self.state.set_notice(
+            (f"POWER {'ON' if new else 'OFF'}") if ok else f"power 실패: {msg}"
+        )
+
+    def _toggle_bool_tag(self, name: str) -> None:
+        tag = self.state.by_name.get(name)
+        if tag is None:
+            return
+        new = not bool(tag.value)
+        ok, msg = self._safe_write(name, new)
+        self.state.set_notice(
+            f"{name} → {'ON' if new else 'OFF'}" if ok else f"write 실패: {msg}"
+        )
 
     def _commit_edit(self) -> None:
         cur = self.state.current()

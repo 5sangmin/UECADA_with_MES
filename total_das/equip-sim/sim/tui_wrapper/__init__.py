@@ -12,9 +12,20 @@
     - TUI 서버는 daemon thread → 시뮬 본체에 영향 없음.
 
 구성:
-    protocol.py      JSON line 메시지 정의
+    protocol.py      JSON line 메시지 정의 (TagInfo unit 필드 포함)
     server.py        시뮬 PID 1 측. EquipmentState 와 UDS 연결.
     client.py        exec 측. UDS 로 read/write 요청.
-    application.py   Rich Live 기반 TUI 본체 (client 사용).
+    application.py   Textual 기반 TUI 본체 (client 사용).
+                     섹션: [P]ower/Setpoint · [A]larm/Counter · [S]tatus
     __main__.py      `python -m sim.tui_wrapper` 진입점.
+
+단축키 (application.py):
+    ↑↓←→ / hjkl / wasd  포커스 이동
+    Enter                선택 / 편집 확정
+    Esc                  편집 취소
+    Tab / Shift-Tab      섹션 전환 (P → A → S)
+    R                    reset_error 이벤트 전송
+    L                    load_request 이벤트 전송
+    U                    unload_request 이벤트 전송
+    Q                    종료
 """

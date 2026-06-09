@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import json
 import socket
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 # 컨테이너 안에서만 보이는 경로. compose 가 마운트하지 않아 호스트로 새 나가지 않음.
@@ -45,11 +45,13 @@ STATUS_ERR = "err"
 class TagInfo:
     """READ 응답에 실리는 태그 1개 분의 정적 메타 + 현재값."""
     name: str
-    role: str            # power / setpoint / sensor / counter / alarm
+    role: str            # power / setpoint / sensor / counter / alarm / fault_inject
+                         # status / progress / cycle_time / event
     data_type: str       # bool / int / float
     writable: bool
     source_sp: Optional[str]
     value: Any
+    unit: str = field(default="")  # 단위 문자열 (예: "RPM", "°C", "%") — 옵션
 
     def to_json(self) -> dict[str, Any]:
         return {
@@ -59,6 +61,7 @@ class TagInfo:
             "writable": self.writable,
             "source_sp": self.source_sp,
             "value": self.value,
+            "unit": self.unit,
         }
 
     @classmethod
@@ -70,6 +73,7 @@ class TagInfo:
             writable=bool(d["writable"]),
             source_sp=d.get("source_sp"),
             value=d.get("value"),
+            unit=d.get("unit", ""),
         )
 
 

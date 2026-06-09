@@ -65,7 +65,6 @@ class _Handler(socketserver.BaseRequestHandler):
 
     def _peer_label(self) -> str:
         try:
-            # UDS 의 peer cred 는 SO_PEERCRED 로만 얻을 수 있음. 단순 라벨링만.
             return f"fd={self.request.fileno()}"
         except Exception:
             return "unknown"
@@ -84,7 +83,12 @@ class _Handler(socketserver.BaseRequestHandler):
                 return p.resp_err("write: missing 'name'")
             ok = self.state.set_external(name, value)
             if not ok:
-                return p.resp_err(f"write rejected: '{name}' (unknown or read-only)")
+                tag = self.state.get_tag(name)
+                if tag is None:
+                    reason = f"unknown tag: '{name}'"
+                else:
+                    reason = f"read-only tag: '{name}' (role={tag.role})"
+                return p.resp_err(f"write rejected: {reason}")
             return p.resp_ok({"name": name, "value": self.state.read(name)})
         return p.resp_err(f"unknown op: {op!r}")
 
@@ -99,6 +103,7 @@ class _Handler(socketserver.BaseRequestHandler):
                 writable=t.writable,
                 source_sp=t.source_sp,
                 value=values.get(t.name),
+                unit=getattr(t, "unit", "") or "",
             )
             out.append(info.to_json())
         return out
@@ -153,5 +158,4 @@ def start_in_background(
         return t
     except Exception as e:
         log.warning("tui-wrapper server failed to start (%s) — simulator continues", e)
-        # 시뮬 본체에 영향 주지 않음
         return None  # type: ignore[return-value]
