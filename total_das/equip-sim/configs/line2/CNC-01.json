@@ -14,6 +14,39 @@
       }
     },
     {
+      "name": "load_request",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "writable": true,
+      "mb": {
+        "kind": "coil",
+        "address": 1
+      }
+    },
+    {
+      "name": "unload_request",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "writable": true,
+      "mb": {
+        "kind": "coil",
+        "address": 2
+      }
+    },
+    {
+      "name": "reset_error",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "writable": true,
+      "mb": {
+        "kind": "coil",
+        "address": 3
+      }
+    },
+    {
       "name": "spindle_speed_sp",
       "role": "setpoint",
       "data_type": "int",

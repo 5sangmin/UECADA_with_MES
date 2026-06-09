@@ -10,6 +10,27 @@
       "base_value": true
     },
     {
+      "name": "load_request",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "writable": true
+    },
+    {
+      "name": "unload_request",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "writable": true
+    },
+    {
+      "name": "reset_error",
+      "role": "event",
+      "data_type": "bool",
+      "base_value": false,
+      "writable": true
+    },
+    {
       "name": "bore_dimension_sp",
       "role": "setpoint",
       "data_type": "float",
