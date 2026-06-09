@@ -6,12 +6,12 @@
     [S] Status            — status/progress/cycle_time 등 RO 태그 조회
 
 단축키:
-    ↑↓←→ / hjkl / wasd   포커스 이동
+    ↑↓←→ / wasd          포커스 이동
     Enter                 선택 / 편집 확정
     Esc                   편집 취소
-    Tab / Shift-Tab       섹션 전환 (P → A → S → P)
+    [ / ]                 섹션 전환 (P → A → S → P)
     R                     reset_error 이벤트 전송
-    L                     load_request 이벤트 전송
+    l                     load_request 이벤트 전송
     U                     unload_request 이벤트 전송
     Q                     종료
 """
@@ -60,14 +60,14 @@ SEC_ALARM   = "A"   # Alarm + Counter + fault_inject
 SEC_STATUS  = "S"   # Status / progress / cycle_time / 기타 RO
 
 SECTION_ORDER = [SEC_POWER, SEC_ALARM, SEC_STATUS]
-SECTION_LABEL = {SEC_POWER: "[P]ower/SP", SEC_ALARM: "[A]larm/Ctr", SEC_STATUS: "[S]tatus"}
+SECTION_LABEL = {SEC_POWER: "[P]ower/Setpoint", SEC_ALARM: "[A]larm/Counter", SEC_STATUS: "[S]tatus"}
 
 # ─── 가이드 바 텍스트 ──────────────────────────────────────────────────
 GUIDE_NORMAL = (
     "[bold red]⇦⇧⇨⇩[/] [black]이동[/]  "
     "[bold red]Enter[/] 선택  "
-    "[bold red]Tab[/] 섹션전환  "
-    "[bold red]R[/]reset [bold red]L[/]load [bold red]U[/]unload  "
+    "[bold red][][/]/[bold red]][/] 섹션전환  "
+    "[bold red]R[/]reset [bold red]l[/]load [bold red]U[/]unload  "
     "[bold red]Q[/] 종료"
 )
 GUIDE_EDIT = (
@@ -606,19 +606,15 @@ class TuiApp(App):
         Binding("down,right",    "next_focus",    show=False),
         Binding("enter",         "activate",      show=False),
         Binding("escape",        "cancel_edit",   show=False),
-        Binding("tab",           "next_section",  show=False),
-        Binding("shift+tab",     "prev_section",  show=False),
+        Binding("]",             "next_section",  show=False),
+        Binding("[",             "prev_section",  show=False),
         Binding("q",             "quit_app",      show=False),
         Binding("w", "prev_focus", show=False),
         Binding("a", "prev_focus", show=False),
         Binding("s", "next_focus", show=False),
         Binding("d", "next_focus", show=False),
-        Binding("h", "prev_focus", show=False),
-        Binding("j", "next_focus", show=False),
-        Binding("k", "prev_focus", show=False),
-        Binding("l", "next_focus", show=False),
         Binding("r", "send_reset",  show=False),
-        Binding("L", "send_load",   show=False),
+        Binding("l", "send_load",   show=False),
         Binding("u", "send_unload", show=False),
     ]
 
