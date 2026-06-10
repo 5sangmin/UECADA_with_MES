@@ -11,6 +11,7 @@ import threading
 from typing import Any, Dict
 
 from asyncua import Server, ua
+from asyncua.server.users import User, UserRole
 
 from ..config import SimConfig, TagConfig
 from ..log import get_logger
@@ -81,8 +82,13 @@ class WriteHandler:
                 self._last[name] = cur
 
 
+
+class PermissiveAnonymousUserManager:
+    def get_user(self, iserver, username=None, password=None, certificate=None):
+        return User(role=UserRole.Admin, name="anonymous")
+
 async def _serve(cfg: SimConfig, state: EquipmentState, stop_event: threading.Event) -> None:
-    server = Server()
+    server = Server(user_manager=PermissiveAnonymousUserManager())
     await server.init()
 
     endpoint = f"opc.tcp://{cfg.host}:{cfg.port}/{cfg.equipment_name}/"

@@ -434,23 +434,6 @@
         }
     },
     {
-        "id": "6ed7c73b7cb34c1e",
-        "type": "MC Protocol Connection",
-        "name": "LINE-02_CAST-01 SP @ cast-01:5101",
-        "host": "cast-01",
-        "port": "5101",
-        "protocol": "TCP",
-        "frame": "3E",
-        "plcType": "Q",
-        "ascii": false,
-        "PLCStation": "",
-        "PCStation": "",
-        "PLCModuleNo": "",
-        "network": "",
-        "octalInputOutput": false,
-        "timeout": "2000"
-    },
-    {
         "id": "c4448545221c4b6a",
         "type": "comment",
         "z": "5b220735e29c459d",
@@ -2899,60 +2882,58 @@
         ]
     },
     {
-        "id": "5c73f4752c5a42a2",
+        "id": "2b026f8441883cdb",
         "type": "comment",
         "z": "7fceb9f3fadf4c8d",
         "name": "LINE-01 writable full flow",
         "info": "LINE-01 writable 전체 flow 대체본. writer_target을 사람이 읽을 수 있는 alias로 통일하고, setpoint writer까지 모두 실제 writer node와 연결했다. 설비당 1 in-flight, 성공/실패/타임아웃 상태를 writable status out으로 내보낸다.",
-        "x": 230,
-        "y": 60,
+        "x": 390,
+        "y": 620,
         "wires": []
     },
     {
-        "id": "d5f5c867c138a839",
+        "id": "5d1eb2df2eafcee9",
         "type": "link in",
         "z": "7fceb9f3fadf4c8d",
         "name": "writable command in",
         "links": [
-            "dbglinkout001",
-            "381042f6c7353e86",
-            "8b0624abb6d38ff9",
-            "09fce715fe3c8290"
+            "47ed4dd1a34792db"
         ],
-        "x": 115,
-        "y": 120,
+        "x": 275,
+        "y": 680,
         "wires": [
             [
-                "a416a0a5ec37e431"
+                "052ba9f954e83d09"
             ]
         ]
     },
     {
-        "id": "a416a0a5ec37e431",
+        "id": "052ba9f954e83d09",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "normalize + lock inflight",
-        "func": "\nconst now = new Date().toISOString();\nconst body = msg.payload || {};\nconst cmd = body.command || body;\nconst equipmentId = cmd.equipment_id || cmd.equipmentId || cmd.target_equipment || cmd.targetEquipment || cmd.machine_id || cmd.machineId;\nlet rawType = cmd.command_type || cmd.commandType || cmd.tag || cmd.tag_name || cmd.tagName || cmd.name;\nconst commandId = cmd.command_id || cmd.commandId || msg.command_id || msg._msgid;\nlet value = Object.prototype.hasOwnProperty.call(cmd,'value') ? cmd.value : cmd.payload;\nif (!equipmentId || !rawType) {\n  msg.command_result = {command_id: commandId || null, equipment_id: equipmentId || null, command_type: rawType || null, status:'REJECTED_INVALID', accepted:false, requested_at:now, updated_at:now, last_error:'equipment_id or command_type missing'};\n  return [null, msg];\n}\nconst alias = {\n  injection_pressure_sp:'injectionpressuresp', mold_temperature_sp:'moldtemperaturesp', cooling_flow_sp:'coolingflowsp',\n  spindle_speed_sp:'spindlespeedsp', tool_usage_sp:'toolusagesp', coolant_flow_sp:'coolantflowsp',\n  cleaning_concentration_sp:'cleaningconcentrationsp', cleaning_temperature_sp:'cleaningtemperaturesp', cleaning_pressure_sp:'cleaningpressuresp',\n  tightening_torque_sp:'tighteningtorquesp', tightening_angle_sp:'tighteninganglesp', press_force_sp:'pressforcesp',\n  bore_dimension_sp:'boredimensionsp', hole_dimension_sp:'holedimensionsp',\n  inject_warn:'injectwarning', inject_warning:'injectwarning', inject_error:'injecterror',\n  reset_error:'reseterror', load:'loadrequest', unload:'unloadrequest'\n};\nlet commandType = String(rawType).replace(/[^a-zA-Z0-9]/g,'').toLowerCase();\nif (alias[String(rawType)]) commandType = alias[String(rawType)];\nconst boolTags = new Set(['power','loadrequest','unloadrequest','reseterror','injectwarning','injecterror']);\nif (boolTags.has(commandType)) value = !!value;\nconst inflightMap = flow.get('equipment_inflight_map') || {};\nif (inflightMap[equipmentId]) {\n  msg.command_result = {command_id: commandId, equipment_id: equipmentId, command_type: commandType, status:'REJECTED_BUSY', accepted:false, requested_at:now, updated_at:now, last_error:'another command is already in-flight for this equipment', inflight_command_id: inflightMap[equipmentId].command_id};\n  return [null, msg];\n}\nconst timeoutSec = Number(cmd.timeout_sec || cmd.timeoutSec || 10);\ninflightMap[equipmentId] = {command_id: commandId, command_type: commandType, started_at: now, timeout_sec: timeoutSec};\nflow.set('equipment_inflight_map', inflightMap);\nconst statusMap = flow.get('command_status_map') || {};\nstatusMap[commandId] = {command_id:commandId, equipment_id:equipmentId, command_type:commandType, value:value, status:'SENDING', accepted:true, requested_at:now, updated_at:now, retry_count:0, last_error:null};\nflow.set('command_status_map', statusMap);\nmsg.command = {command_id:commandId, equipment_id:equipmentId, command_type:commandType, value:value, timeout_sec:timeoutSec};\nmsg.command_result = statusMap[commandId];\nmsg.topic = commandId;\nreturn [msg, null];\n",
+        "func": "const now = new Date().toISOString();\nconst cmd = (msg.payload || {}).command || msg.payload || {};\n\nconst equipmentId = cmd.equipment_id || cmd.target_equipment || cmd.machine_id;\nconst commandId   = cmd.command_id   || msg.command_id       || msg._msgid;\nlet rawType       = cmd.command_type || cmd.tag              || cmd.tag_name || cmd.name;\nlet value         = 'value' in cmd   ? cmd.value             : cmd.payload;\n\nif (!equipmentId || !rawType) {\n  msg.command_result = {\n    command_id: commandId || null, equipment_id: equipmentId || null,\n    command_type: rawType || null, status: 'REJECTED_INVALID', accepted: false,\n    requested_at: now, updated_at: now,\n    last_error: 'equipment_id or command_type missing'\n  };\n  return [null, msg];\n}\n\n// 입력 표기가 다를 수 있는 것만 정규화\nconst ALIAS = {\n  inject_warn:  'inject_warning',\n  load:         'load_request',\n  unload:       'unload_request'\n};\nconst commandType = ALIAS[rawType] ?? rawType;\n\nconst BOOL_TAGS = new Set(['power', 'load_request', 'unload_request', 'reset_error', 'inject_warning', 'inject_error']);\nif (BOOL_TAGS.has(commandType)) value = !!value;\n\nconst inflightMap = flow.get('equipment_inflight_map') || {};\nif (inflightMap[equipmentId]) {\n  msg.command_result = {\n    command_id: commandId, equipment_id: equipmentId, command_type: commandType,\n    status: 'REJECTED_BUSY', accepted: false, requested_at: now, updated_at: now,\n    last_error: 'another command is already in-flight for this equipment',\n    inflight_command_id: inflightMap[equipmentId].command_id\n  };\n  return [null, msg];\n}\n\nconst timeoutSec = Number(cmd.timeout_sec || 10);\ninflightMap[equipmentId] = { command_id: commandId, command_type: commandType, started_at: now, timeout_sec: timeoutSec };\nflow.set('equipment_inflight_map', inflightMap);\n\nconst statusMap = flow.get('command_status_map') || {};\nstatusMap[commandId] = {\n  command_id: commandId, equipment_id: equipmentId, command_type: commandType,\n  value, status: 'SENDING', accepted: true,\n  requested_at: now, updated_at: now, retry_count: 0, last_error: null\n};\nflow.set('command_status_map', statusMap);\n\nmsg.command        = { command_id: commandId, equipment_id: equipmentId, command_type: commandType, value, timeout_sec: timeoutSec };\nmsg.command_result = statusMap[commandId];\nmsg.topic          = commandId;\nreturn [msg, null];",
         "outputs": 2,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 360,
-        "y": 120,
+        "x": 520,
+        "y": 680,
         "wires": [
             [
-                "e2ad3212d7dafda7",
-                "bc8a956a6b586af6",
-                "e0376bbc3575e01b"
+                "38b3a5d89ff105c4",
+                "1dd526106faef826",
+                "fc2e54630f63f6eb"
             ],
             [
-                "e0376bbc3575e01b"
+                "fc2e54630f63f6eb"
             ]
         ]
     },
     {
-        "id": "e2ad3212d7dafda7",
+        "id": "38b3a5d89ff105c4",
         "type": "switch",
         "z": "7fceb9f3fadf4c8d",
         "name": "route by equipment",
@@ -3011,214 +2992,223 @@
         "checkall": "true",
         "repair": false,
         "outputs": 10,
-        "x": 600,
-        "y": 220,
+        "x": 760,
+        "y": 780,
         "wires": [
             [
-                "013e38624a918edb"
+                "b3d1ccb1a2094e0b"
             ],
             [
-                "4be33e668ef7e5b9"
+                "fb8ed8c2a56f4dec"
             ],
             [
-                "4f90e5668b5a1f8d"
+                "25c81310c32125e1"
             ],
             [
-                "eb53a864b83b8004"
+                "0ed169f234fd7025"
             ],
             [
-                "4d8123e79bf81f3e"
+                "8031efc94239edab"
             ],
             [
-                "406020c7ca709e81"
+                "ffe04076a3e9f9ee"
             ],
             [
-                "7389c1b0418079e8"
+                "2fbd32ce6ca53c8a"
             ],
             [
-                "ef3cd25dc558e819"
+                "e5788df160b99d1c"
             ],
             [
-                "35e986a6af5586d7"
+                "fad9c41519024c1b"
             ],
             [
-                "ca2893afe2c8cef7"
+                "6145aa348e28a27f"
             ]
         ]
     },
     {
-        "id": "013e38624a918edb",
+        "id": "b3d1ccb1a2094e0b",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "route CAST-01 tag",
-        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'injectionpressuresp': msg.writer_kind='mc_direct'; msg.writer_target='wrcastinjectionpressuresp2'; return msg;\n  case 'moldtemperaturesp': msg.writer_kind='mc_direct'; msg.writer_target='wrcastmoldtemperaturesp2'; return msg;\n  case 'coolingflowsp': msg.writer_kind='mc_direct'; msg.writer_target='wrcastcoolingflowsp2'; return msg;\n  case 'power': msg.writer_kind='mc_bit'; msg.writer_target='wrcastpower2'; return msg;\n  case 'loadrequest': msg.writer_kind='mc_bit'; msg.writer_target='wrcastloadrequest2'; return msg;\n  case 'unloadrequest': msg.writer_kind='mc_bit'; msg.writer_target='wrcastunloadrequest2'; return msg;\n  case 'reseterror': msg.writer_kind='mc_bit'; msg.writer_target='wrcastreseterror2'; return msg;\n  case 'injectwarning': msg.writer_kind='mc_bit'; msg.writer_target='wrcastinjectwarning2'; return msg;\n  case 'injecterror': msg.writer_kind='mc_bit'; msg.writer_target='wrcastinjecterror2'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
+        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'injection_pressure_sp': msg.writer_kind = 'mc_direct'; msg.writer_target = 'wr_cast_01_injection_pressure_sp'; return msg;\n  case 'mold_temperature_sp': msg.writer_kind = 'mc_direct'; msg.writer_target = 'wr_cast_01_mold_temperature_sp'; return msg;\n  case 'cooling_flow_sp': msg.writer_kind = 'mc_direct'; msg.writer_target = 'wr_cast_01_cooling_flow_sp'; return msg;\n  case 'power': msg.writer_kind = 'mc_bit'; msg.writer_target = 'wr_cast_01_power'; return msg;\n  case 'load_request': msg.writer_kind = 'mc_bit'; msg.writer_target = 'wr_cast_01_load_request'; return msg;\n  case 'unload_request': msg.writer_kind = 'mc_bit'; msg.writer_target = 'wr_cast_01_unload_request'; return msg;\n  case 'reset_error': msg.writer_kind = 'mc_bit'; msg.writer_target = 'wr_cast_01_reset_error'; return msg;\n  case 'inject_warning': msg.writer_kind = 'mc_bit'; msg.writer_target = 'wr_cast_01_inject_warning'; return msg;\n  case 'inject_error': msg.writer_kind = 'mc_bit'; msg.writer_target = 'wr_cast_01_inject_error'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
         "outputs": 1,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 950,
-        "y": 180,
+        "x": 1110,
+        "y": 740,
         "wires": [
             [
-                "cb90fa6379f46578"
+                "7aef06ce4f9b2a57"
             ]
         ]
     },
     {
-        "id": "4be33e668ef7e5b9",
+        "id": "fb8ed8c2a56f4dec",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "route CNC-01 tag",
-        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'spindlespeedsp': msg.writer_kind='modbus_direct'; msg.writer_target='wrcnc01spindlespeedsp2'; return msg;\n  case 'toolusagesp': msg.writer_kind='modbus_float'; msg.writer_target='wrcnc01toolusagesp2'; return msg;\n  case 'coolantflowsp': msg.writer_kind='modbus_float'; msg.writer_target='wrcnc01coolantflowsp2'; return msg;\n  case 'power': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc01power2'; return msg;\n  case 'loadrequest': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc01loadrequest2'; return msg;\n  case 'unloadrequest': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc01unloadrequest2'; return msg;\n  case 'reseterror': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc01reseterror2'; return msg;\n  case 'injectwarning': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc01injectwarning2'; return msg;\n  case 'injecterror': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc01injecterror2'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
+        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'spindle_speed_sp': msg.writer_kind = 'modbus_direct'; msg.writer_target = 'wr_cnc_01_spindle_speed_sp'; return msg;\n  case 'tool_usage_sp': msg.writer_kind = 'modbus_float'; msg.writer_target = 'wr_cnc_01_tool_usage_sp'; return msg;\n  case 'coolant_flow_sp': msg.writer_kind = 'modbus_float'; msg.writer_target = 'wr_cnc_01_coolant_flow_sp'; return msg;\n  case 'power': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_01_power'; return msg;\n  case 'load_request': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_01_load_request'; return msg;\n  case 'unload_request': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_01_unload_request'; return msg;\n  case 'reset_error': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_01_reset_error'; return msg;\n  case 'inject_warning': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_01_inject_warning'; return msg;\n  case 'inject_error': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_01_inject_error'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
         "outputs": 1,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 950,
-        "y": 220,
+        "x": 1110,
+        "y": 760,
         "wires": [
             [
-                "cb90fa6379f46578"
+                "7aef06ce4f9b2a57"
             ]
         ]
     },
     {
-        "id": "4f90e5668b5a1f8d",
+        "id": "25c81310c32125e1",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "route CNC-02 tag",
-        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'spindlespeedsp': msg.writer_kind='modbus_direct'; msg.writer_target='wrcnc02spindlespeedsp2'; return msg;\n  case 'toolusagesp': msg.writer_kind='modbus_float'; msg.writer_target='wrcnc02toolusagesp2'; return msg;\n  case 'coolantflowsp': msg.writer_kind='modbus_float'; msg.writer_target='wrcnc02coolantflowsp2'; return msg;\n  case 'power': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc02power2'; return msg;\n  case 'loadrequest': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc02loadrequest2'; return msg;\n  case 'unloadrequest': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc02unloadrequest2'; return msg;\n  case 'reseterror': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc02reseterror2'; return msg;\n  case 'injectwarning': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc02injectwarning2'; return msg;\n  case 'injecterror': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc02injecterror2'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
+        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'spindle_speed_sp': msg.writer_kind = 'modbus_direct'; msg.writer_target = 'wr_cnc_02_spindle_speed_sp'; return msg;\n  case 'tool_usage_sp': msg.writer_kind = 'modbus_float'; msg.writer_target = 'wr_cnc_02_tool_usage_sp'; return msg;\n  case 'coolant_flow_sp': msg.writer_kind = 'modbus_float'; msg.writer_target = 'wr_cnc_02_coolant_flow_sp'; return msg;\n  case 'power': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_02_power'; return msg;\n  case 'load_request': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_02_load_request'; return msg;\n  case 'unload_request': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_02_unload_request'; return msg;\n  case 'reset_error': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_02_reset_error'; return msg;\n  case 'inject_warning': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_02_inject_warning'; return msg;\n  case 'inject_error': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_02_inject_error'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
         "outputs": 1,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 950,
-        "y": 260,
+        "x": 1110,
+        "y": 780,
         "wires": [
             [
-                "cb90fa6379f46578"
+                "7aef06ce4f9b2a57"
             ]
         ]
     },
     {
-        "id": "eb53a864b83b8004",
+        "id": "0ed169f234fd7025",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "route CNC-03 tag",
-        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'spindlespeedsp': msg.writer_kind='modbus_direct'; msg.writer_target='wrcnc03spindlespeedsp2'; return msg;\n  case 'toolusagesp': msg.writer_kind='modbus_float'; msg.writer_target='wrcnc03toolusagesp2'; return msg;\n  case 'coolantflowsp': msg.writer_kind='modbus_float'; msg.writer_target='wrcnc03coolantflowsp2'; return msg;\n  case 'power': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc03power2'; return msg;\n  case 'loadrequest': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc03loadrequest2'; return msg;\n  case 'unloadrequest': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc03unloadrequest2'; return msg;\n  case 'reseterror': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc03reseterror2'; return msg;\n  case 'injectwarning': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc03injectwarning2'; return msg;\n  case 'injecterror': msg.writer_kind='modbus_coil'; msg.writer_target='wrcnc03injecterror2'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
+        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'spindle_speed_sp': msg.writer_kind = 'modbus_direct'; msg.writer_target = 'wr_cnc_03_spindle_speed_sp'; return msg;\n  case 'tool_usage_sp': msg.writer_kind = 'modbus_float'; msg.writer_target = 'wr_cnc_03_tool_usage_sp'; return msg;\n  case 'coolant_flow_sp': msg.writer_kind = 'modbus_float'; msg.writer_target = 'wr_cnc_03_coolant_flow_sp'; return msg;\n  case 'power': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_03_power'; return msg;\n  case 'load_request': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_03_load_request'; return msg;\n  case 'unload_request': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_03_unload_request'; return msg;\n  case 'reset_error': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_03_reset_error'; return msg;\n  case 'inject_warning': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_03_inject_warning'; return msg;\n  case 'inject_error': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_cnc_03_inject_error'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
         "outputs": 1,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 950,
-        "y": 300,
+        "x": 1110,
+        "y": 800,
         "wires": [
             [
-                "cb90fa6379f46578"
+                "7aef06ce4f9b2a57"
             ]
         ]
     },
     {
-        "id": "4d8123e79bf81f3e",
+        "id": "8031efc94239edab",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "route WASH-01 tag",
-        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'cleaningconcentrationsp': msg.writer_kind='modbus_float'; msg.writer_target='wrwash01cleaningconcentrationsp2'; return msg;\n  case 'cleaningtemperaturesp': msg.writer_kind='modbus_float'; msg.writer_target='wrwash01cleaningtemperaturesp2'; return msg;\n  case 'cleaningpressuresp': msg.writer_kind='modbus_float'; msg.writer_target='wrwash01cleaningpressuresp2'; return msg;\n  case 'power': msg.writer_kind='modbus_coil'; msg.writer_target='wrwash01power2'; return msg;\n  case 'loadrequest': msg.writer_kind='modbus_coil'; msg.writer_target='wrwash01loadrequest2'; return msg;\n  case 'unloadrequest': msg.writer_kind='modbus_coil'; msg.writer_target='wrwash01unloadrequest2'; return msg;\n  case 'reseterror': msg.writer_kind='modbus_coil'; msg.writer_target='wrwash01reseterror2'; return msg;\n  case 'injectwarning': msg.writer_kind='modbus_coil'; msg.writer_target='wrwash01injectwarning2'; return msg;\n  case 'injecterror': msg.writer_kind='modbus_coil'; msg.writer_target='wrwash01injecterror2'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
+        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'cleaning_concentration_sp': msg.writer_kind = 'modbus_float'; msg.writer_target = 'wr_wash_01_cleaning_concentration_sp'; return msg;\n  case 'cleaning_temperature_sp': msg.writer_kind = 'modbus_float'; msg.writer_target = 'wr_wash_01_cleaning_temperature_sp'; return msg;\n  case 'cleaning_pressure_sp': msg.writer_kind = 'modbus_float'; msg.writer_target = 'wr_wash_01_cleaning_pressure_sp'; return msg;\n  case 'power': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_wash_01_power'; return msg;\n  case 'load_request': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_wash_01_load_request'; return msg;\n  case 'unload_request': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_wash_01_unload_request'; return msg;\n  case 'reset_error': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_wash_01_reset_error'; return msg;\n  case 'inject_warning': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_wash_01_inject_warning'; return msg;\n  case 'inject_error': msg.writer_kind = 'modbus_coil'; msg.writer_target = 'wr_wash_01_inject_error'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
         "outputs": 1,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 950,
-        "y": 340,
+        "x": 1110,
+        "y": 820,
         "wires": [
             [
-                "cb90fa6379f46578"
+                "7aef06ce4f9b2a57"
             ]
         ]
     },
     {
-        "id": "406020c7ca709e81",
+        "id": "ffe04076a3e9f9ee",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "route ASSY-01 tag",
-        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'tighteningtorquesp': msg.writer_kind='opcua_float'; msg.writer_target='wrassy01tighteningtorquesp2'; return msg;\n  case 'tighteninganglesp': msg.writer_kind='opcua_float'; msg.writer_target='wrassy01tighteninganglesp2'; return msg;\n  case 'pressforcesp': msg.writer_kind='opcua_float'; msg.writer_target='wrassy01pressforcesp2'; return msg;\n  case 'power': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy01power2'; return msg;\n  case 'loadrequest': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy01loadrequest2'; return msg;\n  case 'unloadrequest': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy01unloadrequest2'; return msg;\n  case 'reseterror': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy01reseterror2'; return msg;\n  case 'injectwarning': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy01injectwarning2'; return msg;\n  case 'injecterror': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy01injecterror2'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
+        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'tightening_torque_sp': msg.writer_kind = 'opcua_float'; msg.writer_target = 'wr_assy_01_tightening_torque_sp'; return msg;\n  case 'tightening_angle_sp': msg.writer_kind = 'opcua_float'; msg.writer_target = 'wr_assy_01_tightening_angle_sp'; return msg;\n  case 'press_force_sp': msg.writer_kind = 'opcua_float'; msg.writer_target = 'wr_assy_01_press_force_sp'; return msg;\n  case 'power': msg.writer_kind = 'opcua_bool'; msg.writer_target = 'wr_assy_01_power'; return msg;\n  case 'load_request': msg.writer_kind = 'opcua_bool'; msg.writer_target = 'wr_assy_01_load_request'; return msg;\n  case 'unload_request': msg.writer_kind = 'opcua_bool'; msg.writer_target = 'wr_assy_01_unload_request'; return msg;\n  case 'reset_error': msg.writer_kind = 'opcua_bool'; msg.writer_target = 'wr_assy_01_reset_error'; return msg;\n  case 'inject_warning': msg.writer_kind = 'opcua_bool'; msg.writer_target = 'wr_assy_01_inject_warning'; return msg;\n  case 'inject_error': msg.writer_kind = 'opcua_bool'; msg.writer_target = 'wr_assy_01_inject_error'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
         "outputs": 1,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 950,
-        "y": 380,
+        "x": 1110,
+        "y": 840,
         "wires": [
             [
-                "cb90fa6379f46578"
+                "7aef06ce4f9b2a57"
             ]
         ]
     },
     {
-        "id": "7389c1b0418079e8",
+        "id": "2fbd32ce6ca53c8a",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "route ASSY-02 tag",
-        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'tighteningtorquesp': msg.writer_kind='opcua_float'; msg.writer_target='wrassy02tighteningtorquesp2'; return msg;\n  case 'tighteninganglesp': msg.writer_kind='opcua_float'; msg.writer_target='wrassy02tighteninganglesp2'; return msg;\n  case 'pressforcesp': msg.writer_kind='opcua_float'; msg.writer_target='wrassy02pressforcesp2'; return msg;\n  case 'power': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy02power2'; return msg;\n  case 'loadrequest': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy02loadrequest2'; return msg;\n  case 'unloadrequest': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy02unloadrequest2'; return msg;\n  case 'reseterror': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy02reseterror2'; return msg;\n  case 'injectwarning': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy02injectwarning2'; return msg;\n  case 'injecterror': msg.writer_kind='opcua_bool'; msg.writer_target='wrassy02injecterror2'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
+        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'tightening_torque_sp': msg.writer_kind = 'opcua_float'; msg.writer_target ='wr_assy_02_tightening_torque_sp'; return msg;\n  case 'tightening_angle_sp': msg.writer_kind = 'opcua_float'; msg.writer_target ='wr_assy_02_tightening_angle_sp'; return msg;\n  case 'press_force_sp': msg.writer_kind = 'opcua_float'; msg.writer_target ='wr_assy_02_press_force_sp'; return msg;\n  case 'power': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_assy02power'; return msg;\n  case 'load_request': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_assy_02_load_request'; return msg;\n  case 'unload_request': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_assy_02_unload_request'; return msg;\n  case 'reset_error': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_assy_02_reset_error'; return msg;\n  case 'inject_warning': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_assy_02_inject_warning'; return msg;\n  case 'inject_error': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_assy_02_inject_error'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
         "outputs": 1,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 950,
-        "y": 420,
+        "x": 1110,
+        "y": 860,
         "wires": [
             [
-                "cb90fa6379f46578"
+                "7aef06ce4f9b2a57"
             ]
         ]
     },
     {
-        "id": "ef3cd25dc558e819",
+        "id": "e5788df160b99d1c",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "route TEST-01 tag",
-        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'boredimensionsp': msg.writer_kind='opcua_float'; msg.writer_target='wrtest01boredimensionsp2'; return msg;\n  case 'holedimensionsp': msg.writer_kind='opcua_float'; msg.writer_target='wrtest01holedimensionsp2'; return msg;\n  case 'power': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest01power2'; return msg;\n  case 'loadrequest': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest01loadrequest2'; return msg;\n  case 'unloadrequest': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest01unloadrequest2'; return msg;\n  case 'reseterror': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest01reseterror2'; return msg;\n  case 'injectwarning': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest01injectwarning2'; return msg;\n  case 'injecterror': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest01injecterror2'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
+        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'bore_dimension_sp': msg.writer_kind = 'opcua_float'; msg.writer_target ='wr_test_01_bore_dimension_sp'; return msg;\n  case 'hole_dimension_sp': msg.writer_kind = 'opcua_float'; msg.writer_target ='wr_test_01_hole_dimension_sp'; return msg;\n  case 'power': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_01_power'; return msg;\n  case 'load_request': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_01_load_request'; return msg;\n  case 'unload_request': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_01_unload_request'; return msg;\n  case 'reset_error': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_01_reset_error'; return msg;\n  case 'inject_warning': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_01_inject_warning'; return msg;\n  case 'inject_error': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_01_inject_error'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
         "outputs": 1,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 950,
-        "y": 460,
+        "x": 1110,
+        "y": 880,
         "wires": [
             [
-                "cb90fa6379f46578"
+                "7aef06ce4f9b2a57"
             ]
         ]
     },
     {
-        "id": "35e986a6af5586d7",
+        "id": "fad9c41519024c1b",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "route TEST-02 tag",
-        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'boredimensionsp': msg.writer_kind='opcua_float'; msg.writer_target='wrtest02boredimensionsp2'; return msg;\n  case 'holedimensionsp': msg.writer_kind='opcua_float'; msg.writer_target='wrtest02holedimensionsp2'; return msg;\n  case 'power': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest02power2'; return msg;\n  case 'loadrequest': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest02loadrequest2'; return msg;\n  case 'unloadrequest': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest02unloadrequest2'; return msg;\n  case 'reseterror': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest02reseterror2'; return msg;\n  case 'injectwarning': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest02injectwarning2'; return msg;\n  case 'injecterror': msg.writer_kind='opcua_bool'; msg.writer_target='wrtest02injecterror2'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
+        "func": "\nconst k = msg.command.command_type;\nswitch (k) {\n  case 'bore_dimension_sp': msg.writer_kind = 'opcua_float'; msg.writer_target ='wr_test_02_bore_dimension_sp'; return msg;\n  case 'hole_dimension_sp': msg.writer_kind = 'opcua_float'; msg.writer_target ='wr_test_02_hole_dimension_sp'; return msg;\n  case 'power': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_02_power'; return msg;\n  case 'load_request': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_02_load_request'; return msg;\n  case 'unload_request': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_02_unload_request'; return msg;\n  case 'reset_error': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_02_reset_error'; return msg;\n  case 'inject_warning': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_02_inject_warning'; return msg;\n  case 'inject_error': msg.writer_kind = 'opcua_bool'; msg.writer_target ='wr_test_02_inject_error'; return msg;\n  default: node.error('unsupported command for equipment: ' + msg.command.equipment_id + ' / ' + k, msg); return null;\n}",
         "outputs": 1,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 950,
-        "y": 500,
+        "x": 1110,
+        "y": 900,
         "wires": [
             [
-                "cb90fa6379f46578"
+                "7aef06ce4f9b2a57"
             ]
         ]
     },
     {
-        "id": "cb90fa6379f46578",
+        "id": "7aef06ce4f9b2a57",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "prepare writer payload",
@@ -3228,16 +3218,16 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1140,
-        "y": 840,
+        "x": 1300,
+        "y": 1420,
         "wires": [
             [
-                "fea99a83e788d64e"
+                "ca96391017d3013b"
             ]
         ]
     },
     {
-        "id": "fea99a83e788d64e",
+        "id": "ca96391017d3013b",
         "type": "switch",
         "z": "7fceb9f3fadf4c8d",
         "name": "dispatch to writer node",
@@ -3246,397 +3236,397 @@
         "rules": [
             {
                 "t": "eq",
-                "v": "wrcastinjectionpressuresp2",
+                "v": "wr_cast_01_injection_pressure_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcastmoldtemperaturesp2",
+                "v": "wr_cast_01_mold_temperature_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcastcoolingflowsp2",
+                "v": "wr_cast_01_cooling_flow_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcastpower2",
+                "v": "wr_cast_01_power",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcastloadrequest2",
+                "v": "wr_cast_01_load_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcastunloadrequest2",
+                "v": "wr_cast_01_unload_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcastreseterror2",
+                "v": "wr_cast_01_reset_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcastinjectwarning2",
+                "v": "wr_cast_01_inject_warning",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcastinjecterror2",
+                "v": "wr_cast_01_inject_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc01spindlespeedsp2",
+                "v": "wr_cnc_01_spindle_speed_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc01toolusagesp2",
+                "v": "wr_cnc_01_tool_usage_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc01coolantflowsp2",
+                "v": "wr_cnc_01_coolant_flow_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc01power2",
+                "v": "wr_cnc_01_power",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc01loadrequest2",
+                "v": "wr_cnc_01_load_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc01unloadrequest2",
+                "v": "wr_cnc_01_unload_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc01reseterror2",
+                "v": "wr_cnc_01_reset_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc01injectwarning2",
+                "v": "wr_cnc_01_inject_warning",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc01injecterror2",
+                "v": "wr_cnc_01_inject_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc02spindlespeedsp2",
+                "v": "wr_cnc_02_spindle_speed_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc02toolusagesp2",
+                "v": "wr_cnc_02_tool_usage_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc02coolantflowsp2",
+                "v": "wr_cnc_02_coolant_flow_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc02power2",
+                "v": "wr_cnc_02_power",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc02loadrequest2",
+                "v": "wr_cnc_02_load_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc02unloadrequest2",
+                "v": "wr_cnc_02_unload_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc02reseterror2",
+                "v": "wr_cnc_02_reset_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc02injectwarning2",
+                "v": "wr_cnc_02_inject_warning",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc02injecterror2",
+                "v": "wr_cnc_02_inject_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc03spindlespeedsp2",
+                "v": "wr_cnc_03_spindle_speed_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc03toolusagesp2",
+                "v": "wr_cnc_03_tool_usage_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc03coolantflowsp2",
+                "v": "wr_cnc_03_coolant_flow_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc03power2",
+                "v": "wr_cnc_03_power",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc03loadrequest2",
+                "v": "wr_cnc_03_load_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc03unloadrequest2",
+                "v": "wr_cnc_03_unload_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc03reseterror2",
+                "v": "wr_cnc_03_reset_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc03injectwarning2",
+                "v": "wr_cnc_03_inject_warning",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrcnc03injecterror2",
+                "v": "wr_cnc_03_inject_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrwash01cleaningconcentrationsp2",
+                "v": "wr_wash_01_cleaning_concentration_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrwash01cleaningtemperaturesp2",
+                "v": "wr_wash_01_cleaning_temperature_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrwash01cleaningpressuresp2",
+                "v": "wr_wash_01_cleaning_pressure_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrwash01power2",
+                "v": "wr_wash_01_power",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrwash01loadrequest2",
+                "v": "wr_wash_01_load_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrwash01unloadrequest2",
+                "v": "wr_wash_01_unload_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrwash01reseterror2",
+                "v": "wr_wash_01_reset_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrwash01injectwarning2",
+                "v": "wr_wash_01_inject_warning",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrwash01injecterror2",
+                "v": "wr_wash_01_inject_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy01tighteningtorquesp2",
+                "v": "wr_assy_01_tightening_torque_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy01tighteninganglesp2",
+                "v": "wr_assy_01_tightening_angle_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy01pressforcesp2",
+                "v": "wr_assy_01_press_force_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy01power2",
+                "v": "wr_assy_01_power",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy01loadrequest2",
+                "v": "wr_assy_01_load_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy01unloadrequest2",
+                "v": "wr_assy_01_unload_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy01reseterror2",
+                "v": "wr_assy_01_reset_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy01injectwarning2",
+                "v": "wr_assy_01_inject_warning",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy01injecterror2",
+                "v": "wr_assy_01_inject_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy02tighteningtorquesp2",
+                "v": "wr_assy_02_tightening_torque_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy02tighteninganglesp2",
+                "v": "wr_assy_02_tightening_angle_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy02pressforcesp2",
+                "v": "wr_assy_02_press_force_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy02power2",
+                "v": "wr_assy_02_power",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy02loadrequest2",
+                "v": "wr_assy_02_load_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy02unloadrequest2",
+                "v": "wr_assy_02_unload_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy02reseterror2",
+                "v": "wr_assy_02_reset_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy02injectwarning2",
+                "v": "wr_assy_02_inject_warning",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrassy02injecterror2",
+                "v": "wr_assy_02_inject_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest01boredimensionsp2",
+                "v": "wr_test_01_bore_dimension_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest01holedimensionsp2",
+                "v": "wr_test_01_hole_dimension_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest01power2",
+                "v": "wr_test_01_power",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest01loadrequest2",
+                "v": "wr_test_01_load_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest01unloadrequest2",
+                "v": "wr_test_01_unload_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest01reseterror2",
+                "v": "wr_test_01_reset_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest01injectwarning2",
+                "v": "wr_test_01_inject_warning",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest01injecterror2",
+                "v": "wr_test_01_inject_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest02boredimensionsp2",
+                "v": "wr_test_02_bore_dimension_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest02holedimensionsp2",
+                "v": "wr_test_02_hole_dimension_sp",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest02power2",
+                "v": "wr_test_02_power",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest02loadrequest2",
+                "v": "wr_test_02_load_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest02unloadrequest2",
+                "v": "wr_test_02_unload_request",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest02reseterror2",
+                "v": "wr_test_02_reset_error",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest02injectwarning2",
+                "v": "wr_test_02_inject_warning",
                 "vt": "str"
             },
             {
                 "t": "eq",
-                "v": "wrtest02injecterror2",
+                "v": "wr_test_02_inject_error",
                 "vt": "str"
             },
             {
@@ -3646,352 +3636,253 @@
         "checkall": "true",
         "repair": false,
         "outputs": 80,
-        "x": 1380,
-        "y": 840,
+        "x": 1560,
+        "y": 1420,
         "wires": [
             [
-                "fe1d9cdfe855c7c1"
+                "324775dc8a0ccd41"
             ],
             [
-                "944831d0301cc5b6"
+                "8ff0a470a8ae8b71"
             ],
             [
-                "b83775604396b72f"
+                "279b4f1c3057601e"
             ],
             [
-                "48a9a003f9dfc11d"
+                "f1f63c45834437ce"
             ],
             [
-                "cae274a62f4717f1"
+                "745c73d3d7173ebe"
             ],
             [
-                "d60f2509179df6cb"
+                "cfbf94b358f4d62f"
             ],
             [
-                "055fa6127701fb09"
+                "4fee2cc9c9efa6a0"
             ],
             [
-                "b30b7a1589358512"
+                "43c404b134304d2d"
             ],
             [
-                "0503f68719b5bb41"
+                "61b0a1f7b8f09035"
             ],
             [
-                "caa84a27e4d94b0d"
+                "27b568dbb7be9608"
             ],
             [
-                "2973c4d29fbafb7a"
+                "d518bb2223d7f8a8"
             ],
             [
-                "0c511608516e8c41"
+                "ff7acfce36cca204"
             ],
             [
-                "673d726d917a0144"
+                "a8f3dea426169f7a"
             ],
             [
-                "42af72058c90a9cc"
+                "e5e9be7fd953461c"
             ],
             [
-                "9244ade4d7973317"
+                "a63e705ec729f164"
             ],
             [
-                "ec9a09f0c33fb115"
+                "ccba67b247919e9a"
             ],
             [
-                "c8923bfa5c3a39eb"
+                "9a7ab83ad5019f21"
             ],
             [
-                "aa2edb3163df15e7"
+                "a0826b42e4d464e7"
             ],
             [
-                "4153e05628b1fa1e"
+                "bf8887bfa78dcce2"
             ],
             [
-                "dbb485362e4388ef"
+                "a3095f8803e7038a"
             ],
             [
-                "d74ef813f6462f23"
+                "19ae2ef28e1c14ce"
             ],
             [
-                "0edaa8fcac25cec7"
+                "b0f7d63a5bdb5101"
             ],
             [
-                "bbbb90ee7706bdda"
+                "172cb48b7121235b"
             ],
             [
-                "7f3b612f0f50c009"
+                "b38618e594c72777"
             ],
             [
-                "1c0324a6210ac58d"
+                "e504a886af0dfa66"
             ],
             [
-                "e574098366f42a26"
+                "7dcb875b68be6d55"
             ],
             [
-                "76be9a848f1b9af3"
+                "e76bd06b9d97c356"
             ],
             [
-                "fb87a48690319cc5"
+                "0ff820a9bf013233"
             ],
             [
-                "f9bad04b93e46ced"
+                "80d398c233b5f46b"
             ],
             [
-                "efe34e49a84338a1"
+                "f9a9121598c2256e"
             ],
             [
-                "60fa76a3b743ce15"
+                "7ebdb340f80df0ff"
             ],
             [
-                "ddf9ee2d0a18b059"
+                "2a1f2feb00c528bb"
             ],
             [
-                "901df2f5e13ac4ed"
+                "2cb0799f838bf7c4"
             ],
             [
-                "1655bf57e31b103f"
+                "1ffe2be3a675b920"
             ],
             [
-                "49c5597e6d725a6a"
+                "58d9e5261d0f8521"
             ],
             [
-                "ef1d621e1899fcbf"
+                "bfc84afa3c8be713"
             ],
             [
-                "1f0ec2873b925a7c"
+                "084b51bddc116c69"
             ],
             [
-                "95cef0b6c9e8b323"
+                "c7ad6e4b3da25b80"
             ],
             [
-                "27276d11b0a48260"
+                "0a247a04d9ee412b"
             ],
             [
-                "ae819184529a7f84"
+                "750193e6e12c4487"
             ],
             [
-                "fbbacad626349dda"
+                "6f649e55ce3bdb43"
             ],
             [
-                "0463e2efb470e7b5"
+                "b319dce3945167ff"
             ],
             [
-                "15ecc7b7e22e3ac4"
+                "17c9885230e9b9d4"
             ],
             [
-                "eb357655f37b0ed8"
+                "a99c538d937133f2"
             ],
             [
-                "f20492d599167ef2"
+                "019bb8a0caa9238f"
             ],
             [
-                "ec0e0d73f547d47e"
+                "1505eb51765b6cbf"
             ],
             [
-                "43da4a6e2b754059"
+                "7aeaf4414edd8458"
             ],
             [
-                "08c13e63474dd90f"
+                "25ca221dd4be782b"
             ],
             [
-                "163489335c2caf27"
+                "e380bb9f739338ed"
             ],
             [
-                "e017fe6da706fb15"
+                "ea4c474464a3cd96"
             ],
             [
-                "9f2d5c49850d3460"
+                "f9318c2bf34a8366"
             ],
             [
-                "676719861ef86711"
+                "6a3917c5746035d2"
             ],
             [
-                "021bd7c68908ce9c"
+                "4afe7746994fbd0a"
             ],
             [
-                "26667fb6dbb4de1a"
+                "0bc0a40ef577f9cb"
             ],
             [
-                "59163219ca7c4bb9"
+                "4abcf58fc9f047fc"
             ],
             [
-                "7eac7a6f3c582a0d"
+                "fb76b15c5be6b055"
             ],
             [
-                "50e62e0e5cf23040"
+                "c420ced46de0587e"
             ],
             [
-                "5bd3b7a42fc6bf46"
+                "564d5b440d8a12bd"
             ],
             [
-                "b32de15e8b874555"
+                "835255484d1a30f7"
             ],
             [
-                "82c67a188618e2b6"
+                "88ea9b5eb055bc98"
             ],
             [
-                "7e0bc9c2d1e03c86"
+                "c0c3d2243ff9a3b6"
             ],
             [
-                "78b07b69da86b836"
+                "4b11833b80750bf3"
             ],
             [
-                "138499cbdaf5aa70"
+                "aa4bbee22e1760b3"
             ],
             [
-                "b73dc810d3aa301f"
+                "83f11d9c03fd877a"
             ],
             [
-                "c2c2ce64129d29ec"
+                "e6d097ccfeb46892"
             ],
             [
-                "e9923b4191d9db34"
+                "7cd40655bd9c5d57"
             ],
             [
-                "f769aa9d27fa57b5"
+                "35df482a211ebcfc"
             ],
             [
-                "2e4c355d22235c30"
+                "c1bf78c564af52e3"
             ],
             [
-                "0bb588b26af1c636"
+                "a72c8f9b64acef63"
             ],
             [
-                "ebf79122a214a171"
+                "0b8d141741e8c9c9"
             ],
             [
-                "78f946ef15de6819"
+                "10e5172dc21f331a"
             ],
             [
-                "c9a11dfb025e8c35"
+                "3064abc401662c87"
             ],
             [
-                "e00776eeb9afd2a4"
+                "7f866f5013f5e56b"
             ],
             [
-                "b0a72115f7859ede"
+                "1ee7696cce24ee93"
             ],
             [
-                "82b459fd99aaffa6"
+                "029106d881cc9ea7"
             ],
             [
-                "17ca5f99c76fa53b"
+                "b4020e2c76d209f7"
             ],
             [
-                "9537084311833d11"
+                "ef98e06f6ee125e9"
             ],
             [
-                "b816165cb64f1c9a"
+                "1d26661e4e8b06f8"
             ],
             [
-                "bc5460b8eaec63d3"
+                "78c30c5031a83d2b"
             ],
             [
-                "ca2893afe2c8cef7"
+                "6145aa348e28a27f"
             ]
         ]
     },
     {
-        "id": "b2d1cc833db66fc6",
-        "type": "link in",
-        "z": "7fceb9f3fadf4c8d",
-        "name": "writer success in",
-        "links": [],
-        "x": 1945,
-        "y": 320,
-        "wires": [
-            [
-                "4eada37e6d63337e"
-            ]
-        ]
-    },
-    {
-        "id": "4eada37e6d63337e",
-        "type": "function",
-        "z": "7fceb9f3fadf4c8d",
-        "name": "mark COMPLETED",
-        "func": "\nconst now = new Date().toISOString();\nconst c = msg.command;\nif (!c || !c.command_id) return null;\nconst statusMap = flow.get('command_status_map') || {};\nstatusMap[c.command_id] = Object.assign({}, statusMap[c.command_id] || {}, {status:'COMPLETED', accepted:true, updated_at:now, last_error:null});\nflow.set('command_status_map', statusMap);\nconst inflightMap = flow.get('equipment_inflight_map') || {};\nif (c.equipment_id) delete inflightMap[c.equipment_id];\nflow.set('equipment_inflight_map', inflightMap);\nmsg.payload = 'COMPLETED';\nmsg.command_result = statusMap[c.command_id];\nreturn [msg,msg];\n",
-        "outputs": 2,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 2130,
-        "y": 320,
-        "wires": [
-            [
-                "e0376bbc3575e01b"
-            ],
-            [
-                "bc8a956a6b586af6"
-            ]
-        ]
-    },
-    {
-        "id": "4db2cc52cc24eff6",
-        "type": "function",
-        "z": "7fceb9f3fadf4c8d",
-        "name": "mark FAILED",
-        "func": "\nconst now = new Date().toISOString();\nconst c = msg.command;\nif (!c || !c.command_id) return null;\nconst statusMap = flow.get('command_status_map') || {};\nstatusMap[c.command_id] = Object.assign({}, statusMap[c.command_id] || {}, {status:'FAILED', accepted:false, updated_at:now, last_error:(msg.error && (msg.error.message || msg.error.toString())) || 'write failed'});\nflow.set('command_status_map', statusMap);\nconst inflightMap = flow.get('equipment_inflight_map') || {};\nif (c.equipment_id) delete inflightMap[c.equipment_id];\nflow.set('equipment_inflight_map', inflightMap);\nmsg.command_result = statusMap[c.command_id];\nreturn msg;\n",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 1900,
-        "y": 160,
-        "wires": [
-            [
-                "e0376bbc3575e01b"
-            ]
-        ]
-    },
-    {
-        "id": "bc8a956a6b586af6",
-        "type": "trigger",
-        "z": "7fceb9f3fadf4c8d",
-        "name": "timeout watchdog",
-        "op1": "",
-        "op2": "timeout",
-        "op1type": "nul",
-        "op2type": "str",
-        "duration": "10",
-        "extend": false,
-        "overrideDelay": false,
-        "units": "s",
-        "reset": "COMPLETED",
-        "bytopic": "topic",
-        "topic": "command.command_id",
-        "outputs": 1,
-        "x": 1910,
-        "y": 200,
-        "wires": [
-            [
-                "2ceb2432ee99945d"
-            ]
-        ]
-    },
-    {
-        "id": "2ceb2432ee99945d",
-        "type": "function",
-        "z": "7fceb9f3fadf4c8d",
-        "name": "mark TIMEOUT",
-        "func": "\nif (msg.payload !== 'timeout') return null;\nconst now = new Date().toISOString();\nconst c = msg.command;\nif (!c || !c.command_id) return null;\nconst inflightMap = flow.get('equipment_inflight_map') || {};\nconst active = c.equipment_id ? inflightMap[c.equipment_id] : null;\nif (!active || active.command_id !== c.command_id) return null;\ndelete inflightMap[c.equipment_id];\nflow.set('equipment_inflight_map', inflightMap);\nconst statusMap = flow.get('command_status_map') || {};\nstatusMap[c.command_id] = Object.assign({}, statusMap[c.command_id] || {}, {status:'TIMEOUT', accepted:false, updated_at:now, last_error:'write timeout'});\nflow.set('command_status_map', statusMap);\nmsg.command_result = statusMap[c.command_id];\nreturn msg;\n",
-        "outputs": 1,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 2110,
-        "y": 200,
-        "wires": [
-            [
-                "e0376bbc3575e01b"
-            ]
-        ]
-    },
-    {
-        "id": "ca2893afe2c8cef7",
+        "id": "6145aa348e28a27f",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "unsupported mapping",
@@ -4001,133 +3892,35 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1670,
-        "y": 2280,
+        "x": 1820,
+        "y": 2620,
         "wires": [
             [
-                "e0376bbc3575e01b"
+                "fc2e54630f63f6eb"
             ],
             [
-                "bc8a956a6b586af6"
+                "1dd526106faef826"
             ]
         ]
     },
     {
-        "id": "e0376bbc3575e01b",
+        "id": "fc2e54630f63f6eb",
         "type": "link out",
         "z": "7fceb9f3fadf4c8d",
         "name": "writable status out",
         "mode": "link",
         "links": [
-            "dbglinkin001",
-            "7a7912409140fe74",
-            "3d79d2a25c6b464c",
-            "2be251fae50628a5"
+            "40bdef06e03e14c9"
         ],
-        "x": 2335,
-        "y": 100,
+        "x": 3065,
+        "y": 880,
         "wires": []
     },
     {
-        "id": "032b8c280c81219c",
-        "type": "catch",
-        "z": "7fceb9f3fadf4c8d",
-        "name": "catch writable errors",
-        "scope": [
-            "fe1d9cdfe855c7c1",
-            "944831d0301cc5b6",
-            "b83775604396b72f",
-            "48a9a003f9dfc11d",
-            "cae274a62f4717f1",
-            "d60f2509179df6cb",
-            "055fa6127701fb09",
-            "b30b7a1589358512",
-            "0503f68719b5bb41",
-            "caa84a27e4d94b0d",
-            "2973c4d29fbafb7a",
-            "0c511608516e8c41",
-            "673d726d917a0144",
-            "42af72058c90a9cc",
-            "9244ade4d7973317",
-            "ec9a09f0c33fb115",
-            "c8923bfa5c3a39eb",
-            "aa2edb3163df15e7",
-            "4153e05628b1fa1e",
-            "dbb485362e4388ef",
-            "d74ef813f6462f23",
-            "0edaa8fcac25cec7",
-            "bbbb90ee7706bdda",
-            "7f3b612f0f50c009",
-            "1c0324a6210ac58d",
-            "e574098366f42a26",
-            "76be9a848f1b9af3",
-            "fb87a48690319cc5",
-            "f9bad04b93e46ced",
-            "efe34e49a84338a1",
-            "60fa76a3b743ce15",
-            "ddf9ee2d0a18b059",
-            "901df2f5e13ac4ed",
-            "1655bf57e31b103f",
-            "49c5597e6d725a6a",
-            "ef1d621e1899fcbf",
-            "1f0ec2873b925a7c",
-            "95cef0b6c9e8b323",
-            "27276d11b0a48260",
-            "ae819184529a7f84",
-            "fbbacad626349dda",
-            "0463e2efb470e7b5",
-            "15ecc7b7e22e3ac4",
-            "eb357655f37b0ed8",
-            "f20492d599167ef2",
-            "ec0e0d73f547d47e",
-            "43da4a6e2b754059",
-            "08c13e63474dd90f",
-            "163489335c2caf27",
-            "e017fe6da706fb15",
-            "9f2d5c49850d3460",
-            "676719861ef86711",
-            "021bd7c68908ce9c",
-            "26667fb6dbb4de1a",
-            "59163219ca7c4bb9",
-            "7eac7a6f3c582a0d",
-            "50e62e0e5cf23040",
-            "5bd3b7a42fc6bf46",
-            "b32de15e8b874555",
-            "82c67a188618e2b6",
-            "7e0bc9c2d1e03c86",
-            "78b07b69da86b836",
-            "138499cbdaf5aa70",
-            "b73dc810d3aa301f",
-            "c2c2ce64129d29ec",
-            "e9923b4191d9db34",
-            "f769aa9d27fa57b5",
-            "2e4c355d22235c30",
-            "0bb588b26af1c636",
-            "ebf79122a214a171",
-            "78f946ef15de6819",
-            "c9a11dfb025e8c35",
-            "e00776eeb9afd2a4",
-            "b0a72115f7859ede",
-            "82b459fd99aaffa6",
-            "17ca5f99c76fa53b",
-            "9537084311833d11",
-            "b816165cb64f1c9a",
-            "bc5460b8eaec63d3"
-        ],
-        "uncaught": false,
-        "x": 1690,
-        "y": 160,
-        "wires": [
-            [
-                "4db2cc52cc24eff6"
-            ]
-        ]
-    },
-    {
-        "id": "fe1d9cdfe855c7c1",
+        "id": "324775dc8a0ccd41",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CAST-01 write injectionpressuresp",
+        "name": "CAST-01 write injection_pressure_sp",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
         "data": "payload",
@@ -4136,19 +3929,19 @@
         "dataType": "msg",
         "errorHandling": "throw",
         "outputs": 1,
-        "x": 1660,
-        "y": 240,
+        "x": 1870,
+        "y": 800,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ]
         ]
     },
     {
-        "id": "944831d0301cc5b6",
+        "id": "8ff0a470a8ae8b71",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CAST-01 write moldtemperaturesp",
+        "name": "CAST-01 write mold_temperature_sp",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
         "data": "payload",
@@ -4157,19 +3950,19 @@
         "dataType": "msg",
         "errorHandling": "throw",
         "outputs": 1,
-        "x": 1670,
-        "y": 270,
+        "x": 1870,
+        "y": 820,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ]
         ]
     },
     {
-        "id": "b83775604396b72f",
+        "id": "279b4f1c3057601e",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CAST-01 write coolingflowsp",
+        "name": "CAST-01 write cooling_flow_sp",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
         "data": "payload",
@@ -4178,16 +3971,16 @@
         "dataType": "msg",
         "errorHandling": "throw",
         "outputs": 1,
-        "x": 1670,
-        "y": 300,
+        "x": 1850,
+        "y": 840,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ]
         ]
     },
     {
-        "id": "48a9a003f9dfc11d",
+        "id": "f1f63c45834437ce",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
         "name": "CAST-01 write power",
@@ -4199,19 +3992,19 @@
         "dataType": "msg",
         "errorHandling": "throw",
         "outputs": 1,
-        "x": 1670,
-        "y": 330,
+        "x": 1820,
+        "y": 860,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ]
         ]
     },
     {
-        "id": "cae274a62f4717f1",
+        "id": "745c73d3d7173ebe",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CAST-01 write loadrequest",
+        "name": "CAST-01 write load_request",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
         "data": "payload",
@@ -4220,19 +4013,19 @@
         "dataType": "msg",
         "errorHandling": "throw",
         "outputs": 1,
-        "x": 1670,
-        "y": 360,
+        "x": 1840,
+        "y": 880,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ]
         ]
     },
     {
-        "id": "d60f2509179df6cb",
+        "id": "cfbf94b358f4d62f",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CAST-01 write unloadrequest",
+        "name": "CAST-01 write unload_request",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
         "data": "payload",
@@ -4241,19 +4034,19 @@
         "dataType": "msg",
         "errorHandling": "throw",
         "outputs": 1,
-        "x": 1670,
-        "y": 390,
+        "x": 1850,
+        "y": 900,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ]
         ]
     },
     {
-        "id": "055fa6127701fb09",
+        "id": "4fee2cc9c9efa6a0",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CAST-01 write reseterror",
+        "name": "CAST-01 write reset_error",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
         "data": "payload",
@@ -4262,19 +4055,19 @@
         "dataType": "msg",
         "errorHandling": "throw",
         "outputs": 1,
-        "x": 1670,
-        "y": 420,
+        "x": 1830,
+        "y": 920,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ]
         ]
     },
     {
-        "id": "b30b7a1589358512",
+        "id": "43c404b134304d2d",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CAST-01 write injectwarning",
+        "name": "CAST-01 write inject_warning",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
         "data": "payload",
@@ -4283,19 +4076,19 @@
         "dataType": "msg",
         "errorHandling": "throw",
         "outputs": 1,
-        "x": 1670,
-        "y": 450,
+        "x": 1850,
+        "y": 940,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ]
         ]
     },
     {
-        "id": "0503f68719b5bb41",
+        "id": "61b0a1f7b8f09035",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CAST-01 write injecterror",
+        "name": "CAST-01 write inject_error",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
         "data": "payload",
@@ -4304,19 +4097,19 @@
         "dataType": "msg",
         "errorHandling": "throw",
         "outputs": 1,
-        "x": 1670,
-        "y": 480,
+        "x": 1840,
+        "y": 960,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ]
         ]
     },
     {
-        "id": "caa84a27e4d94b0d",
+        "id": "27b568dbb7be9608",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-01 write spindlespeedsp",
+        "name": "CNC-01 write spindle_speed_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4329,20 +4122,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 540,
+        "x": 1850,
+        "y": 1000,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "2973c4d29fbafb7a",
+        "id": "d518bb2223d7f8a8",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-01 write toolusagesp",
+        "name": "CNC-01 write tool_usage_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4355,20 +4148,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 570,
+        "x": 1840,
+        "y": 1020,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "0c511608516e8c41",
+        "id": "ff7acfce36cca204",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-01 write coolantflowsp",
+        "name": "CNC-01 write coolant_flow_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4381,17 +4174,17 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 600,
+        "x": 1850,
+        "y": 1040,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "673d726d917a0144",
+        "id": "a8f3dea426169f7a",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
         "name": "CNC-01 write power",
@@ -4407,20 +4200,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 620,
+        "x": 1820,
+        "y": 1060,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "42af72058c90a9cc",
+        "id": "e5e9be7fd953461c",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-01 write loadrequest",
+        "name": "CNC-01 write load_request",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4433,20 +4226,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 650,
+        "x": 1840,
+        "y": 1080,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "9244ade4d7973317",
+        "id": "a63e705ec729f164",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-01 write unloadrequest",
+        "name": "CNC-01 write unload_request",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4459,20 +4252,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 680,
+        "x": 1850,
+        "y": 1100,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "ec9a09f0c33fb115",
+        "id": "ccba67b247919e9a",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-01 write reseterror",
+        "name": "CNC-01 write reset_error",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4485,20 +4278,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 710,
+        "x": 1830,
+        "y": 1120,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "c8923bfa5c3a39eb",
+        "id": "9a7ab83ad5019f21",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-01 write injectwarning",
+        "name": "CNC-01 write inject_warning",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4511,17 +4304,17 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 740,
+        "x": 1840,
+        "y": 1140,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "aa2edb3163df15e7",
+        "id": "a0826b42e4d464e7",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
         "name": "CNC-01 write injecterror",
@@ -4537,20 +4330,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1690,
-        "y": 810,
+        "x": 1830,
+        "y": 1190,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "4153e05628b1fa1e",
+        "id": "bf8887bfa78dcce2",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-02 write spindlespeedsp",
+        "name": "CNC-02 write spindle_speed_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4563,20 +4356,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1690,
-        "y": 800,
+        "x": 1850,
+        "y": 1180,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "dbb485362e4388ef",
+        "id": "a3095f8803e7038a",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-02 write toolusagesp",
+        "name": "CNC-02 write tool_usage_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4589,20 +4382,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1690,
-        "y": 830,
+        "x": 1840,
+        "y": 1200,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "d74ef813f6462f23",
+        "id": "19ae2ef28e1c14ce",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-02 write coolantflowsp",
+        "name": "CNC-02 write coolant_flow_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4615,17 +4408,17 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1690,
-        "y": 860,
+        "x": 1850,
+        "y": 1220,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "0edaa8fcac25cec7",
+        "id": "b0f7d63a5bdb5101",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
         "name": "CNC-02 write power",
@@ -4641,20 +4434,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 880,
+        "x": 1820,
+        "y": 1240,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "bbbb90ee7706bdda",
+        "id": "172cb48b7121235b",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-02 write loadrequest",
+        "name": "CNC-02 write load_request",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4667,20 +4460,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 910,
+        "x": 1840,
+        "y": 1260,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "7f3b612f0f50c009",
+        "id": "b38618e594c72777",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-02 write unloadrequest",
+        "name": "CNC-02 write unload_request",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4693,20 +4486,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 940,
+        "x": 1850,
+        "y": 1280,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "1c0324a6210ac58d",
+        "id": "e504a886af0dfa66",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-02 write reseterror",
+        "name": "CNC-02 write reset_error",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4719,20 +4512,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 970,
+        "x": 1830,
+        "y": 1300,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "e574098366f42a26",
+        "id": "7dcb875b68be6d55",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-02 write injectwarning",
+        "name": "CNC-02 write inject_warning",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4745,17 +4538,17 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1000,
+        "x": 1840,
+        "y": 1320,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "76be9a848f1b9af3",
+        "id": "e76bd06b9d97c356",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
         "name": "CNC-02 write injecterror",
@@ -4771,20 +4564,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1070,
+        "x": 1830,
+        "y": 1370,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "fb87a48690319cc5",
+        "id": "0ff820a9bf013233",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-03 write spindlespeedsp",
+        "name": "CNC-03 write spindle_speed_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4797,20 +4590,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1060,
+        "x": 1850,
+        "y": 1360,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "f9bad04b93e46ced",
+        "id": "80d398c233b5f46b",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-03 write toolusagesp",
+        "name": "CNC-03 write tool_usage_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4823,20 +4616,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1090,
+        "x": 1840,
+        "y": 1380,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "efe34e49a84338a1",
+        "id": "f9a9121598c2256e",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-03 write coolantflowsp",
+        "name": "CNC-03 write coolant_flow_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4849,17 +4642,17 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1120,
+        "x": 1850,
+        "y": 1400,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "60fa76a3b743ce15",
+        "id": "7ebdb340f80df0ff",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
         "name": "CNC-03 write power",
@@ -4875,20 +4668,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1140,
+        "x": 1820,
+        "y": 1420,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "ddf9ee2d0a18b059",
+        "id": "2a1f2feb00c528bb",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-03 write loadrequest",
+        "name": "CNC-03 write load_request",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4901,20 +4694,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1170,
+        "x": 1840,
+        "y": 1440,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "901df2f5e13ac4ed",
+        "id": "2cb0799f838bf7c4",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-03 write unloadrequest",
+        "name": "CNC-03 write unload_request",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4927,20 +4720,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1200,
+        "x": 1850,
+        "y": 1460,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "1655bf57e31b103f",
+        "id": "1ffe2be3a675b920",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-03 write reseterror",
+        "name": "CNC-03 write reset_error",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4953,20 +4746,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1230,
+        "x": 1830,
+        "y": 1480,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "49c5597e6d725a6a",
+        "id": "58d9e5261d0f8521",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-03 write injectwarning",
+        "name": "CNC-03 write inject_warning",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -4979,20 +4772,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1260,
+        "x": 1840,
+        "y": 1500,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "ef1d621e1899fcbf",
+        "id": "bfc84afa3c8be713",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC-03 write injecterror",
+        "name": "CNC-03 write inject_error",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -5005,20 +4798,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1680,
-        "y": 1290,
+        "x": 1830,
+        "y": 1520,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "1f0ec2873b925a7c",
+        "id": "084b51bddc116c69",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "WASH-01 write cleaningconcentrationsp",
+        "name": "WASH-01 write cleaning_concentration_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -5031,20 +4824,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1700,
-        "y": 1340,
+        "x": 1890,
+        "y": 1560,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "95cef0b6c9e8b323",
+        "id": "c7ad6e4b3da25b80",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "WASH-01 write cleaningtemperaturesp",
+        "name": "WASH-01 write cleaning_temperature_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -5057,20 +4850,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1700,
-        "y": 1370,
+        "x": 1880,
+        "y": 1580,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "27276d11b0a48260",
+        "id": "0a247a04d9ee412b",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "WASH-01 write cleaningpressuresp",
+        "name": "WASH-01 write cleaning_pressure_sp",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -5083,17 +4876,17 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1700,
-        "y": 1400,
+        "x": 1870,
+        "y": 1600,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "ae819184529a7f84",
+        "id": "750193e6e12c4487",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
         "name": "WASH-01 write power",
@@ -5109,20 +4902,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1690,
-        "y": 1430,
+        "x": 1820,
+        "y": 1620,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "fbbacad626349dda",
+        "id": "6f649e55ce3bdb43",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "WASH-01 write loadrequest",
+        "name": "WASH-01 write load_request",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -5135,20 +4928,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1690,
-        "y": 1460,
+        "x": 1840,
+        "y": 1640,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "0463e2efb470e7b5",
+        "id": "b319dce3945167ff",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "WASH-01 write unloadrequest",
+        "name": "WASH-01 write unload_request",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -5161,20 +4954,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1690,
-        "y": 1490,
+        "x": 1850,
+        "y": 1660,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "15ecc7b7e22e3ac4",
+        "id": "17c9885230e9b9d4",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "WASH-01 write reseterror",
+        "name": "WASH-01 write reset_error",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -5187,20 +4980,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1690,
-        "y": 1520,
+        "x": 1840,
+        "y": 1680,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "eb357655f37b0ed8",
+        "id": "a99c538d937133f2",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "WASH-01 write injectwarning",
+        "name": "WASH-01 write inject_warning",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -5213,20 +5006,20 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1690,
-        "y": 1550,
+        "x": 1850,
+        "y": 1700,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             []
         ]
     },
     {
-        "id": "f20492d599167ef2",
+        "id": "019bb8a0caa9238f",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
-        "name": "WASH-01 write injecterror",
+        "name": "WASH-01 write inject_error",
         "showStatusActivities": false,
         "showErrors": false,
         "showWarnings": true,
@@ -5239,122 +5032,122 @@
         "keepMsgProperties": true,
         "delayOnStart": false,
         "startDelayTime": "",
-        "x": 1690,
-        "y": 1580,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            []
-        ]
-    },
-    {
-        "id": "ec0e0d73f547d47e",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "d478c1239ed74467",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "ASSY-01 write tighteningtorquesp",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1680,
-        "y": 1660,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            [],
-            []
-        ]
-    },
-    {
-        "id": "43da4a6e2b754059",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "d478c1239ed74467",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "ASSY-01 write tighteninganglesp",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1680,
-        "y": 1690,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            [],
-            []
-        ]
-    },
-    {
-        "id": "08c13e63474dd90f",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "d478c1239ed74467",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "ASSY-01 write pressforcesp",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1680,
+        "x": 1840,
         "y": 1720,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "1505eb51765b6cbf",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "d478c1239ed74467",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "ASSY-01 write tightening_torque_sp",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1870,
+        "y": 1780,
+        "wires": [
+            [
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "163489335c2caf27",
+        "id": "7aeaf4414edd8458",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "d478c1239ed74467",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "ASSY-01 write tightening_angles_p",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1860,
+        "y": 1800,
+        "wires": [
+            [
+                "c6726ab55daca56f"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "25ca221dd4be782b",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "d478c1239ed74467",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "ASSY-01 write press_force_sp",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1850,
+        "y": 1820,
+        "wires": [
+            [
+                "c6726ab55daca56f"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "e380bb9f739338ed",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "d478c1239ed74467",
@@ -5378,123 +5171,18 @@
         "name": "ASSY-01 write power",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
-        "y": 1750,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            [],
-            []
-        ]
-    },
-    {
-        "id": "e017fe6da706fb15",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "d478c1239ed74467",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "ASSY-01 write loadrequest",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1680,
-        "y": 1780,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            [],
-            []
-        ]
-    },
-    {
-        "id": "9f2d5c49850d3460",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "d478c1239ed74467",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "ASSY-01 write unloadrequest",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1680,
-        "y": 1810,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            [],
-            []
-        ]
-    },
-    {
-        "id": "676719861ef86711",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "d478c1239ed74467",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "ASSY-01 write reseterror",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1680,
+        "x": 1820,
         "y": 1840,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "021bd7c68908ce9c",
+        "id": "ea4c474464a3cd96",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "d478c1239ed74467",
@@ -5515,21 +5203,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-01 write injectwarning",
+        "name": "ASSY-01 write load_request",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
-        "y": 1870,
+        "x": 1840,
+        "y": 1860,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "26667fb6dbb4de1a",
+        "id": "f9318c2bf34a8366",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "d478c1239ed74467",
@@ -5550,24 +5238,59 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-01 write injecterror",
+        "name": "ASSY-01 write unload_request",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
+        "x": 1850,
+        "y": 1880,
+        "wires": [
+            [
+                "c6726ab55daca56f"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "6a3917c5746035d2",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "d478c1239ed74467",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "ASSY-01 write reset_error",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1830,
         "y": 1900,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "59163219ca7c4bb9",
+        "id": "4afe7746994fbd0a",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
-        "endpoint": "3964f417ac934bda",
+        "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
         "deadbandvalue": "1",
@@ -5585,24 +5308,24 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-02 write tighteningtorquesp",
+        "name": "ASSY-01 write inject_warning",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
-        "y": 1960,
+        "x": 1840,
+        "y": 1920,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "7eac7a6f3c582a0d",
+        "id": "0bc0a40ef577f9cb",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
-        "endpoint": "3964f417ac934bda",
+        "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
         "deadbandvalue": "1",
@@ -5620,21 +5343,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-02 write tighteninganglesp",
+        "name": "ASSY-01 write inject_error",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
-        "y": 1990,
+        "x": 1840,
+        "y": 1940,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "50e62e0e5cf23040",
+        "id": "4abcf58fc9f047fc",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "3964f417ac934bda",
@@ -5655,21 +5378,91 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-02 write pressforcesp",
+        "name": "ASSY-02 write tightening_torque_sp",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
+        "x": 1870,
+        "y": 2000,
+        "wires": [
+            [
+                "c6726ab55daca56f"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "fb76b15c5be6b055",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "3964f417ac934bda",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "ASSY-02 write tightening_angles_p",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1860,
         "y": 2020,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "5bd3b7a42fc6bf46",
+        "id": "c420ced46de0587e",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "3964f417ac934bda",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "ASSY-02 write press_force_sp",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1850,
+        "y": 2040,
+        "wires": [
+            [
+                "c6726ab55daca56f"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "564d5b440d8a12bd",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "3964f417ac934bda",
@@ -5693,18 +5486,18 @@
         "name": "ASSY-02 write power",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
-        "y": 2050,
+        "x": 1820,
+        "y": 2060,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "b32de15e8b874555",
+        "id": "835255484d1a30f7",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "3964f417ac934bda",
@@ -5725,21 +5518,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-02 write loadrequest",
+        "name": "ASSY-02 write load_request",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
+        "x": 1840,
         "y": 2080,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "82c67a188618e2b6",
+        "id": "88ea9b5eb055bc98",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "3964f417ac934bda",
@@ -5760,21 +5553,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-02 write unloadrequest",
+        "name": "ASSY-02 write unload_request",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
-        "y": 2110,
+        "x": 1850,
+        "y": 2100,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "7e0bc9c2d1e03c86",
+        "id": "c0c3d2243ff9a3b6",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "3964f417ac934bda",
@@ -5795,21 +5588,56 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-02 write reseterror",
+        "name": "ASSY-02 write reset_error",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
+        "x": 1830,
+        "y": 2120,
+        "wires": [
+            [
+                "c6726ab55daca56f"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "4b11833b80750bf3",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "3964f417ac934bda",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "ASSY-02 write inject_warning",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1840,
         "y": 2140,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "78b07b69da86b836",
+        "id": "aa4bbee22e1760b3",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "3964f417ac934bda",
@@ -5830,56 +5658,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-02 write injectwarning",
+        "name": "ASSY-02 write inject_error",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1680,
-        "y": 2170,
+        "x": 1840,
+        "y": 2160,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "138499cbdaf5aa70",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "3964f417ac934bda",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "ASSY-02 write injecterror",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1680,
-        "y": 2200,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            [],
-            []
-        ]
-    },
-    {
-        "id": "b73dc810d3aa301f",
+        "id": "83f11d9c03fd877a",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "fb49ebe2e2414a80",
@@ -5900,21 +5693,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "TEST-01 write boredimensionsp",
+        "name": "TEST-01 write bore_dimension_sp",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2280,
+        "x": 1860,
+        "y": 2220,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "c2c2ce64129d29ec",
+        "id": "e6d097ccfeb46892",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "fb49ebe2e2414a80",
@@ -5935,21 +5728,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "TEST-01 write holedimensionsp",
+        "name": "TEST-01 write hole_dimension_sp",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2310,
+        "x": 1860,
+        "y": 2240,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "e9923b4191d9db34",
+        "id": "7cd40655bd9c5d57",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "fb49ebe2e2414a80",
@@ -5973,18 +5766,158 @@
         "name": "TEST-01 write power",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
+        "x": 1820,
+        "y": 2260,
+        "wires": [
+            [
+                "c6726ab55daca56f"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "35df482a211ebcfc",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "fb49ebe2e2414a80",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "TEST-01 write load_request",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1840,
+        "y": 2280,
+        "wires": [
+            [
+                "c6726ab55daca56f"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "c1bf78c564af52e3",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "fb49ebe2e2414a80",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "TEST-01 write unload_request",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1850,
+        "y": 2300,
+        "wires": [
+            [
+                "c6726ab55daca56f"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "a72c8f9b64acef63",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "fb49ebe2e2414a80",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "TEST-01 write reset_error",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1830,
+        "y": 2320,
+        "wires": [
+            [
+                "c6726ab55daca56f"
+            ],
+            [],
+            []
+        ]
+    },
+    {
+        "id": "0b8d141741e8c9c9",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "fb49ebe2e2414a80",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "TEST-01 write inject_warning",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 1840,
         "y": 2340,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "f769aa9d27fa57b5",
+        "id": "10e5172dc21f331a",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "fb49ebe2e2414a80",
@@ -6005,161 +5938,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "TEST-01 write loadrequest",
+        "name": "TEST-01 write inject_error",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2370,
+        "x": 1830,
+        "y": 2360,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "2e4c355d22235c30",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "fb49ebe2e2414a80",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "TEST-01 write unloadrequest",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1670,
-        "y": 2400,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            [],
-            []
-        ]
-    },
-    {
-        "id": "0bb588b26af1c636",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "fb49ebe2e2414a80",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "TEST-01 write reseterror",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1670,
-        "y": 2430,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            [],
-            []
-        ]
-    },
-    {
-        "id": "ebf79122a214a171",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "fb49ebe2e2414a80",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "TEST-01 write injectwarning",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1670,
-        "y": 2460,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            [],
-            []
-        ]
-    },
-    {
-        "id": "78f946ef15de6819",
-        "type": "OpcUa-Client",
-        "z": "7fceb9f3fadf4c8d",
-        "endpoint": "fb49ebe2e2414a80",
-        "action": "write",
-        "deadbandtype": "a",
-        "deadbandvalue": "1",
-        "time": "10",
-        "timeUnit": "s",
-        "certificate": "n",
-        "localfile": "",
-        "localkeyfile": "",
-        "securitymode": "None",
-        "securitypolicy": "None",
-        "useTransport": false,
-        "maxChunkCount": "1",
-        "maxMessageSize": "8192",
-        "receiveBufferSize": "8192",
-        "sendBufferSize": "8192",
-        "setstatusandtime": false,
-        "keepsessionalive": false,
-        "name": "TEST-01 write injecterror",
-        "applicationName": "",
-        "applicationUri": "",
-        "x": 1670,
-        "y": 2490,
-        "wires": [
-            [
-                "b2d1cc833db66fc6"
-            ],
-            [],
-            []
-        ]
-    },
-    {
-        "id": "c9a11dfb025e8c35",
+        "id": "3064abc401662c87",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "5d81aa501a7a44d5",
@@ -6180,21 +5973,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "TEST-02 write boredimensionsp",
+        "name": "TEST-02 write bore_dimension_sp",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2560,
+        "x": 1860,
+        "y": 2420,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "e00776eeb9afd2a4",
+        "id": "7f866f5013f5e56b",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "5d81aa501a7a44d5",
@@ -6215,21 +6008,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "TEST-02 write holedimensionsp",
+        "name": "TEST-02 write hole_dimension_sp",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2590,
+        "x": 1860,
+        "y": 2440,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "b0a72115f7859ede",
+        "id": "1ee7696cce24ee93",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "5d81aa501a7a44d5",
@@ -6253,18 +6046,18 @@
         "name": "TEST-02 write power",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2620,
+        "x": 1820,
+        "y": 2460,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "82b459fd99aaffa6",
+        "id": "029106d881cc9ea7",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "5d81aa501a7a44d5",
@@ -6285,21 +6078,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "TEST-02 write loadrequest",
+        "name": "TEST-02 write load_request",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2650,
+        "x": 1840,
+        "y": 2480,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "17ca5f99c76fa53b",
+        "id": "b4020e2c76d209f7",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "5d81aa501a7a44d5",
@@ -6320,21 +6113,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "TEST-02 write unloadrequest",
+        "name": "TEST-02 write unload_request",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2680,
+        "x": 1850,
+        "y": 2500,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "9537084311833d11",
+        "id": "ef98e06f6ee125e9",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "5d81aa501a7a44d5",
@@ -6355,21 +6148,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "TEST-02 write reseterror",
+        "name": "TEST-02 write reset_error",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2710,
+        "x": 1830,
+        "y": 2520,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "b816165cb64f1c9a",
+        "id": "1d26661e4e8b06f8",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "5d81aa501a7a44d5",
@@ -6390,21 +6183,21 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "TEST-02 write injectwarning",
+        "name": "TEST-02 write inject_warning",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2740,
+        "x": 1840,
+        "y": 2540,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "bc5460b8eaec63d3",
+        "id": "78c30c5031a83d2b",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
         "endpoint": "5d81aa501a7a44d5",
@@ -6425,61 +6218,61 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "TEST-02 write injecterror",
+        "name": "TEST-02 write inject_error",
         "applicationName": "",
         "applicationUri": "",
-        "x": 1670,
-        "y": 2770,
+        "x": 1830,
+        "y": 2560,
         "wires": [
             [
-                "b2d1cc833db66fc6"
+                "c6726ab55daca56f"
             ],
             [],
             []
         ]
     },
     {
-        "id": "dbgcomment001",
+        "id": "12dc6b8ef7cf8669",
         "type": "comment",
         "z": "7fceb9f3fadf4c8d",
         "name": "Writable debug & inject pack",
         "info": "전체 writable flow 테스트용 inject/debug 묶음. 정상 성공 경로, setpoint/boolean, invalid payload, unsupported mapping, REJECTED_BUSY, TIMEOUT 시뮬레이션을 한 번에 점검할 수 있게 구성했다.",
-        "x": 240,
-        "y": 600,
+        "x": 400,
+        "y": 1160,
         "wires": []
     },
     {
-        "id": "dbglinkout001",
+        "id": "47ed4dd1a34792db",
         "type": "link out",
         "z": "7fceb9f3fadf4c8d",
         "name": "to writable command in",
         "mode": "link",
         "links": [
-            "d5f5c867c138a839"
+            "5d1eb2df2eafcee9"
         ],
-        "x": 635,
-        "y": 920,
+        "x": 795,
+        "y": 1480,
         "wires": []
     },
     {
-        "id": "dbglinkin001",
+        "id": "40bdef06e03e14c9",
         "type": "link in",
         "z": "7fceb9f3fadf4c8d",
         "name": "from writable status out",
         "links": [
-            "e0376bbc3575e01b"
+            "fc2e54630f63f6eb"
         ],
-        "x": 135,
-        "y": 1280,
+        "x": 295,
+        "y": 1840,
         "wires": [
             [
-                "dbgdebugstatus001",
-                "dbgstatusswitch001"
+                "1af4b0164a635295",
+                "dcd83b10e1b15738"
             ]
         ]
     },
     {
-        "id": "dbgdebugstatus001",
+        "id": "1af4b0164a635295",
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "writable status result",
@@ -6491,12 +6284,12 @@
         "targetType": "msg",
         "statusVal": "command_result.status",
         "statusType": "msg",
-        "x": 380,
-        "y": 1260,
+        "x": 540,
+        "y": 1820,
         "wires": []
     },
     {
-        "id": "dbgdebugraw001",
+        "id": "12efa96fe43d797a",
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "status raw payload",
@@ -6506,12 +6299,12 @@
         "tostatus": false,
         "complete": "true",
         "targetType": "full",
-        "x": 370,
-        "y": 1300,
+        "x": 530,
+        "y": 1860,
         "wires": []
     },
     {
-        "id": "dbgstatusswitch001",
+        "id": "dcd83b10e1b15738",
         "type": "switch",
         "z": "7fceb9f3fadf4c8d",
         "name": "status fanout",
@@ -6550,31 +6343,31 @@
         "checkall": "true",
         "repair": false,
         "outputs": 6,
-        "x": 360,
-        "y": 1360,
+        "x": 550,
+        "y": 1980,
         "wires": [
             [
-                "dbgdebugcompleted001"
+                "4c64bbb58c1a4e51"
             ],
             [
-                "dbgdebugfailed001"
+                "4fd999694d58e385"
             ],
             [
-                "dbgdebugtimeout001"
+                "8ccb157a028a3c2b"
             ],
             [
-                "dbgdebugbusy001"
+                "5551657975f632b2"
             ],
             [
-                "dbgdebuginvalid001"
+                "e6051d40daf47dfc"
             ],
             [
-                "dbgdebugother001"
+                "f22043e469f962af"
             ]
         ]
     },
     {
-        "id": "dbgdebugcompleted001",
+        "id": "4c64bbb58c1a4e51",
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "COMPLETED only",
@@ -6584,12 +6377,12 @@
         "tostatus": false,
         "complete": "command_result",
         "targetType": "msg",
-        "x": 610,
-        "y": 1320,
+        "x": 770,
+        "y": 1880,
         "wires": []
     },
     {
-        "id": "dbgdebugfailed001",
+        "id": "4fd999694d58e385",
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "FAILED only",
@@ -6599,12 +6392,12 @@
         "tostatus": false,
         "complete": "command_result",
         "targetType": "msg",
-        "x": 610,
-        "y": 1350,
+        "x": 770,
+        "y": 1910,
         "wires": []
     },
     {
-        "id": "dbgdebugtimeout001",
+        "id": "8ccb157a028a3c2b",
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "TIMEOUT only",
@@ -6614,12 +6407,12 @@
         "tostatus": false,
         "complete": "command_result",
         "targetType": "msg",
-        "x": 610,
-        "y": 1380,
+        "x": 770,
+        "y": 1940,
         "wires": []
     },
     {
-        "id": "dbgdebugbusy001",
+        "id": "5551657975f632b2",
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "REJECTED_BUSY only",
@@ -6629,12 +6422,12 @@
         "tostatus": false,
         "complete": "command_result",
         "targetType": "msg",
-        "x": 610,
-        "y": 1410,
+        "x": 770,
+        "y": 1970,
         "wires": []
     },
     {
-        "id": "dbgdebuginvalid001",
+        "id": "e6051d40daf47dfc",
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "REJECTED_INVALID only",
@@ -6644,12 +6437,12 @@
         "tostatus": false,
         "complete": "command_result",
         "targetType": "msg",
-        "x": 610,
-        "y": 1440,
+        "x": 770,
+        "y": 2000,
         "wires": []
     },
     {
-        "id": "dbgdebugother001",
+        "id": "f22043e469f962af",
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "other status",
@@ -6659,32 +6452,32 @@
         "tostatus": false,
         "complete": "command_result",
         "targetType": "msg",
-        "x": 610,
-        "y": 1470,
+        "x": 770,
+        "y": 2030,
         "wires": []
     },
     {
-        "id": "dbgcommentok001",
+        "id": "1f506ce1aee4b98b",
         "type": "comment",
         "z": "7fceb9f3fadf4c8d",
         "name": "Normal success tests",
         "info": "설비/프로토콜별 정상 경로 테스트",
-        "x": 220,
-        "y": 640,
+        "x": 380,
+        "y": 1200,
         "wires": []
     },
     {
-        "id": "dbgcommenterr001",
+        "id": "bd097365dae81113",
         "type": "comment",
         "z": "7fceb9f3fadf4c8d",
         "name": "Validation and error tests",
         "info": "invalid / unsupported / busy / timeout 테스트",
-        "x": 210,
-        "y": 1040,
+        "x": 370,
+        "y": 1600,
         "wires": []
     },
     {
-        "id": "dbginj001",
+        "id": "321e6ec7851e2542",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "CAST power on",
@@ -6700,16 +6493,16 @@
         "topic": "",
         "payload": "{\"command_id\":\"demo-cast-power-on\",\"equipment_id\":\"CAST-01\",\"command_type\":\"power\",\"value\":true}",
         "payloadType": "json",
-        "x": 220,
-        "y": 685,
+        "x": 380,
+        "y": 1245,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj002",
+        "id": "d5a317be2abd4396",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "CAST injection pressure",
@@ -6723,18 +6516,18 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"command_id\":\"demo-cast-pressure\",\"equipment_id\":\"CAST-01\",\"command_type\":\"injectionpressuresp\",\"value\":120.0}",
+        "payload": "{\"command_id\":\"demo-cast-pressure\",\"equipment_id\":\"CAST-01\",\"command_type\":\"injection_pressure_sp\",\"value\":120.0}",
         "payloadType": "json",
-        "x": 250,
-        "y": 720,
+        "x": 410,
+        "y": 1280,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj003",
+        "id": "532dd65ee5dd3990",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "CNC01 spindle",
@@ -6748,18 +6541,18 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"command_id\":\"demo-cnc01-sp\",\"equipment_id\":\"CNC-01\",\"command_type\":\"spindlespeedsp\",\"value\":5500}",
+        "payload": "{\"command_id\":\"demo-cnc01-sp\",\"equipment_id\":\"CNC-01\",\"command_type\":\"spindle_speed_sp\",\"value\":5500}",
         "payloadType": "json",
-        "x": 220,
-        "y": 755,
+        "x": 380,
+        "y": 1315,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj004",
+        "id": "093eb156f2ddea6a",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "CNC02 tool usage",
@@ -6773,18 +6566,18 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"command_id\":\"demo-cnc02-tool\",\"equipment_id\":\"CNC-02\",\"command_type\":\"toolusagesp\",\"value\":11.75}",
+        "payload": "{\"command_id\":\"demo-cnc02-tool\",\"equipment_id\":\"CNC-02\",\"command_type\":\"tool_usage_sp\",\"value\":11.75}",
         "payloadType": "json",
-        "x": 220,
-        "y": 790,
+        "x": 380,
+        "y": 1350,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj005",
+        "id": "7537a14b73e9ec60",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "CNC03 inject warning",
@@ -6798,18 +6591,18 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"command_id\":\"demo-cnc03-warn\",\"equipment_id\":\"CNC-03\",\"command_type\":\"injectwarning\",\"value\":true}",
+        "payload": "{\"command_id\":\"demo-cnc03-warn\",\"equipment_id\":\"CNC-03\",\"command_type\":\"inject_warning\",\"value\":true}",
         "payloadType": "json",
-        "x": 220,
-        "y": 825,
+        "x": 380,
+        "y": 1385,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj006",
+        "id": "099fc269714cb59f",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "WASH temperature",
@@ -6823,18 +6616,18 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"command_id\":\"demo-wash-temp\",\"equipment_id\":\"WASH-01\",\"command_type\":\"cleaningtemperaturesp\",\"value\":62.0}",
+        "payload": "{\"command_id\":\"demo-wash-temp\",\"equipment_id\":\"WASH-01\",\"command_type\":\"cleaning_temperature_sp\",\"value\":62.0}",
         "payloadType": "json",
-        "x": 220,
-        "y": 860,
+        "x": 380,
+        "y": 1420,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj007",
+        "id": "49d0e78a8f717e71",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "ASSY01 load request",
@@ -6848,18 +6641,18 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"command_id\":\"demo-assy01-load\",\"equipment_id\":\"ASSY-01\",\"command_type\":\"loadrequest\",\"value\":true}",
+        "payload": "{\"command_id\":\"demo-assy01-load\",\"equipment_id\":\"ASSY-01\",\"command_type\":\"load_request\",\"value\":true}",
         "payloadType": "json",
-        "x": 220,
-        "y": 895,
+        "x": 380,
+        "y": 1455,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj008",
+        "id": "4fe483292c8f57e6",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "ASSY02 press force",
@@ -6873,18 +6666,18 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"command_id\":\"demo-assy02-force\",\"equipment_id\":\"ASSY-02\",\"command_type\":\"pressforcesp\",\"value\":32.5}",
+        "payload": "{\"command_id\":\"demo-assy02-force\",\"equipment_id\":\"ASSY-02\",\"command_type\":\"press_force_sp\",\"value\":32.5}",
         "payloadType": "json",
-        "x": 220,
-        "y": 930,
+        "x": 380,
+        "y": 1490,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj009",
+        "id": "0780702e02d0e69e",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "TEST01 bore dimension",
@@ -6898,18 +6691,18 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"command_id\":\"demo-test01-bore\",\"equipment_id\":\"TEST-01\",\"command_type\":\"boredimensionsp\",\"value\":39.98}",
+        "payload": "{\"command_id\":\"demo-test01-bore\",\"equipment_id\":\"TEST-01\",\"command_type\":\"bore_dimension_sp\",\"value\":39.98}",
         "payloadType": "json",
-        "x": 220,
-        "y": 965,
+        "x": 380,
+        "y": 1525,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj010",
+        "id": "6b935e467ec5991a",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "TEST02 hole dimension",
@@ -6923,18 +6716,18 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"command_id\":\"demo-test02-hole\",\"equipment_id\":\"TEST-02\",\"command_type\":\"holedimensionsp\",\"value\":20.01}",
+        "payload": "{\"command_id\":\"demo-test02-hole\",\"equipment_id\":\"TEST-02\",\"command_type\":\"hole_dimension_sp\",\"value\":20.01}",
         "payloadType": "json",
-        "x": 220,
-        "y": 1000,
+        "x": 380,
+        "y": 1560,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj011",
+        "id": "4fac655ae7cd5895",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "INVALID missing equipment_id",
@@ -6950,16 +6743,16 @@
         "topic": "",
         "payload": "{\"command_id\":\"demo-invalid-noeq\",\"command_type\":\"power\",\"value\":true}",
         "payloadType": "json",
-        "x": 250,
-        "y": 1080,
+        "x": 410,
+        "y": 1640,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj012",
+        "id": "92f20fe9fd13f6f8",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "INVALID missing command_type",
@@ -6975,16 +6768,16 @@
         "topic": "",
         "payload": "{\"command_id\":\"demo-invalid-notag\",\"equipment_id\":\"CAST-01\",\"value\":true}",
         "payloadType": "json",
-        "x": 250,
-        "y": 1115,
+        "x": 410,
+        "y": 1675,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj013",
+        "id": "75d6034777d34fbd",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "FAILED unsupported equipment",
@@ -7000,16 +6793,16 @@
         "topic": "",
         "payload": "{\"command_id\":\"demo-unsupported-equipment\",\"equipment_id\":\"ROBOT-99\",\"command_type\":\"power\",\"value\":true}",
         "payloadType": "json",
-        "x": 245,
-        "y": 1150,
+        "x": 405,
+        "y": 1710,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj014",
+        "id": "ecacd3ef8589a320",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "FAILED unsupported tag",
@@ -7025,16 +6818,16 @@
         "topic": "",
         "payload": "{\"command_id\":\"demo-unsupported-tag\",\"equipment_id\":\"CNC-01\",\"command_type\":\"unknown_tag\",\"value\":1}",
         "payloadType": "json",
-        "x": 230,
-        "y": 1185,
+        "x": 390,
+        "y": 1745,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbginj015",
+        "id": "96587cfef63a975d",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "FAILED invalid float payload",
@@ -7050,26 +6843,26 @@
         "topic": "",
         "payload": "{\"command_id\":\"demo-invalid-float\",\"equipment_id\":\"WASH-01\",\"command_type\":\"cleaningtemperaturesp\",\"value\":\"abc\"}",
         "payloadType": "json",
-        "x": 245,
-        "y": 1220,
+        "x": 405,
+        "y": 1780,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbgbusycomment001",
+        "id": "7729514f7243b4b9",
         "type": "comment",
         "z": "7fceb9f3fadf4c8d",
         "name": "REJECTED_BUSY test",
         "info": "첫 메시지가 flow에서 lock을 잡은 상태로 두 번째 메시지를 즉시 보내면 REJECTED_BUSY 확인 가능",
-        "x": 200,
-        "y": 1570,
+        "x": 360,
+        "y": 2130,
         "wires": []
     },
     {
-        "id": "dbginjbusy001",
+        "id": "995630dec9bdb4f0",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "BUSY test start",
@@ -7085,16 +6878,16 @@
         "topic": "",
         "payload": "{\"equipment_id\":\"CNC-01\",\"command_type\":\"power\",\"value\":true,\"timeout_sec\":15}",
         "payloadType": "json",
-        "x": 200,
-        "y": 1610,
+        "x": 360,
+        "y": 2170,
         "wires": [
             [
-                "dbgbusyfunc001"
+                "71f3e1c65057c738"
             ]
         ]
     },
     {
-        "id": "dbgbusyfunc001",
+        "id": "71f3e1c65057c738",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "make busy pair",
@@ -7104,19 +6897,19 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 410,
-        "y": 1610,
+        "x": 570,
+        "y": 2170,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ],
             [
-                "dbgdelay001"
+                "f6f2816ddb05ade3"
             ]
         ]
     },
     {
-        "id": "dbgdelay001",
+        "id": "f6f2816ddb05ade3",
         "type": "delay",
         "z": "7fceb9f3fadf4c8d",
         "name": "send second after 100ms",
@@ -7132,26 +6925,26 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 630,
-        "y": 1645,
+        "x": 790,
+        "y": 2205,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
             ]
         ]
     },
     {
-        "id": "dbgtimeoutcomment001",
+        "id": "4aa2b256afb9811e",
         "type": "comment",
         "z": "7fceb9f3fadf4c8d",
         "name": "TIMEOUT simulation",
         "info": "실 writer를 멈추지 않고 timeout 처리 로직만 점검하려면 watchdog로 가는 가짜 command를 주입한다.",
-        "x": 180,
-        "y": 1710,
+        "x": 340,
+        "y": 2270,
         "wires": []
     },
     {
-        "id": "dbginjtimeout001",
+        "id": "922e854c954f572c",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "simulate timeout path",
@@ -7167,16 +6960,16 @@
         "topic": "",
         "payload": "{\"command_id\":\"demo-timeout-1\",\"equipment_id\":\"CAST-01\",\"command_type\":\"power\",\"value\":true,\"status\":\"SENDING\",\"accepted\":true,\"requested_at\":\"2026-06-10T00:00:00.000Z\",\"updated_at\":\"2026-06-10T00:00:00.000Z\",\"retry_count\":0,\"last_error\":null}",
         "payloadType": "json",
-        "x": 200,
-        "y": 1750,
+        "x": 360,
+        "y": 2310,
         "wires": [
             [
-                "dbgtimeoutprep001"
+                "9eb745ff92acda38"
             ]
         ]
     },
     {
-        "id": "dbgtimeoutprep001",
+        "id": "9eb745ff92acda38",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "prime timeout test",
@@ -7186,16 +6979,16 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 430,
-        "y": 1750,
+        "x": 590,
+        "y": 2310,
         "wires": [
             [
-                "dbgtrigger001"
+                "c6b01d43bb8e1f4a"
             ]
         ]
     },
     {
-        "id": "dbgtrigger001",
+        "id": "c6b01d43bb8e1f4a",
         "type": "trigger",
         "z": "7fceb9f3fadf4c8d",
         "name": "fake watchdog 2s",
@@ -7211,24 +7004,24 @@
         "bytopic": "topic",
         "topic": "topic",
         "outputs": 1,
-        "x": 640,
-        "y": 1750,
+        "x": 800,
+        "y": 2310,
         "wires": [
             []
         ]
     },
     {
-        "id": "dbgcommentinspect001",
+        "id": "b4648f2623ec178c",
         "type": "comment",
         "z": "7fceb9f3fadf4c8d",
         "name": "Inspect flow context",
         "info": "현재 in-flight map, command status map 확인",
-        "x": 170,
-        "y": 1820,
+        "x": 330,
+        "y": 2380,
         "wires": []
     },
     {
-        "id": "dbginjinspect001",
+        "id": "ca2a2f912656ab1b",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "inspect flow maps",
@@ -7244,16 +7037,16 @@
         "topic": "",
         "payload": "{}",
         "payloadType": "json",
-        "x": 190,
-        "y": 1860,
+        "x": 350,
+        "y": 2420,
         "wires": [
             [
-                "dbginspectfunc001"
+                "ffcdf91d0c55b268"
             ]
         ]
     },
     {
-        "id": "dbginspectfunc001",
+        "id": "ffcdf91d0c55b268",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "read flow maps",
@@ -7263,16 +7056,16 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 400,
-        "y": 1860,
+        "x": 560,
+        "y": 2420,
         "wires": [
             [
-                "dbginspectdebug001"
+                "02e81355bb2fc77f"
             ]
         ]
     },
     {
-        "id": "dbginspectdebug001",
+        "id": "02e81355bb2fc77f",
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "flow maps",
@@ -7282,12 +7075,12 @@
         "tostatus": false,
         "complete": "payload",
         "targetType": "msg",
-        "x": 590,
-        "y": 1860,
+        "x": 750,
+        "y": 2420,
         "wires": []
     },
     {
-        "id": "dbginjclear001",
+        "id": "0371dc91e63afe42",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
         "name": "clear test maps",
@@ -7303,16 +7096,16 @@
         "topic": "",
         "payload": "{}",
         "payloadType": "json",
-        "x": 180,
-        "y": 1900,
+        "x": 340,
+        "y": 2460,
         "wires": [
             [
-                "dbgclearfunc001"
+                "61048e6438ae9fab"
             ]
         ]
     },
     {
-        "id": "dbgclearfunc001",
+        "id": "61048e6438ae9fab",
         "type": "function",
         "z": "7fceb9f3fadf4c8d",
         "name": "clear flow maps",
@@ -7322,16 +7115,16 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 395,
-        "y": 1900,
+        "x": 555,
+        "y": 2460,
         "wires": [
             [
-                "dbgcleardebug001"
+                "d4ea44388ea39819"
             ]
         ]
     },
     {
-        "id": "dbgcleardebug001",
+        "id": "d4ea44388ea39819",
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "clear result",
@@ -7343,15 +7136,15 @@
         "targetType": "msg",
         "statusVal": "payload.message",
         "statusType": "msg",
-        "x": 590,
-        "y": 1900,
+        "x": 750,
+        "y": 2460,
         "wires": []
     },
     {
-        "id": "8109f03346d4f179",
+        "id": "9d1e6285d3bc309c",
         "type": "inject",
         "z": "7fceb9f3fadf4c8d",
-        "name": "CNC03 inject warning",
+        "name": "CNC01 unload_request",
         "props": [
             {
                 "p": "payload"
@@ -7362,13 +7155,342 @@
         "once": false,
         "onceDelay": 0.1,
         "topic": "",
-        "payload": "{\"command_id\":\"demo-cast01-warn\",\"equipment_id\":\"CAST-01\",\"command_type\":\"unloadrequest\",\"value\":true}",
+        "payload": "{\"command_id\":\"demo-cnc01-warn\",\"equipment_id\":\"CNC-01\",\"command_type\":\"unload_request\",\"value\":true}",
         "payloadType": "json",
-        "x": 540,
-        "y": 660,
+        "x": 700,
+        "y": 1220,
         "wires": [
             [
-                "dbglinkout001"
+                "47ed4dd1a34792db"
+            ]
+        ]
+    },
+    {
+        "id": "c6726ab55daca56f",
+        "type": "link in",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "writer result in",
+        "links": [],
+        "x": 2105,
+        "y": 840,
+        "wires": [
+            [
+                "f66db00943f4dbd1"
+            ]
+        ]
+    },
+    {
+        "id": "f66db00943f4dbd1",
+        "type": "function",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "normalize protocol result",
+        "func": "\nconst now = new Date().toISOString();\nconst c = msg.command || {};\nif (!c.command_id) return null;\nconst kind = String(msg.writer_kind || '').toLowerCase();\nconst payload = msg.payload;\nconst result = {\n  protocol: msg.protocol || (kind.startsWith('opcua') ? 'opcua' : (kind.startsWith('modbus') ? 'modbus' : (kind.startsWith('mc') ? 'mcprotocol' : 'unknown'))),\n  writer_kind: msg.writer_kind || null,\n  writer_target: msg.writer_target || null,\n  output_port: Number.isFinite(Number(msg._writer_port)) ? Number(msg._writer_port) : 1,\n  raw_payload: payload,\n  raw_topic: msg.topic || null,\n  raw_error: null,\n  normalized_at: now\n};\nlet event = 'ACK';\nlet reason = null;\nif (result.protocol === 'modbus') {\n  if (result.output_port === 2) {\n    event = 'FAULT';\n    reason = 'modbus fail output';\n  }\n  if (payload && typeof payload === 'object') {\n    const ex = payload.exceptionCode;\n    const status = String(payload.status || payload.modbusStatus || payload.message || '').toLowerCase();\n    if (payload.isException === true || ex !== undefined) {\n      event = String(ex) === '6' ? 'BUSY' : 'FAULT';\n      reason = ex !== undefined ? ('modbus exception ' + ex) : 'modbus exception';\n    } else if (status.includes('busy')) {\n      event = 'BUSY';\n      reason = payload.status || payload.message || 'modbus busy';\n    } else if (status.includes('fault') || status.includes('fail') || status.includes('error') || status.includes('bad')) {\n      event = 'FAULT';\n      reason = payload.status || payload.message || 'modbus write failed';\n    }\n  }\n} else if (result.protocol === 'opcua') {\n  const statusCode = String(msg.statusCode || (payload && (payload.statusCode || payload.status || payload.serviceResult)) || '').trim();\n  const s = statusCode.toLowerCase();\n  result.statusCode = statusCode || null;\n  if (!statusCode) {\n    event = result.output_port === 1 ? 'ACK' : 'FAULT';\n    reason = result.output_port === 1 ? null : 'opcua non-success output';\n  } else if (s.includes('good')) {\n    event = 'ACK';\n  } else if (s.includes('busy') || s.includes('waiting') || s.includes('pending') || s.includes('uncertain')) {\n    event = 'BUSY';\n    reason = statusCode;\n  } else {\n    event = 'FAULT';\n    reason = statusCode;\n  }\n} else if (result.protocol === 'mcprotocol') {\n  if (payload && typeof payload === 'object') {\n    const status = String(payload.status || payload.result || payload.message || '').toLowerCase();\n    if (status.includes('busy')) {\n      event = 'BUSY';\n      reason = payload.status || payload.message || 'mc busy';\n    } else if (status.includes('fault') || status.includes('fail') || status.includes('error') || status.includes('bad')) {\n      event = 'FAULT';\n      reason = payload.status || payload.message || 'mc write failed';\n    }\n  }\n}\nmsg.protocol_event = event;\nmsg.protocol_result = result;\nif (reason) msg.last_error = reason;\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2320,
+        "y": 840,
+        "wires": [
+            [
+                "93f2944bcec3c478"
+            ]
+        ]
+    },
+    {
+        "id": "93f2944bcec3c478",
+        "type": "switch",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "route normalized result",
+        "property": "protocol_event",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "eq",
+                "v": "ACK",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "BUSY",
+                "vt": "str"
+            },
+            {
+                "t": "eq",
+                "v": "FAULT",
+                "vt": "str"
+            },
+            {
+                "t": "else"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 4,
+        "x": 2550,
+        "y": 840,
+        "wires": [
+            [
+                "5682e8befe012a6c"
+            ],
+            [
+                "2961e32135796edd"
+            ],
+            [
+                "3d48987340ea6006"
+            ],
+            [
+                "3d48987340ea6006"
+            ]
+        ]
+    },
+    {
+        "id": "5682e8befe012a6c",
+        "type": "function",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "mark COMPLETED",
+        "func": "\nconst now = new Date().toISOString();\nconst c = msg.command;\nif (!c || !c.command_id) return null;\nconst statusMap = flow.get('command_status_map') || {};\nstatusMap[c.command_id] = Object.assign({}, statusMap[c.command_id] || {}, {status:'COMPLETED',accepted:true,updated_at:now,last_error:null,protocol:(msg.protocol_result && msg.protocol_result.protocol) || null,writer_kind:msg.writer_kind || null,writer_target:msg.writer_target || null,protocol_result:msg.protocol_result || null});\nflow.set('command_status_map', statusMap);\nconst inflightMap = flow.get('equipment_inflight_map') || {};\nif (c.equipment_id) delete inflightMap[c.equipment_id];\nflow.set('equipment_inflight_map', inflightMap);\nmsg.payload = 'COMPLETED';\nmsg.command_result = statusMap[c.command_id];\nreturn [msg,msg];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2790,
+        "y": 800,
+        "wires": [
+            [
+                "fc2e54630f63f6eb"
+            ],
+            [
+                "1dd526106faef826"
+            ]
+        ]
+    },
+    {
+        "id": "2961e32135796edd",
+        "type": "function",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "mark BUSY",
+        "func": "\nconst now = new Date().toISOString();\nconst c = msg.command;\nif (!c || !c.command_id) return null;\nconst statusMap = flow.get('command_status_map') || {};\nstatusMap[c.command_id] = Object.assign({}, statusMap[c.command_id] || {}, {status:'BUSY',accepted:false,updated_at:now,last_error: msg.last_error || ((msg.protocol_result && msg.protocol_result.statusCode) ? msg.protocol_result.statusCode : 'writer busy'),protocol:(msg.protocol_result && msg.protocol_result.protocol) || null,writer_kind:msg.writer_kind || null,writer_target:msg.writer_target || null,protocol_result:msg.protocol_result || null});\nflow.set('command_status_map', statusMap);\nconst inflightMap = flow.get('equipment_inflight_map') || {};\nif (c.equipment_id) delete inflightMap[c.equipment_id];\nflow.set('equipment_inflight_map', inflightMap);\nmsg.payload = 'BUSY';\nmsg.command_result = statusMap[c.command_id];\nreturn [msg,msg];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2770,
+        "y": 840,
+        "wires": [
+            [
+                "fc2e54630f63f6eb"
+            ],
+            [
+                "1dd526106faef826"
+            ]
+        ]
+    },
+    {
+        "id": "3d48987340ea6006",
+        "type": "function",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "mark FAULT",
+        "func": "\nconst now = new Date().toISOString();\nconst c = msg.command;\nif (!c || !c.command_id) return null;\nconst statusMap = flow.get('command_status_map') || {};\nstatusMap[c.command_id] = Object.assign({}, statusMap[c.command_id] || {}, {status:'FAULT',accepted:false,updated_at:now,last_error: msg.last_error || (msg.error && (msg.error.message || msg.error.toString())) || 'write fault',protocol:(msg.protocol_result && msg.protocol_result.protocol) || null,writer_kind:msg.writer_kind || null,writer_target:msg.writer_target || null,protocol_result:msg.protocol_result || null});\nflow.set('command_status_map', statusMap);\nconst inflightMap = flow.get('equipment_inflight_map') || {};\nif (c.equipment_id) delete inflightMap[c.equipment_id];\nflow.set('equipment_inflight_map', inflightMap);\nmsg.payload = 'FAULT';\nmsg.command_result = statusMap[c.command_id];\nreturn [msg,msg];\n",
+        "outputs": 2,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2770,
+        "y": 880,
+        "wires": [
+            [
+                "fc2e54630f63f6eb"
+            ],
+            [
+                "1dd526106faef826"
+            ]
+        ]
+    },
+    {
+        "id": "1dd526106faef826",
+        "type": "trigger",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "timeout watchdog",
+        "op1": "",
+        "op2": "timeout",
+        "op1type": "nul",
+        "op2type": "str",
+        "duration": "10",
+        "extend": false,
+        "overrideDelay": true,
+        "units": "s",
+        "reset": "COMPLETED|BUSY|FAULT",
+        "bytopic": "topic",
+        "topic": "command.command_id",
+        "outputs": 1,
+        "x": 2790,
+        "y": 920,
+        "wires": [
+            [
+                "93101c5e6fb52a29"
+            ]
+        ]
+    },
+    {
+        "id": "93101c5e6fb52a29",
+        "type": "function",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "mark TIMEOUT",
+        "func": "\nif (msg.payload !== 'timeout') return null;\nconst now = new Date().toISOString();\nconst c = msg.command;\nif (!c || !c.command_id) return null;\nconst inflightMap = flow.get('equipment_inflight_map') || {};\nconst active = c.equipment_id ? inflightMap[c.equipment_id] : null;\nif (!active || active.command_id !== c.command_id) return null;\ndelete inflightMap[c.equipment_id];\nflow.set('equipment_inflight_map', inflightMap);\nconst statusMap = flow.get('command_status_map') || {};\nstatusMap[c.command_id] = Object.assign({}, statusMap[c.command_id] || {}, {status:'TIMEOUT',accepted:false,updated_at:now,last_error:'write timeout',protocol: msg.protocol || null,writer_kind: msg.writer_kind || null,writer_target: msg.writer_target || null,protocol_result: Object.assign({}, (statusMap[c.command_id] || {}).protocol_result || {}, {timeout:true, timeout_at:now})});\nflow.set('command_status_map', statusMap);\nmsg.command_result = statusMap[c.command_id];\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2270,
+        "y": 760,
+        "wires": [
+            [
+                "fc2e54630f63f6eb"
+            ]
+        ]
+    },
+    {
+        "id": "c7d76578a522ecab",
+        "type": "catch",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "catch writable errors",
+        "scope": [
+            "324775dc8a0ccd41",
+            "8ff0a470a8ae8b71",
+            "279b4f1c3057601e",
+            "f1f63c45834437ce",
+            "745c73d3d7173ebe",
+            "cfbf94b358f4d62f",
+            "4fee2cc9c9efa6a0",
+            "43c404b134304d2d",
+            "61b0a1f7b8f09035",
+            "27b568dbb7be9608",
+            "d518bb2223d7f8a8",
+            "ff7acfce36cca204",
+            "a8f3dea426169f7a",
+            "e5e9be7fd953461c",
+            "a63e705ec729f164",
+            "ccba67b247919e9a",
+            "9a7ab83ad5019f21",
+            "a0826b42e4d464e7",
+            "bf8887bfa78dcce2",
+            "a3095f8803e7038a",
+            "19ae2ef28e1c14ce",
+            "b0f7d63a5bdb5101",
+            "172cb48b7121235b",
+            "b38618e594c72777",
+            "e504a886af0dfa66",
+            "7dcb875b68be6d55",
+            "e76bd06b9d97c356",
+            "0ff820a9bf013233",
+            "80d398c233b5f46b",
+            "f9a9121598c2256e",
+            "7ebdb340f80df0ff",
+            "2a1f2feb00c528bb",
+            "2cb0799f838bf7c4",
+            "1ffe2be3a675b920",
+            "58d9e5261d0f8521",
+            "bfc84afa3c8be713",
+            "084b51bddc116c69",
+            "c7ad6e4b3da25b80",
+            "0a247a04d9ee412b",
+            "750193e6e12c4487",
+            "6f649e55ce3bdb43",
+            "b319dce3945167ff",
+            "17c9885230e9b9d4",
+            "a99c538d937133f2",
+            "019bb8a0caa9238f",
+            "1505eb51765b6cbf",
+            "7aeaf4414edd8458",
+            "25ca221dd4be782b",
+            "e380bb9f739338ed",
+            "ea4c474464a3cd96",
+            "f9318c2bf34a8366",
+            "6a3917c5746035d2",
+            "4afe7746994fbd0a",
+            "0bc0a40ef577f9cb",
+            "4abcf58fc9f047fc",
+            "fb76b15c5be6b055",
+            "c420ced46de0587e",
+            "564d5b440d8a12bd",
+            "835255484d1a30f7",
+            "88ea9b5eb055bc98",
+            "c0c3d2243ff9a3b6",
+            "4b11833b80750bf3",
+            "aa4bbee22e1760b3",
+            "83f11d9c03fd877a",
+            "e6d097ccfeb46892",
+            "7cd40655bd9c5d57",
+            "35df482a211ebcfc",
+            "c1bf78c564af52e3",
+            "a72c8f9b64acef63",
+            "0b8d141741e8c9c9",
+            "10e5172dc21f331a",
+            "3064abc401662c87",
+            "7f866f5013f5e56b",
+            "1ee7696cce24ee93",
+            "029106d881cc9ea7",
+            "b4020e2c76d209f7",
+            "ef98e06f6ee125e9",
+            "1d26661e4e8b06f8",
+            "78c30c5031a83d2b"
+        ],
+        "uncaught": false,
+        "x": 1860,
+        "y": 720,
+        "wires": [
+            [
+                "abe30037adfd51b7"
+            ]
+        ]
+    },
+    {
+        "id": "abe30037adfd51b7",
+        "type": "function",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "normalize caught error",
+        "func": "\nconst now = new Date().toISOString();\nconst err = msg.error || {};\nmsg.protocol_event = 'FAULT';\nmsg.last_error = err.message || err.toString() || 'writer error';\nmsg.protocol_result = {protocol: msg.protocol || (String(msg.writer_kind || '').startsWith('opcua') ? 'opcua' : (String(msg.writer_kind || '').startsWith('modbus') ? 'modbus' : (String(msg.writer_kind || '').startsWith('mc') ? 'mcprotocol' : 'unknown'))),writer_kind: msg.writer_kind || null,writer_target: msg.writer_target || null,output_port: 0,raw_payload: null,raw_error: {message: err.message || null, source: err.source || null},normalized_at: now};\nreturn msg;\n",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2080,
+        "y": 720,
+        "wires": [
+            [
+                "3d48987340ea6006"
+            ]
+        ]
+    },
+    {
+        "id": "6e2e1c168ec7c3bd",
+        "type": "inject",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "ASSY-01 power on",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "{\"command_id\":\"demo-assy01-power-on\",\"equipment_id\":\"ASSY-01\",\"command_type\":\"power\",\"value\":true}",
+        "payloadType": "json",
+        "x": 710,
+        "y": 1280,
+        "wires": [
+            [
+                "47ed4dd1a34792db"
             ]
         ]
     },
