@@ -148,5 +148,5 @@
   ],
   "host": "0.0.0.0",
   "port": 4841,
-  "namespace": "${LINE_ID:-LINE-00}_ASSY-01"
+  "namespace": "ASSY-01"
 }

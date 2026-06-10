@@ -4299,7 +4299,7 @@
         "once": false,
         "onceDelay": "",
         "topic": "",
-        "payload": "72.0",
+        "payload": "72",
         "payloadType": "num",
         "x": 420,
         "y": 110,
