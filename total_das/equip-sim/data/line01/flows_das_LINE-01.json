@@ -222,6 +222,265 @@
         "h": 182
     },
     {
+        "id": "c261cc053529d358",
+        "type": "group",
+        "z": "7fceb9f3fadf4c8d",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "324775dc8a0ccd41",
+            "8ff0a470a8ae8b71",
+            "279b4f1c3057601e",
+            "f1f63c45834437ce",
+            "745c73d3d7173ebe",
+            "cfbf94b358f4d62f",
+            "4fee2cc9c9efa6a0",
+            "43c404b134304d2d",
+            "61b0a1f7b8f09035"
+        ],
+        "x": 1654,
+        "y": 759,
+        "w": 352,
+        "h": 242
+    },
+    {
+        "id": "b0d560ab02ea1e4b",
+        "type": "group",
+        "z": "7fceb9f3fadf4c8d",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "27b568dbb7be9608",
+            "d518bb2223d7f8a8",
+            "ff7acfce36cca204",
+            "a8f3dea426169f7a",
+            "e5e9be7fd953461c",
+            "a63e705ec729f164",
+            "ccba67b247919e9a",
+            "9a7ab83ad5019f21"
+        ],
+        "x": 1654,
+        "y": 959,
+        "w": 312,
+        "h": 222
+    },
+    {
+        "id": "deb9db4777bc9e5f",
+        "type": "group",
+        "z": "7fceb9f3fadf4c8d",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "a0826b42e4d464e7",
+            "bf8887bfa78dcce2",
+            "a3095f8803e7038a",
+            "19ae2ef28e1c14ce",
+            "b0f7d63a5bdb5101",
+            "172cb48b7121235b",
+            "b38618e594c72777",
+            "e504a886af0dfa66",
+            "7dcb875b68be6d55"
+        ],
+        "x": 1654,
+        "y": 1139,
+        "w": 312,
+        "h": 222
+    },
+    {
+        "id": "a4ba684186dd204e",
+        "type": "group",
+        "z": "7fceb9f3fadf4c8d",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "e76bd06b9d97c356",
+            "0ff820a9bf013233",
+            "80d398c233b5f46b",
+            "f9a9121598c2256e",
+            "7ebdb340f80df0ff",
+            "2a1f2feb00c528bb",
+            "2cb0799f838bf7c4",
+            "1ffe2be3a675b920",
+            "58d9e5261d0f8521",
+            "bfc84afa3c8be713"
+        ],
+        "x": 1654,
+        "y": 1319,
+        "w": 312,
+        "h": 242
+    },
+    {
+        "id": "b4af5a48386ec6c9",
+        "type": "group",
+        "z": "7fceb9f3fadf4c8d",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "084b51bddc116c69",
+            "c7ad6e4b3da25b80",
+            "0a247a04d9ee412b",
+            "750193e6e12c4487",
+            "6f649e55ce3bdb43",
+            "b319dce3945167ff",
+            "17c9885230e9b9d4",
+            "a99c538d937133f2",
+            "019bb8a0caa9238f"
+        ],
+        "x": 1654,
+        "y": 1519,
+        "w": 392,
+        "h": 242
+    },
+    {
+        "id": "246e8eed1c459370",
+        "type": "group",
+        "z": "7fceb9f3fadf4c8d",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "1505eb51765b6cbf",
+            "7aeaf4414edd8458",
+            "25ca221dd4be782b",
+            "e380bb9f739338ed",
+            "ea4c474464a3cd96",
+            "f9318c2bf34a8366",
+            "6a3917c5746035d2",
+            "4afe7746994fbd0a",
+            "0bc0a40ef577f9cb"
+        ],
+        "x": 1654,
+        "y": 1731.5,
+        "w": 352,
+        "h": 257
+    },
+    {
+        "id": "fe8768a018b465b4",
+        "type": "group",
+        "z": "7fceb9f3fadf4c8d",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "4abcf58fc9f047fc",
+            "fb76b15c5be6b055",
+            "c420ced46de0587e",
+            "564d5b440d8a12bd",
+            "835255484d1a30f7",
+            "88ea9b5eb055bc98",
+            "c0c3d2243ff9a3b6",
+            "4b11833b80750bf3",
+            "aa4bbee22e1760b3"
+        ],
+        "x": 1654,
+        "y": 1951.5,
+        "w": 352,
+        "h": 257
+    },
+    {
+        "id": "503eba584825e8b0",
+        "type": "group",
+        "z": "7fceb9f3fadf4c8d",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "83f11d9c03fd877a",
+            "e6d097ccfeb46892",
+            "7cd40655bd9c5d57",
+            "35df482a211ebcfc",
+            "c1bf78c564af52e3",
+            "a72c8f9b64acef63",
+            "0b8d141741e8c9c9",
+            "10e5172dc21f331a"
+        ],
+        "x": 1654,
+        "y": 2171.5,
+        "w": 332,
+        "h": 237
+    },
+    {
+        "id": "071369bd09d2cd04",
+        "type": "group",
+        "z": "7fceb9f3fadf4c8d",
+        "style": {
+            "stroke": "#999999",
+            "stroke-opacity": "1",
+            "fill": "none",
+            "fill-opacity": "1",
+            "label": true,
+            "label-position": "nw",
+            "color": "#a4a4a4"
+        },
+        "nodes": [
+            "3064abc401662c87",
+            "7f866f5013f5e56b",
+            "1ee7696cce24ee93",
+            "029106d881cc9ea7",
+            "b4020e2c76d209f7",
+            "ef98e06f6ee125e9",
+            "1d26661e4e8b06f8",
+            "78c30c5031a83d2b"
+        ],
+        "x": 1654,
+        "y": 2371.5,
+        "w": 332,
+        "h": 237
+    },
+    {
         "id": "c9e33bd485cc4f42",
         "type": "MC Protocol Connection",
         "name": "LINE-01_CAST-01 @ cast-01:5001",
@@ -432,6 +691,32 @@
             "node-red-contrib-modbus": "5.45.2",
             "node-red-contrib-opcua": "0.2.351"
         }
+    },
+    {
+        "id": "ecc23f7306c47b8e",
+        "type": "OpcUa-Endpoint",
+        "name": "test_cmd_server:24870",
+        "endpoint": "opc.tcp://localhost:24870/command",
+        "secpol": "None",
+        "secmode": "None",
+        "none": true,
+        "login": false,
+        "usercert": false,
+        "usercertificate": "",
+        "userprivatekey": ""
+    },
+    {
+        "id": "d1a001c0a1111999",
+        "type": "OpcUa-Endpoint",
+        "name": "test_cmd_server:24800",
+        "endpoint": "opc.tcp://localhost:24800/command",
+        "secpol": "None",
+        "secmode": "None",
+        "none": true,
+        "login": false,
+        "usercert": false,
+        "usercertificate": "",
+        "userprivatekey": ""
     },
     {
         "id": "c4448545221c4b6a",
@@ -2639,7 +2924,7 @@
         "maxNodesPerTranslateBrowsePathsToNodeIds": 0,
         "maxConnectionsPerEndpoint": "20",
         "maxMessageSize": "10485760",
-        "maxBufferSize": "-110485760",
+        "maxBufferSize": "110485760",
         "maxSessions": "20",
         "x": 2280,
         "y": 280,
@@ -2654,7 +2939,7 @@
         "type": "function",
         "z": "5b220735e29c459d",
         "name": "PUBLISH -> OPC UA Server",
-        "func": "// payload 를 OPC UA Server 변수로 발행\n// addVariable / Variable 2단계 등록-갱신 구조는 유지\nconst EXPECTED_TYPES = {\"CAST-01\": {\"power\": \"bool\", \"injection_pressure_sp\": \"float\", \"mold_temperature_sp\": \"float\", \"cooling_flow_sp\": \"float\", \"injection_pressure\": \"float\", \"mold_temperature\": \"float\", \"cooling_flow\": \"float\", \"progress\": \"float\"}, \"CNC-01\": {\"power\": \"bool\", \"spindle_speed_sp\": \"int\", \"tool_usage_sp\": \"float\", \"coolant_flow_sp\": \"float\", \"spindle_speed\": \"int\", \"tool_usage\": \"float\", \"coolant_flow\": \"float\", \"progress\": \"float\"}, \"CNC-02\": {\"power\": \"bool\", \"spindle_speed_sp\": \"int\", \"tool_usage_sp\": \"float\", \"coolant_flow_sp\": \"float\", \"spindle_speed\": \"int\", \"tool_usage\": \"float\", \"coolant_flow\": \"float\", \"progress\": \"float\"}, \"CNC-03\": {\"power\": \"bool\", \"spindle_speed_sp\": \"int\", \"tool_usage_sp\": \"float\", \"coolant_flow_sp\": \"float\", \"spindle_speed\": \"int\", \"tool_usage\": \"float\", \"coolant_flow\": \"float\", \"progress\": \"float\"}, \"WASH-01\": {\"power\": \"bool\", \"cleaning_concentration_sp\": \"float\", \"cleaning_temperature_sp\": \"float\", \"cleaning_pressure_sp\": \"float\", \"cleaning_concentration\": \"float\", \"cleaning_temperature\": \"float\", \"cleaning_pressure\": \"float\", \"progress\": \"float\"}, \"ASSY-01\": {\"power\": \"bool\", \"tightening_torque_sp\": \"float\", \"tightening_angle_sp\": \"float\", \"press_force_sp\": \"float\", \"tightening_torque\": \"float\", \"tightening_angle\": \"float\", \"press_force\": \"float\", \"progress\": \"float\"}, \"ASSY-02\": {\"power\": \"bool\", \"tightening_torque_sp\": \"float\", \"tightening_angle_sp\": \"float\", \"press_force_sp\": \"float\", \"tightening_torque\": \"float\", \"tightening_angle\": \"float\", \"press_force\": \"float\", \"progress\": \"float\"}, \"TEST-01\": {\"power\": \"bool\", \"bore_dimension_sp\": \"float\", \"hole_dimension_sp\": \"float\", \"bore_dimension\": \"float\", \"hole_dimension\": \"float\", \"result_ok\": \"bool\", \"progress\": \"float\"}, \"TEST-02\": {\"power\": \"bool\", \"bore_dimension_sp\": \"float\", \"hole_dimension_sp\": \"float\", \"bore_dimension\": \"float\", \"hole_dimension\": \"float\", \"result_ok\": \"bool\", \"progress\": \"float\"}};\nconst p = msg.payload;\nif (!p) return null;\nconst lineId = p.line_id;\nconst state = flow.get('opcua_state') || {};\nconst addMsgs = [];\nconst varList = [];\nfunction coerce(value, dtype) {\n  if (value === null || value === undefined) {\n    if (dtype === 'Boolean') return false;\n    if (dtype === 'Int32') return 0;\n    if (dtype === 'Double' || dtype === 'Float') return 0.0;\n    return '';\n  }\n  return value;\n}\nfunction publish(name, value, dtype) {\n  const v = coerce(value, dtype);\n  const s = state[name];\n  if (!s) {\n    addMsgs.push({ topic: `ns=2;s=${name};datatype=${dtype}`, payload: { opcuaCommand: 'addVariable' } });\n    state[name] = 'pending';\n    return;\n  }\n  if (s === 'pending') {\n    state[name] = 'ready';\n    return;\n  }\n  varList.push({ messageType: 'Variable', namespace: 2, variableName: name, variableValue: v, datatype: dtype });\n}\npublish(`${lineId}.payload`, JSON.stringify(p), 'String');\npublish(`${lineId}.line_ts`, p.ts, 'String');\npublish(`${lineId}.schema_version`, p.schema_version, 'String');\nfor (const [eq, slot] of Object.entries(p.equipments || {})) {\n  publish(`${lineId}.${eq}.status`, slot.status, 'String');\n  publish(`${lineId}.${eq}.ts`, slot.ts, 'String');\n  publish(`${lineId}.${eq}.quality`, slot.quality, 'String');\n  const typeMap = (EXPECTED_TYPES[eq] || {});\n  for (const [tag, val] of Object.entries(slot.data || {})) {\n    let dtype;\n    const declared = typeMap[tag];\n    if (declared === 'bool') dtype = 'Boolean';\n    else if (declared === 'int') dtype = 'Int32';\n    else if (declared === 'float') dtype = 'Double';\n    else {\n      if (typeof val === 'boolean') dtype = 'Boolean';\n      else if (typeof val === 'number') dtype = 'Double';\n      else dtype = 'String';\n    }\n    publish(`${lineId}.${eq}.data.${tag}`, val, dtype);\n  }\n}\nflow.set('opcua_state', state);\nif (addMsgs.length > 0) node.send([addMsgs]);\nif (varList.length > 0) {\n  const delay = (addMsgs.length > 0) ? 800 : 50;\n  setTimeout(() => { node.send({ payload: varList }); }, delay);\n}\nreturn null;\n",
+        "func": "// LINE snapshot / command status 둘 다 OPC UA Server로 발행\nconst EXPECTED_TYPES = {\n  \"CAST-01\": {\n    \"power\": \"bool\",\n    \"injection_pressure_sp\": \"float\",\n    \"mold_temperature_sp\": \"float\",\n    \"cooling_flow_sp\": \"float\",\n    \"injection_pressure\": \"float\",\n    \"mold_temperature\": \"float\",\n    \"cooling_flow\": \"float\",\n    \"progress\": \"float\"\n  },\n  \"CNC-01\": {\n    \"power\": \"bool\",\n    \"spindle_speed_sp\": \"int\",\n    \"tool_usage_sp\": \"float\",\n    \"coolant_flow_sp\": \"float\",\n    \"spindle_speed\": \"int\",\n    \"tool_usage\": \"float\",\n    \"coolant_flow\": \"float\",\n    \"progress\": \"float\"\n  },\n  \"CNC-02\": {\n    \"power\": \"bool\",\n    \"spindle_speed_sp\": \"int\",\n    \"tool_usage_sp\": \"float\",\n    \"coolant_flow_sp\": \"float\",\n    \"spindle_speed\": \"int\",\n    \"tool_usage\": \"float\",\n    \"coolant_flow\": \"float\",\n    \"progress\": \"float\"\n  },\n  \"CNC-03\": {\n    \"power\": \"bool\",\n    \"spindle_speed_sp\": \"int\",\n    \"tool_usage_sp\": \"float\",\n    \"coolant_flow_sp\": \"float\",\n    \"spindle_speed\": \"int\",\n    \"tool_usage\": \"float\",\n    \"coolant_flow\": \"float\",\n    \"progress\": \"float\"\n  },\n  \"WASH-01\": {\n    \"power\": \"bool\",\n    \"cleaning_concentration_sp\": \"float\",\n    \"cleaning_temperature_sp\": \"float\",\n    \"cleaning_pressure_sp\": \"float\",\n    \"cleaning_concentration\": \"float\",\n    \"cleaning_temperature\": \"float\",\n    \"cleaning_pressure\": \"float\",\n    \"progress\": \"float\"\n  },\n  \"ASSY-01\": {\n    \"power\": \"bool\",\n    \"tightening_torque_sp\": \"float\",\n    \"tightening_angle_sp\": \"float\",\n    \"press_force_sp\": \"float\",\n    \"tightening_torque\": \"float\",\n    \"tightening_angle\": \"float\",\n    \"press_force\": \"float\",\n    \"progress\": \"float\"\n  },\n  \"ASSY-02\": {\n    \"power\": \"bool\",\n    \"tightening_torque_sp\": \"float\",\n    \"tightening_angle_sp\": \"float\",\n    \"press_force_sp\": \"float\",\n    \"tightening_torque\": \"float\",\n    \"tightening_angle\": \"float\",\n    \"press_force\": \"float\",\n    \"progress\": \"float\"\n  },\n  \"TEST-01\": {\n    \"power\": \"bool\",\n    \"bore_dimension_sp\": \"float\",\n    \"hole_dimension_sp\": \"float\",\n    \"bore_dimension\": \"float\",\n    \"hole_dimension\": \"float\",\n    \"result_ok\": \"bool\",\n    \"progress\": \"float\"\n  },\n  \"TEST-02\": {\n    \"power\": \"bool\",\n    \"bore_dimension_sp\": \"float\",\n    \"hole_dimension_sp\": \"float\",\n    \"bore_dimension\": \"float\",\n    \"hole_dimension\": \"float\",\n    \"result_ok\": \"bool\",\n    \"progress\": \"float\"\n  }\n};\n\nconst p = msg.payload || {};\nconst state = flow.get('opcua_state') || {};\nconst addMsgs = [];\nconst varList = [];\n\nfunction coerce(value, dtype) {\n  if (value === null || value === undefined) {\n    if (dtype === 'Boolean') return false;\n    if (dtype === 'Int32') return 0;\n    if (dtype === 'Double' || dtype === 'Float') return 0.0;\n    return '';\n  }\n\n  if (dtype === 'Boolean') return !!value;\n  if (dtype === 'Int32') {\n    const n = Number(value);\n    return Number.isFinite(n) ? Math.trunc(n) : 0;\n  }\n  if (dtype === 'Double' || dtype === 'Float') {\n    const n = Number(value);\n    return Number.isFinite(n) ? n : 0.0;\n  }\n  return String(value);\n}\n\nfunction publish(name, value, dtype) {\n  const v = coerce(value, dtype);\n  const s = state[name];\n\n  if (!s) {\n    addMsgs.push({\n      topic: `ns=2;s=${name};datatype=${dtype}`,\n      payload: { opcuaCommand: 'addVariable' }\n    });\n    state[name] = 'pending';\n    return;\n  }\n\n  if (s === 'pending') {\n    state[name] = 'ready';\n    return;\n  }\n\n  varList.push({\n    messageType: 'Variable',\n    namespace: 2,\n    variableName: name,\n    variableValue: v,\n    datatype: dtype\n  });\n}\n\nfunction publishLineSnapshot(payload) {\n  const lineId = String(payload.line_id || 'LINE-01');\n\n  publish(`${lineId}.payload`, JSON.stringify(payload), 'String');\n  publish(`${lineId}.line_ts`, payload.ts || '', 'String');\n  publish(`${lineId}.schema_version`, payload.schema_version || '', 'String');\n\n  for (const [eq, slot] of Object.entries(payload.equipments || {})) {\n    publish(`${lineId}.${eq}.status`, slot.status, 'String');\n    publish(`${lineId}.${eq}.ts`, slot.ts, 'String');\n    publish(`${lineId}.${eq}.quality`, slot.quality, 'String');\n\n    const typeMap = EXPECTED_TYPES[eq] || {};\n    for (const [tag, val] of Object.entries(slot.data || {})) {\n      let dtype;\n      const declared = typeMap[tag];\n\n      if (declared === 'bool') dtype = 'Boolean';\n      else if (declared === 'int') dtype = 'Int32';\n      else if (declared === 'float') dtype = 'Double';\n      else if (typeof val === 'boolean') dtype = 'Boolean';\n      else if (typeof val === 'number') dtype = 'Double';\n      else dtype = 'String';\n\n      publish(`${lineId}.${eq}.data.${tag}`, val, dtype);\n    }\n  }\n}\n\nfunction publishCommandLatest(payload) {\n  const lineId = String(payload.line_id || 'LINE-01');\n\n  let last = payload.last || flow.get('opcua_command_last') || null;\n\n  if (!last) {\n    last = {\n      command_id: '',\n      equipment_id: '',\n      command_type: '',\n      value: '',\n      status: 'IDLE',\n      accepted: false,\n      updated_at: '',\n      last_error: ''\n    };\n  }\n\n  publish(`${lineId}.command.command_id`, last.command_id, 'String');\n  publish(`${lineId}.command.equipment_id`, last.equipment_id, 'String');\n  publish(`${lineId}.command.command_type`, last.command_type, 'String');\n  publish(`${lineId}.command.value`, last.value, 'String');\n  publish(`${lineId}.command.status`, last.status || 'IDLE', 'String');\n  publish(`${lineId}.command.accepted`, !!last.accepted, 'Boolean');\n  publish(`${lineId}.command.updated_at`, last.updated_at, 'String');\n  publish(`${lineId}.command.last_error`, last.last_error, 'String');\n}\n\n// line snapshot 입력\nif (p.equipments) {\n  publishLineSnapshot(p);\n}\n\n// command status 입력\nif (p.last || flow.get('opcua_command_last')) {\n  publishCommandLatest(p);\n}\n\nflow.set('opcua_state', state);\n\nif (addMsgs.length > 0) {\n  for (const m of addMsgs) node.send(m);\n}\n\nif (varList.length > 0) {\n  const delay = addMsgs.length > 0 ? 800 : 50;\n  setTimeout(() => {\n    node.send({ payload: varList });\n  }, delay);\n}\n\nreturn null;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -2882,13 +3167,56 @@
         ]
     },
     {
-        "id": "2b026f8441883cdb",
-        "type": "comment",
-        "z": "7fceb9f3fadf4c8d",
-        "name": "LINE-01 writable full flow",
-        "info": "LINE-01 writable 전체 flow 대체본. writer_target을 사람이 읽을 수 있는 alias로 통일하고, setpoint writer까지 모두 실제 writer node와 연결했다. 설비당 1 in-flight, 성공/실패/타임아웃 상태를 writable status out으로 내보낸다.",
-        "x": 350,
-        "y": 620,
+        "id": "cmd_link_in_line01",
+        "type": "link in",
+        "z": "5b220735e29c459d",
+        "name": "writable status in",
+        "links": [
+            "fc2e54630f63f6eb"
+        ],
+        "x": 1565,
+        "y": 280,
+        "wires": [
+            [
+                "cmd_norm_line01"
+            ]
+        ]
+    },
+    {
+        "id": "cmd_norm_line01",
+        "type": "function",
+        "z": "5b220735e29c459d",
+        "name": "normalize command status",
+        "func": "const now = new Date().toISOString();\nconst src = msg.commandresult || msg.command_result || msg.payload || {};\nconst c = msg.command || {};\n\nconst commandId = String(src.command_id || src.commandid || c.command_id || c.commandid || msg.command_id || msg.commandid || '');\nconst equipmentId = String(src.equipment_id || src.equipmentid || c.equipment_id || c.equipmentid || msg.equipment_id || msg.equipmentid || '');\nconst commandType = String(src.command_type || src.commandtype || c.command_type || c.commandtype || msg.command_type || msg.commandtype || '');\n\nlet rawValue;\nif (src.value !== undefined) rawValue = src.value;\nelse if (c.value !== undefined) rawValue = c.value;\nelse if (msg.value !== undefined) rawValue = msg.value;\nelse rawValue = '';\n\nconst status = String(src.status || 'UNKNOWN');\nconst accepted = !!src.accepted;\nconst updatedAt = String(src.updated_at || src.updatedat || now);\nconst lastError = String(src.last_error || src.lasterror || '');\n\nconst last = {\n  command_id: commandId,\n  equipment_id: equipmentId,\n  command_type: commandType,\n  value: String(rawValue),\n  status,\n  accepted,\n  updated_at: updatedAt,\n  last_error: lastError\n};\n\nflow.set('opcua_command_last', last);\n\nmsg.payload = {\n  line_id: 'LINE-01',\n  last\n};\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1720,
+        "y": 280,
+        "wires": [
+            [
+                "49cade0749ef1100",
+                "17e35a0a8fb68412"
+            ]
+        ]
+    },
+    {
+        "id": "17e35a0a8fb68412",
+        "type": "debug",
+        "z": "5b220735e29c459d",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1780,
+        "y": 320,
         "wires": []
     },
     {
@@ -2897,7 +3225,8 @@
         "z": "7fceb9f3fadf4c8d",
         "name": "writable command in",
         "links": [
-            "47ed4dd1a34792db"
+            "47ed4dd1a34792db",
+            "d1a001c0a1111132"
         ],
         "x": 235,
         "y": 680,
@@ -2919,7 +3248,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 480,
+        "x": 470,
         "y": 680,
         "wires": [
             [
@@ -3910,16 +4239,18 @@
         "name": "writable status out",
         "mode": "link",
         "links": [
-            "40bdef06e03e14c9"
+            "40bdef06e03e14c9",
+            "cmd_link_in_line01"
         ],
-        "x": 3025,
-        "y": 880,
+        "x": 3055,
+        "y": 820,
         "wires": []
     },
     {
         "id": "324775dc8a0ccd41",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "c261cc053529d358",
         "name": "CAST-01 write injection_pressure_sp",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
@@ -3941,6 +4272,7 @@
         "id": "8ff0a470a8ae8b71",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "c261cc053529d358",
         "name": "CAST-01 write mold_temperature_sp",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
@@ -3962,6 +4294,7 @@
         "id": "279b4f1c3057601e",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "c261cc053529d358",
         "name": "CAST-01 write cooling_flow_sp",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
@@ -3983,6 +4316,7 @@
         "id": "f1f63c45834437ce",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "c261cc053529d358",
         "name": "CAST-01 write power",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
@@ -4004,6 +4338,7 @@
         "id": "745c73d3d7173ebe",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "c261cc053529d358",
         "name": "CAST-01 write load_request",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
@@ -4025,6 +4360,7 @@
         "id": "cfbf94b358f4d62f",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "c261cc053529d358",
         "name": "CAST-01 write unload_request",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
@@ -4046,6 +4382,7 @@
         "id": "4fee2cc9c9efa6a0",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "c261cc053529d358",
         "name": "CAST-01 write reset_error",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
@@ -4067,6 +4404,7 @@
         "id": "43c404b134304d2d",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "c261cc053529d358",
         "name": "CAST-01 write inject_warning",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
@@ -4088,6 +4426,7 @@
         "id": "61b0a1f7b8f09035",
         "type": "MC Write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "c261cc053529d358",
         "name": "CAST-01 write inject_error",
         "topic": "",
         "connection": "c9e33bd485cc4f42",
@@ -4109,6 +4448,7 @@
         "id": "27b568dbb7be9608",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b0d560ab02ea1e4b",
         "name": "CNC-01 write spindle_speed_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4135,6 +4475,7 @@
         "id": "d518bb2223d7f8a8",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b0d560ab02ea1e4b",
         "name": "CNC-01 write tool_usage_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4161,6 +4502,7 @@
         "id": "ff7acfce36cca204",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b0d560ab02ea1e4b",
         "name": "CNC-01 write coolant_flow_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4187,6 +4529,7 @@
         "id": "a8f3dea426169f7a",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b0d560ab02ea1e4b",
         "name": "CNC-01 write power",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4213,6 +4556,7 @@
         "id": "e5e9be7fd953461c",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b0d560ab02ea1e4b",
         "name": "CNC-01 write load_request",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4239,6 +4583,7 @@
         "id": "a63e705ec729f164",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b0d560ab02ea1e4b",
         "name": "CNC-01 write unload_request",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4265,6 +4610,7 @@
         "id": "ccba67b247919e9a",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b0d560ab02ea1e4b",
         "name": "CNC-01 write reset_error",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4291,6 +4637,7 @@
         "id": "9a7ab83ad5019f21",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b0d560ab02ea1e4b",
         "name": "CNC-01 write inject_warning",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4317,6 +4664,7 @@
         "id": "a0826b42e4d464e7",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "deb9db4777bc9e5f",
         "name": "CNC-01 write injecterror",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4343,6 +4691,7 @@
         "id": "bf8887bfa78dcce2",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "deb9db4777bc9e5f",
         "name": "CNC-02 write spindle_speed_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4369,6 +4718,7 @@
         "id": "a3095f8803e7038a",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "deb9db4777bc9e5f",
         "name": "CNC-02 write tool_usage_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4395,6 +4745,7 @@
         "id": "19ae2ef28e1c14ce",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "deb9db4777bc9e5f",
         "name": "CNC-02 write coolant_flow_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4421,6 +4772,7 @@
         "id": "b0f7d63a5bdb5101",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "deb9db4777bc9e5f",
         "name": "CNC-02 write power",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4447,6 +4799,7 @@
         "id": "172cb48b7121235b",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "deb9db4777bc9e5f",
         "name": "CNC-02 write load_request",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4473,6 +4826,7 @@
         "id": "b38618e594c72777",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "deb9db4777bc9e5f",
         "name": "CNC-02 write unload_request",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4499,6 +4853,7 @@
         "id": "e504a886af0dfa66",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "deb9db4777bc9e5f",
         "name": "CNC-02 write reset_error",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4525,6 +4880,7 @@
         "id": "7dcb875b68be6d55",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "deb9db4777bc9e5f",
         "name": "CNC-02 write inject_warning",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4551,6 +4907,7 @@
         "id": "e76bd06b9d97c356",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "a4ba684186dd204e",
         "name": "CNC-02 write injecterror",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4577,6 +4934,7 @@
         "id": "0ff820a9bf013233",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "a4ba684186dd204e",
         "name": "CNC-03 write spindle_speed_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4603,6 +4961,7 @@
         "id": "80d398c233b5f46b",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "a4ba684186dd204e",
         "name": "CNC-03 write tool_usage_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4629,6 +4988,7 @@
         "id": "f9a9121598c2256e",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "a4ba684186dd204e",
         "name": "CNC-03 write coolant_flow_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4655,6 +5015,7 @@
         "id": "7ebdb340f80df0ff",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "a4ba684186dd204e",
         "name": "CNC-03 write power",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4681,6 +5042,7 @@
         "id": "2a1f2feb00c528bb",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "a4ba684186dd204e",
         "name": "CNC-03 write load_request",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4707,6 +5069,7 @@
         "id": "2cb0799f838bf7c4",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "a4ba684186dd204e",
         "name": "CNC-03 write unload_request",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4733,6 +5096,7 @@
         "id": "1ffe2be3a675b920",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "a4ba684186dd204e",
         "name": "CNC-03 write reset_error",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4759,6 +5123,7 @@
         "id": "58d9e5261d0f8521",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "a4ba684186dd204e",
         "name": "CNC-03 write inject_warning",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4785,6 +5150,7 @@
         "id": "bfc84afa3c8be713",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "a4ba684186dd204e",
         "name": "CNC-03 write inject_error",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4811,6 +5177,7 @@
         "id": "084b51bddc116c69",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b4af5a48386ec6c9",
         "name": "WASH-01 write cleaning_concentration_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4837,6 +5204,7 @@
         "id": "c7ad6e4b3da25b80",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b4af5a48386ec6c9",
         "name": "WASH-01 write cleaning_temperature_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4863,6 +5231,7 @@
         "id": "0a247a04d9ee412b",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b4af5a48386ec6c9",
         "name": "WASH-01 write cleaning_pressure_sp",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4889,6 +5258,7 @@
         "id": "750193e6e12c4487",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b4af5a48386ec6c9",
         "name": "WASH-01 write power",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4915,6 +5285,7 @@
         "id": "6f649e55ce3bdb43",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b4af5a48386ec6c9",
         "name": "WASH-01 write load_request",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4941,6 +5312,7 @@
         "id": "b319dce3945167ff",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b4af5a48386ec6c9",
         "name": "WASH-01 write unload_request",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4967,6 +5339,7 @@
         "id": "17c9885230e9b9d4",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b4af5a48386ec6c9",
         "name": "WASH-01 write reset_error",
         "showStatusActivities": false,
         "showErrors": false,
@@ -4993,6 +5366,7 @@
         "id": "a99c538d937133f2",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b4af5a48386ec6c9",
         "name": "WASH-01 write inject_warning",
         "showStatusActivities": false,
         "showErrors": false,
@@ -5019,6 +5393,7 @@
         "id": "019bb8a0caa9238f",
         "type": "modbus-write",
         "z": "7fceb9f3fadf4c8d",
+        "g": "b4af5a48386ec6c9",
         "name": "WASH-01 write inject_error",
         "showStatusActivities": false,
         "showErrors": false,
@@ -5045,6 +5420,7 @@
         "id": "1505eb51765b6cbf",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "246e8eed1c459370",
         "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
@@ -5080,6 +5456,7 @@
         "id": "7aeaf4414edd8458",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "246e8eed1c459370",
         "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
@@ -5115,6 +5492,7 @@
         "id": "25ca221dd4be782b",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "246e8eed1c459370",
         "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
@@ -5150,6 +5528,7 @@
         "id": "e380bb9f739338ed",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "246e8eed1c459370",
         "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
@@ -5185,6 +5564,7 @@
         "id": "ea4c474464a3cd96",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "246e8eed1c459370",
         "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
@@ -5220,6 +5600,7 @@
         "id": "f9318c2bf34a8366",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "246e8eed1c459370",
         "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
@@ -5255,6 +5636,7 @@
         "id": "6a3917c5746035d2",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "246e8eed1c459370",
         "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
@@ -5290,6 +5672,7 @@
         "id": "4afe7746994fbd0a",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "246e8eed1c459370",
         "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
@@ -5325,6 +5708,7 @@
         "id": "0bc0a40ef577f9cb",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "246e8eed1c459370",
         "endpoint": "d478c1239ed74467",
         "action": "write",
         "deadbandtype": "a",
@@ -5360,6 +5744,7 @@
         "id": "4abcf58fc9f047fc",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "fe8768a018b465b4",
         "endpoint": "3964f417ac934bda",
         "action": "write",
         "deadbandtype": "a",
@@ -5395,6 +5780,7 @@
         "id": "fb76b15c5be6b055",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "fe8768a018b465b4",
         "endpoint": "3964f417ac934bda",
         "action": "write",
         "deadbandtype": "a",
@@ -5430,6 +5816,7 @@
         "id": "c420ced46de0587e",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "fe8768a018b465b4",
         "endpoint": "3964f417ac934bda",
         "action": "write",
         "deadbandtype": "a",
@@ -5465,6 +5852,7 @@
         "id": "564d5b440d8a12bd",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "fe8768a018b465b4",
         "endpoint": "3964f417ac934bda",
         "action": "write",
         "deadbandtype": "a",
@@ -5500,6 +5888,7 @@
         "id": "835255484d1a30f7",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "fe8768a018b465b4",
         "endpoint": "3964f417ac934bda",
         "action": "write",
         "deadbandtype": "a",
@@ -5535,6 +5924,7 @@
         "id": "88ea9b5eb055bc98",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "fe8768a018b465b4",
         "endpoint": "3964f417ac934bda",
         "action": "write",
         "deadbandtype": "a",
@@ -5570,6 +5960,7 @@
         "id": "c0c3d2243ff9a3b6",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "fe8768a018b465b4",
         "endpoint": "3964f417ac934bda",
         "action": "write",
         "deadbandtype": "a",
@@ -5605,6 +5996,7 @@
         "id": "4b11833b80750bf3",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "fe8768a018b465b4",
         "endpoint": "3964f417ac934bda",
         "action": "write",
         "deadbandtype": "a",
@@ -5640,6 +6032,7 @@
         "id": "aa4bbee22e1760b3",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "fe8768a018b465b4",
         "endpoint": "3964f417ac934bda",
         "action": "write",
         "deadbandtype": "a",
@@ -5675,6 +6068,7 @@
         "id": "83f11d9c03fd877a",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "503eba584825e8b0",
         "endpoint": "fb49ebe2e2414a80",
         "action": "write",
         "deadbandtype": "a",
@@ -5710,6 +6104,7 @@
         "id": "e6d097ccfeb46892",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "503eba584825e8b0",
         "endpoint": "fb49ebe2e2414a80",
         "action": "write",
         "deadbandtype": "a",
@@ -5745,6 +6140,7 @@
         "id": "7cd40655bd9c5d57",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "503eba584825e8b0",
         "endpoint": "fb49ebe2e2414a80",
         "action": "write",
         "deadbandtype": "a",
@@ -5780,6 +6176,7 @@
         "id": "35df482a211ebcfc",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "503eba584825e8b0",
         "endpoint": "fb49ebe2e2414a80",
         "action": "write",
         "deadbandtype": "a",
@@ -5815,6 +6212,7 @@
         "id": "c1bf78c564af52e3",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "503eba584825e8b0",
         "endpoint": "fb49ebe2e2414a80",
         "action": "write",
         "deadbandtype": "a",
@@ -5850,6 +6248,7 @@
         "id": "a72c8f9b64acef63",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "503eba584825e8b0",
         "endpoint": "fb49ebe2e2414a80",
         "action": "write",
         "deadbandtype": "a",
@@ -5885,6 +6284,7 @@
         "id": "0b8d141741e8c9c9",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "503eba584825e8b0",
         "endpoint": "fb49ebe2e2414a80",
         "action": "write",
         "deadbandtype": "a",
@@ -5920,6 +6320,7 @@
         "id": "10e5172dc21f331a",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "503eba584825e8b0",
         "endpoint": "fb49ebe2e2414a80",
         "action": "write",
         "deadbandtype": "a",
@@ -5955,6 +6356,7 @@
         "id": "3064abc401662c87",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "071369bd09d2cd04",
         "endpoint": "5d81aa501a7a44d5",
         "action": "write",
         "deadbandtype": "a",
@@ -5990,6 +6392,7 @@
         "id": "7f866f5013f5e56b",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "071369bd09d2cd04",
         "endpoint": "5d81aa501a7a44d5",
         "action": "write",
         "deadbandtype": "a",
@@ -6025,6 +6428,7 @@
         "id": "1ee7696cce24ee93",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "071369bd09d2cd04",
         "endpoint": "5d81aa501a7a44d5",
         "action": "write",
         "deadbandtype": "a",
@@ -6060,6 +6464,7 @@
         "id": "029106d881cc9ea7",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "071369bd09d2cd04",
         "endpoint": "5d81aa501a7a44d5",
         "action": "write",
         "deadbandtype": "a",
@@ -6095,6 +6500,7 @@
         "id": "b4020e2c76d209f7",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "071369bd09d2cd04",
         "endpoint": "5d81aa501a7a44d5",
         "action": "write",
         "deadbandtype": "a",
@@ -6130,6 +6536,7 @@
         "id": "ef98e06f6ee125e9",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "071369bd09d2cd04",
         "endpoint": "5d81aa501a7a44d5",
         "action": "write",
         "deadbandtype": "a",
@@ -6165,6 +6572,7 @@
         "id": "1d26661e4e8b06f8",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "071369bd09d2cd04",
         "endpoint": "5d81aa501a7a44d5",
         "action": "write",
         "deadbandtype": "a",
@@ -6200,6 +6608,7 @@
         "id": "78c30c5031a83d2b",
         "type": "OpcUa-Client",
         "z": "7fceb9f3fadf4c8d",
+        "g": "071369bd09d2cd04",
         "endpoint": "5d81aa501a7a44d5",
         "action": "write",
         "deadbandtype": "a",
@@ -7069,7 +7478,7 @@
         "type": "debug",
         "z": "7fceb9f3fadf4c8d",
         "name": "flow maps",
-        "active": false,
+        "active": true,
         "tosidebar": true,
         "console": false,
         "tostatus": false,
@@ -7190,7 +7599,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2280,
+        "x": 2270,
         "y": 840,
         "wires": [
             [
@@ -7228,7 +7637,7 @@
         "checkall": "true",
         "repair": false,
         "outputs": 4,
-        "x": 2510,
+        "x": 2520,
         "y": 840,
         "wires": [
             [
@@ -7256,8 +7665,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2750,
-        "y": 800,
+        "x": 2770,
+        "y": 820,
         "wires": [
             [
                 "fc2e54630f63f6eb"
@@ -7278,8 +7687,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2730,
-        "y": 840,
+        "x": 2750,
+        "y": 860,
         "wires": [
             [
                 "fc2e54630f63f6eb"
@@ -7300,8 +7709,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2730,
-        "y": 880,
+        "x": 2750,
+        "y": 900,
         "wires": [
             [
                 "fc2e54630f63f6eb"
@@ -7328,8 +7737,8 @@
         "bytopic": "topic",
         "topic": "command.command_id",
         "outputs": 1,
-        "x": 2750,
-        "y": 920,
+        "x": 2770,
+        "y": 1000,
         "wires": [
             [
                 "93101c5e6fb52a29"
@@ -7347,8 +7756,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2230,
-        "y": 760,
+        "x": 2760,
+        "y": 1040,
         "wires": [
             [
                 "fc2e54630f63f6eb"
@@ -7442,8 +7851,8 @@
             "78c30c5031a83d2b"
         ],
         "uncaught": false,
-        "x": 1820,
-        "y": 720,
+        "x": 2290,
+        "y": 900,
         "wires": [
             [
                 "abe30037adfd51b7"
@@ -7461,8 +7870,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2040,
-        "y": 720,
+        "x": 2520,
+        "y": 900,
         "wires": [
             [
                 "3d48987340ea6006"
@@ -7491,6 +7900,197 @@
         "wires": [
             [
                 "47ed4dd1a34792db"
+            ]
+        ]
+    },
+    {
+        "id": "d1a001c0a1111126",
+        "type": "inject",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "upper DAS command subscribe start",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "5",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 190,
+        "y": 500,
+        "wires": [
+            [
+                "d1a001c0a1111127"
+            ]
+        ]
+    },
+    {
+        "id": "d1a001c0a1111127",
+        "type": "function",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "prepare upper command subscribe",
+        "func": "flow.set('opcua_sub_started_upper_cmd_line01', Date.now());\nmsg.topic = 'multiple';\nmsg.payload = [\n  {\n    nodeId: 'ns=2;s=LINE-01.command',\n    datatype: 'String',\n    name: 'command'\n  }\n];\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 500,
+        "wires": [
+            [
+                "d1a001c0a1111128"
+            ]
+        ]
+    },
+    {
+        "id": "d1a001c0a1111128",
+        "type": "OpcUa-Client",
+        "z": "7fceb9f3fadf4c8d",
+        "endpoint": "d1a001c0a1111999",
+        "action": "subscribe",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "1",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": 1,
+        "maxMessageSize": 8192,
+        "receiveBufferSize": 8192,
+        "sendBufferSize": 8192,
+        "setstatusandtime": false,
+        "keepsessionalive": true,
+        "name": "upper DAS command_in sub",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 800,
+        "y": 500,
+        "wires": [
+            [
+                "d1a001c0a1111129",
+                "d1a001c0a1111131"
+            ],
+            [
+                "d1a001c0a1111130"
+            ],
+            []
+        ]
+    },
+    {
+        "id": "d1a001c0a1111129",
+        "type": "debug",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "upper cmd sub raw",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 1050,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "d1a001c0a1111130",
+        "type": "debug",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "upper cmd sub status",
+        "active": false,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "true",
+        "targetType": "full",
+        "x": 1060,
+        "y": 540,
+        "wires": []
+    },
+    {
+        "id": "d1a001c0a1111131",
+        "type": "function",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "decode command json once",
+        "func": "const NODE_ID = 'ns=2;s=LINE-01.command';\nconst rawTopic = String(msg.topic || '');\nif (rawTopic !== NODE_ID) return null;\n\nlet sc = msg.StatusCode;\nif (sc === undefined && msg.payload && typeof msg.payload === 'object' && msg.payload.statusCode) {\n    sc = msg.payload.statusCode.value;\n}\nif (sc !== undefined && sc !== 0) return null;\n\nlet raw = msg.payload;\nif (raw && typeof raw === 'object') {\n    if (raw.value && typeof raw.value === 'object' && raw.value.value !== undefined) {\n        raw = raw.value.value;\n    } else if (raw.value !== undefined && raw.dataType === undefined) {\n        raw = raw.value;\n    }\n}\n\nif (raw === null || raw === undefined) return null;\nif (typeof raw !== 'string') {\n    if (typeof raw === 'object') return null;\n    raw = String(raw);\n}\n\nconst text = raw.trim();\nif (!text || text === '{}' || text === 'null' || text === 'undefined') return null;\nif (!(text.startsWith('{') && text.endsWith('}'))) return null;\n\nlet parsed;\ntry {\n    parsed = JSON.parse(text);\n} catch (e) {\n    node.warn(`invalid command json: ${e.message}`);\n    return null;\n}\n\nconst commandId = String(parsed.command_id || parsed.commandid || '').trim();\nconst equipmentId = String(parsed.equipment_id || parsed.equipmentid || '').trim();\nconst commandType = String(parsed.command_type || parsed.commandtype || '').trim();\nconst timeoutSecRaw = Number(parsed.timeout_sec ?? parsed.timeoutsec ?? 10);\nconst timeoutSec = Number.isFinite(timeoutSecRaw) && timeoutSecRaw > 0 ? timeoutSecRaw : 10;\n\nif (!commandId || !equipmentId || !commandType) {\n    node.warn('command json missing required fields');\n    return null;\n}\n\nconst lastId = flow.get('upper_command_last_id') || '';\nif (commandId === lastId) return null;\n\nflow.set('upper_command_last_id', commandId);\nflow.set('opcua_lastseen_upper_cmd_line01', Date.now());\n\nmsg.payload = {\n    command: {\n        commandid: commandId,\n        equipmentid: equipmentId,\n        commandtype: commandType,\n        value: parsed.value,\n        timeoutsec: timeoutSec\n    }\n};\nmsg.topic = commandId;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1080,
+        "y": 500,
+        "wires": [
+            [
+                "d1a001c0a1111132"
+            ]
+        ]
+    },
+    {
+        "id": "d1a001c0a1111132",
+        "type": "link out",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "to writable command in",
+        "mode": "link",
+        "links": [
+            "5d1eb2df2eafcee9"
+        ],
+        "x": 1235,
+        "y": 500,
+        "wires": []
+    },
+    {
+        "id": "d1a001c0a1111133",
+        "type": "inject",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "upper cmd watchdog 5s",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "5",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "12",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 180,
+        "y": 580,
+        "wires": [
+            [
+                "d1a001c0a1111134"
+            ]
+        ]
+    },
+    {
+        "id": "d1a001c0a1111134",
+        "type": "function",
+        "z": "7fceb9f3fadf4c8d",
+        "name": "watchdog resub command",
+        "func": "const now = Date.now();\nconst lastSeen = flow.get('opcua_lastseen_upper_cmd_line01') || 0;\nconst cooldown = flow.get('opcua_resub_cooldown_upper_cmd_line01') || 0;\nconst started = flow.get('opcua_sub_started_upper_cmd_line01') || 0;\n\nif (!started) {\n    flow.set('opcua_sub_started_upper_cmd_line01', now);\n    return null;\n}\n\nconst noDataMs = lastSeen ? (now - lastSeen) : (now - started);\nif (noDataMs < 15000) return null;\nif (now - cooldown < 15000) return null;\n\nflow.set('opcua_resub_cooldown_upper_cmd_line01', now);\nmsg.topic = 'multiple';\nmsg.payload = [{\n  nodeId: 'ns=2;s=LINE-01.command',\n  datatype: 'String',\n  name: 'command'\n}];\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 480,
+        "y": 580,
+        "wires": [
+            [
+                "d1a001c0a1111128"
             ]
         ]
     },
