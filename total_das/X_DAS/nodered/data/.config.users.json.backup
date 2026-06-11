@@ -14,12 +14,57 @@
                 "view-show-welcome-tours": true
             },
             "tours": {
-                "welcome": "4.1.10"
+                "welcome": "5.0.0"
             },
             "dialog": {
                 "export": {
-                    "pretty": false,
+                    "pretty": true,
                     "json-view": true
+                }
+            },
+            "sidebar": {
+                "state": {
+                    "v": 4,
+                    "tabs": [],
+                    "primary": {
+                        "width": 197,
+                        "top": {
+                            "tabs": [
+                                "info",
+                                "help",
+                                "config",
+                                "context"
+                            ],
+                            "hidden": false,
+                            "height": 306,
+                            "active": "context"
+                        },
+                        "bottom": {
+                            "tabs": [
+                                "debug"
+                            ],
+                            "hidden": false,
+                            "active": "debug"
+                        }
+                    },
+                    "secondary": {
+                        "width": 210,
+                        "top": {
+                            "tabs": [
+                                "explorer"
+                            ],
+                            "height": 306,
+                            "hidden": false,
+                            "active": "explorer"
+                        },
+                        "bottom": {
+                            "tabs": [
+                                "palette"
+                            ],
+                            "hidden": false,
+                            "active": "palette"
+                        }
+                    }
                 }
             }
         },
@@ -32,6 +77,6 @@
                 "debug_xdas_live_sample"
             ]
         },
-        "menu-menu-item-sidebar": true
+        "menu-menu-item-sidebar": false
     }
 }

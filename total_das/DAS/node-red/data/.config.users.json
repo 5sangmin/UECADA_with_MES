@@ -14,7 +14,7 @@
                 "view-show-welcome-tours": true
             },
             "tours": {
-                "welcome": "4.1.10"
+                "welcome": "5.0.0"
             },
             "dialog": {
                 "export": {
