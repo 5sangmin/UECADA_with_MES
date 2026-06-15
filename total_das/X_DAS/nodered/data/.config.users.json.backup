@@ -36,8 +36,8 @@
                                 "context"
                             ],
                             "hidden": false,
-                            "height": 306,
-                            "active": "context"
+                            "height": 312,
+                            "active": "help"
                         },
                         "bottom": {
                             "tabs": [
@@ -53,7 +53,7 @@
                             "tabs": [
                                 "explorer"
                             ],
-                            "height": 306,
+                            "height": 312,
                             "hidden": false,
                             "active": "explorer"
                         },
