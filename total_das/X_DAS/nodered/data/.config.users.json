@@ -6,11 +6,11 @@
                 "view-store-position": false,
                 "view-show-grid": true,
                 "view-snap-grid": true,
-                "view-grid-size": 20,
+                "view-grid-size": "20",
                 "view-node-status": true,
                 "view-node-info-icon": true,
                 "view-node-show-label": true,
-                "view-show-tips": true,
+                "view-show-tips": false,
                 "view-show-welcome-tours": true
             },
             "tours": {
@@ -27,7 +27,7 @@
                     "v": 4,
                     "tabs": [],
                     "primary": {
-                        "width": 197,
+                        "width": 437,
                         "top": {
                             "tabs": [
                                 "info",
@@ -36,7 +36,7 @@
                                 "context"
                             ],
                             "hidden": false,
-                            "height": 312,
+                            "height": 187,
                             "active": "info"
                         },
                         "bottom": {
@@ -48,12 +48,12 @@
                         }
                     },
                     "secondary": {
-                        "width": 210,
+                        "width": 250,
                         "top": {
                             "tabs": [
                                 "explorer"
                             ],
-                            "height": 312,
+                            "height": 320,
                             "hidden": false,
                             "active": "explorer"
                         },
@@ -69,7 +69,7 @@
             }
         },
         "debug": {
-            "filter": "filterAll",
+            "filter": "filterCurrent",
             "filteredNodes": [
                 "debug_backend_write",
                 "debug_flow_errors",

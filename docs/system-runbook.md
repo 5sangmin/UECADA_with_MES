@@ -28,7 +28,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 2. DB, FastAPI, Spring Boot 실행
 
 ```powershell
-docker compose up -d --build mysql ai-api backend
+docker compose up -d --build mysql ai-api timescaledb commanddb backend
 ```
 
 3. Frontend 실행

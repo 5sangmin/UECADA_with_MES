@@ -27,6 +27,66 @@ services:
       retries: 20
       start_period: 30s
 
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: smart-factory-timescaledb
+    restart: always
+    ports:
+      - "55432:5432"
+    environment:
+      POSTGRES_DB: total_das_ts
+      POSTGRES_USER: total_das_user
+      POSTGRES_PASSWORD: total_das_1234
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=timescaledb
+      - -c
+      - timezone=Asia/Seoul
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./database/timescaledb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U total_das_user -d total_das_ts"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks:
+      - default       # 있으면
+      - total-das-net # 추가
+
+  commanddb:
+    image: postgres:16
+    container_name: smart-factory-commanddb
+    restart: always
+    ports:
+      - "55433:5432"
+    environment:
+      POSTGRES_DB: total_das_command
+      POSTGRES_USER: total_das_cmd_user
+      POSTGRES_PASSWORD: total_das_cmd_1234
+      TZ: Asia/Seoul
+      PGTZ: Asia/Seoul
+    command:
+      - postgres
+      - -c
+      - timezone=Asia/Seoul
+    volumes:
+      - commanddb_data:/var/lib/postgresql/data
+      - ./database/commanddb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U total_das_cmd_user -d total_das_command"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    networks:
+      - default       # 있으면
+      - total-das-net # 추가
+
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: smart-factory-mosquitto
@@ -89,6 +149,8 @@ services:
       PHM_OPCUA_XDAS_QUEUE_SIZE: ${PHM_OPCUA_XDAS_QUEUE_SIZE:-10}
       PHM_OPCUA_XDAS_RECONNECT_DELAY_MS: ${PHM_OPCUA_XDAS_RECONNECT_DELAY_MS:-5000}
       PHM_OPCUA_XDAS_INCLUDE_LINE01_ALIAS_BUFFERS: ${PHM_OPCUA_XDAS_INCLUDE_LINE01_ALIAS_BUFFERS:-true}
+      TIMESCALE_URL: postgresql://total_das_user:total_das_1234@timescaledb:5432/total_das_ts
+      COMMANDDB_URL: postgresql://total_das_cmd_user:total_das_cmd_1234@commanddb:5432/total_das_command
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -123,6 +185,8 @@ services:
 
 volumes:
   mysql_data:
+  timescaledb_data:
+  commanddb_data:
   mosquitto_data:
   mosquitto_log:
 
