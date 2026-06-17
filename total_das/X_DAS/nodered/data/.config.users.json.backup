@@ -27,7 +27,7 @@
                     "v": 4,
                     "tabs": [],
                     "primary": {
-                        "width": 437,
+                        "width": 250,
                         "top": {
                             "tabs": [
                                 "info",
@@ -35,9 +35,8 @@
                                 "config",
                                 "context"
                             ],
-                            "hidden": false,
-                            "height": 128,
-                            "active": "info"
+                            "hidden": true,
+                            "height": 290
                         },
                         "bottom": {
                             "tabs": [
@@ -48,12 +47,12 @@
                         }
                     },
                     "secondary": {
-                        "width": 250,
+                        "width": 279,
                         "top": {
                             "tabs": [
                                 "explorer"
                             ],
-                            "height": 318,
+                            "height": 321.20000000000005,
                             "hidden": false,
                             "active": "explorer"
                         },
@@ -69,7 +68,7 @@
             }
         },
         "debug": {
-            "filter": "filterCurrent",
+            "filter": "filterAll",
             "filteredNodes": [
                 "debug_backend_write",
                 "debug_flow_errors",

@@ -3005,7 +3005,7 @@
         "type": "debug",
         "z": "124902406a313c19",
         "name": "payload",
-        "active": true,
+        "active": false,
         "tosidebar": true,
         "console": false,
         "tostatus": false,
@@ -3262,6 +3262,53 @@
             [
                 "64752517a3ba6fa2"
             ]
+        ]
+    },
+    {
+        "id": "ae144ec76a127243",
+        "type": "inject",
+        "z": "124902406a313c19",
+        "name": "reset_inject",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.01",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 2070,
+        "y": 80,
+        "wires": [
+            [
+                "09e5f564d1a864bf"
+            ]
+        ]
+    },
+    {
+        "id": "09e5f564d1a864bf",
+        "type": "function",
+        "z": "124902406a313c19",
+        "name": "reset flow.opcua_state",
+        "func": "flow.set('opcua_state', {});\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2260,
+        "y": 80,
+        "wires": [
+            []
         ]
     },
     {

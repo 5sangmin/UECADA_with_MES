@@ -2943,7 +2943,7 @@
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
-        "initialize": "flow.set('opcua_state', flow.get('opcua_state') || {});",
+        "initialize": "flow.set('opcua_state', {});",
         "finalize": "",
         "libs": [],
         "x": 2180,
@@ -3262,6 +3262,53 @@
             [
                 "a6a8cc14d4d6ea85"
             ]
+        ]
+    },
+    {
+        "id": "ae144ec76a127243",
+        "type": "inject",
+        "z": "033450502b115381",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.01",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 1610,
+        "y": 280,
+        "wires": [
+            [
+                "09e5f564d1a864bf"
+            ]
+        ]
+    },
+    {
+        "id": "09e5f564d1a864bf",
+        "type": "function",
+        "z": "033450502b115381",
+        "name": "reset flow.opcua_state",
+        "func": "flow.set('opcua_state', {});\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1800,
+        "y": 280,
+        "wires": [
+            []
         ]
     },
     {

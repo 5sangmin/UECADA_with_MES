@@ -2943,7 +2943,7 @@
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
-        "initialize": "flow.set('opcua_state', flow.get('opcua_state') || {});",
+        "initialize": "flow.set('opcua_state', {});",
         "finalize": "",
         "libs": [],
         "x": 2180,

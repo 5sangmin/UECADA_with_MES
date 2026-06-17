@@ -11,6 +11,8 @@ services:
       TZ: ${TZ:-Asia/Seoul}
       NODE_RED_CREDENTIAL_SECRET: ${NODE_RED_CREDENTIAL_SECRET:-change-this-secret}
       NODE_OPTIONS: ${NODE_OPTIONS:---max-old-space-size=4096}
+      UDP_STREAM_HOST: ${UDP_STREAM_HOST:-host.docker.internal}
+      UDP_STREAM_PORT: ${UDP_STREAM_PORT:-50010}
     ports:
       - "${NODE_RED_PORT:-1880}:1880"
       - "${X_DAS_OPCUA_PORT:-54880}:54880"

@@ -3265,6 +3265,53 @@
         ]
     },
     {
+        "id": "ae144ec76a127243",
+        "type": "inject",
+        "z": "a9bff97af746e296",
+        "name": "reset_inject",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "0.01",
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 2070,
+        "y": 80,
+        "wires": [
+            [
+                "09e5f564d1a864bf"
+            ]
+        ]
+    },
+    {
+        "id": "09e5f564d1a864bf",
+        "type": "function",
+        "z": "a9bff97af746e296",
+        "name": "reset flow.opcua_state",
+        "func": "flow.set('opcua_state', {});\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 2260,
+        "y": 80,
+        "wires": [
+            []
+        ]
+    },
+    {
         "id": "12181716e0077fe1",
         "type": "link in",
         "z": "ea1ad26bb0767e1d",

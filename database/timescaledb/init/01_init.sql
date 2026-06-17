@@ -1,10 +1,12 @@
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
-CREATE TABLE IF NOT EXISTS equipment_snapshot (
-    id bigserial PRIMARY KEY,
+
+-- 1) 기본 테이블 정의
+CREATE TABLE IF NOT EXISTS public.equipment_snapshot (
     ts timestamptz NOT NULL,
     line_id text NOT NULL,
     equipment_id text NOT NULL,
+
     equipment_type text,
     heartbeat bigint,
     quality_code smallint,
@@ -26,8 +28,10 @@ CREATE TABLE IF NOT EXISTS equipment_snapshot (
     cmd_id bigint,
     cmd_accepted smallint,
     cmd_status smallint,
-    payload_json jsonb,
-    created_at timestamptz NOT NULL DEFAULT now()
+    created_at timestamptz NOT NULL DEFAULT now(),
+
+    CONSTRAINT equipment_snapshot_pkey
+        PRIMARY KEY (ts, line_id, equipment_id)
 );
 
 SELECT create_hypertable(
@@ -37,9 +41,6 @@ SELECT create_hypertable(
     migrate_data => TRUE
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_equipment_snapshot_ts_line_eq
-    ON public.equipment_snapshot (ts, line_id, equipment_id);
-
 CREATE INDEX IF NOT EXISTS idx_equipment_snapshot_line_eq_ts_desc
     ON public.equipment_snapshot (line_id, equipment_id, ts DESC);
 
@@ -48,4 +49,3 @@ CREATE INDEX IF NOT EXISTS idx_equipment_snapshot_eqtype_ts_desc
 
 CREATE INDEX IF NOT EXISTS idx_equipment_snapshot_created_at
     ON public.equipment_snapshot (created_at DESC);
-    
