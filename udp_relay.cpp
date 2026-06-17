@@ -16,6 +16,7 @@ constexpr int kListenPort = 50010;
 constexpr const char* kDefaultMulticastGroup = "239.100.0.1";
 constexpr int kDefaultMulticastPort = 50020;
 constexpr int kDefaultTtl = 1;
+constexpr const char* kDefaultLocalNicIp = "192.168.5.10";
 constexpr int kBufferSize = 65535;
 
 std::string format_time_ms(std::int64_t epoch_ms) {
@@ -45,18 +46,22 @@ int main(int argc, char* argv[]) {
     std::string multicast_group = kDefaultMulticastGroup;
     int multicast_port = kDefaultMulticastPort;
     int multicast_ttl = kDefaultTtl;
+    std::string local_nic_ip = kDefaultLocalNicIp;
 
     if (argc >= 2) {
-        listen_port = std::stoi(argv[1]);
+        local_nic_ip = argv[1];
     }
     if (argc >= 3) {
-        multicast_group = argv[2];
+        listen_port = std::stoi(argv[2]);
     }
     if (argc >= 4) {
-        multicast_port = std::stoi(argv[3]);
+        multicast_group = argv[3];
     }
     if (argc >= 5) {
-        multicast_ttl = std::stoi(argv[4]);
+        multicast_port = std::stoi(argv[4]);
+    }
+    if (argc >= 6) {
+        multicast_ttl = std::stoi(argv[5]);
     }
 
     WSADATA wsaData{};
@@ -97,6 +102,25 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    in_addr local_if{};
+    int pton_result = inet_pton(AF_INET, local_nic_ip.c_str(), &local_if);
+    if (pton_result != 1) {
+        std::cerr << "invalid local NIC IP: " << local_nic_ip << '\n';
+        closesocket(send_sock);
+        closesocket(recv_sock);
+        WSACleanup();
+        return 1;
+    }
+
+    if (setsockopt(send_sock, IPPROTO_IP, IP_MULTICAST_IF,
+                   reinterpret_cast<const char*>(&local_if), sizeof(local_if)) == SOCKET_ERROR) {
+        std::cerr << "setsockopt(IP_MULTICAST_IF) failed: " << WSAGetLastError() << '\n';
+        closesocket(send_sock);
+        closesocket(recv_sock);
+        WSACleanup();
+        return 1;
+    }
+
     DWORD ttl = static_cast<DWORD>(multicast_ttl);
     if (setsockopt(send_sock, IPPROTO_IP, IP_MULTICAST_TTL,
                    reinterpret_cast<const char*>(&ttl), sizeof(ttl)) == SOCKET_ERROR) {
@@ -105,6 +129,12 @@ int main(int argc, char* argv[]) {
         closesocket(recv_sock);
         WSACleanup();
         return 1;
+    }
+
+    BOOL loopback = TRUE;
+    if (setsockopt(send_sock, IPPROTO_IP, IP_MULTICAST_LOOP,
+                   reinterpret_cast<const char*>(&loopback), sizeof(loopback)) == SOCKET_ERROR) {
+        std::cerr << "setsockopt(IP_MULTICAST_LOOP) failed: " << WSAGetLastError() << '\n';
     }
 
     sockaddr_in mcast_addr{};
@@ -121,10 +151,11 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "UDP relay started\n";
-    std::cout << "  listen      : 0.0.0.0:" << listen_port << '\n';
-    std::cout << "  multicast to: " << multicast_group << ':' << multicast_port << '\n';
-    std::cout << "  ttl         : " << multicast_ttl << '\n';
-    std::cout << "  logging     : relay time only\n";
+    std::cout << "  listen       : 0.0.0.0:" << listen_port << '\n';
+    std::cout << "  multicast to : " << multicast_group << ':' << multicast_port << '\n';
+    std::cout << "  ttl          : " << multicast_ttl << '\n';
+    std::cout << "  local NIC IP : " << local_nic_ip << '\n';
+    std::cout << "  logging      : relay time only\n";
 
     std::vector<char> buffer(kBufferSize);
     std::uint64_t relay_count = 0;

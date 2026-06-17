@@ -13,6 +13,7 @@
 #include <vector>
 
 namespace {
+constexpr const char* kDefaultLocalNicIp = "192.168.5.11";
 constexpr const char* kDefaultGroup = "239.100.0.1";
 constexpr int kDefaultPort = 50020;
 constexpr std::size_t kHeaderSize = 16;
@@ -193,6 +194,7 @@ void print_table_row(const EquipmentRecord& r) {
 void print_summary(const PacketHeader& h,
                    const std::vector<EquipmentRecord>& rows,
                    const sockaddr_in& peer,
+                   const std::string& local_nic_ip,
                    const std::string& group,
                    int port) {
     char ip[INET_ADDRSTRLEN] = {0};
@@ -202,6 +204,7 @@ void print_summary(const PacketHeader& h,
 
     std::cout << "TOTALDAS UDP MULTICAST MONITOR\n";
     std::cout << "================================================================================================================\n";
+    std::cout << "local_nic_ip    : " << local_nic_ip << '\n';
     std::cout << "joined_group    : " << group << ':' << port << '\n';
     std::cout << "from            : " << ip << ':' << ntohs(peer.sin_port) << '\n';
     std::cout << "magic           : " << std::string(h.magic, 4) << '\n';
@@ -239,14 +242,18 @@ void print_summary(const PacketHeader& h,
 }  // namespace
 
 int main(int argc, char* argv[]) {
+    std::string local_nic_ip = kDefaultLocalNicIp;
     std::string group = kDefaultGroup;
     int port = kDefaultPort;
 
     if (argc >= 2) {
-        group = argv[1];
+        local_nic_ip = argv[1];
     }
     if (argc >= 3) {
-        port = std::stoi(argv[2]);
+        group = argv[2];
+    }
+    if (argc >= 4) {
+        port = std::stoi(argv[3]);
     }
 
     WSADATA wsaData{};
@@ -278,9 +285,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    in_addr local_if{};
+    int pton_result = inet_pton(AF_INET, local_nic_ip.c_str(), &local_if);
+    if (pton_result != 1) {
+        std::cerr << "invalid local NIC IP: " << local_nic_ip << '\n';
+        closesocket(sock);
+        WSACleanup();
+        return 1;
+    }
+
     ip_mreq mreq{};
     mreq.imr_multiaddr.s_addr = inet_addr(group.c_str());
-    mreq.imr_interface.s_addr = htonl(INADDR_ANY);
+    mreq.imr_interface = local_if;
 
     if (mreq.imr_multiaddr.s_addr == INADDR_NONE) {
         std::cerr << "invalid multicast group: " << group << '\n';
@@ -298,6 +314,7 @@ int main(int argc, char* argv[]) {
     }
 
     std::cout << "Listening multicast UDP group=" << group << ':' << port
+              << " via NIC=" << local_nic_ip
               << " (expected packet size=" << kPacketSize << " bytes)" << std::endl;
 
     std::vector<std::uint8_t> buffer(4096);
@@ -343,7 +360,7 @@ int main(int argc, char* argv[]) {
             rows.push_back(parse_record(buffer.data() + offset));
         }
 
-        print_summary(header, rows, peer, group, port);
+        print_summary(header, rows, peer, local_nic_ip, group, port);
     }
 
     closesocket(sock);
