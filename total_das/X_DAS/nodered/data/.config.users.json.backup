@@ -27,7 +27,7 @@
                     "v": 4,
                     "tabs": [],
                     "primary": {
-                        "width": 250,
+                        "width": 180,
                         "top": {
                             "tabs": [
                                 "info",
@@ -52,7 +52,7 @@
                             "tabs": [
                                 "explorer"
                             ],
-                            "height": 321.20000000000005,
+                            "height": 309.391,
                             "hidden": false,
                             "active": "explorer"
                         },
