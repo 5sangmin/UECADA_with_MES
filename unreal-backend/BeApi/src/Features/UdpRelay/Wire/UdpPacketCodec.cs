@@ -42,8 +42,10 @@ public static class UdpPacketCodec
 {
     public const int HeaderSize = 16;
     public const int RecordSize = 86;
-    public const ushort Magic = 0x5341_4454; // 'TDAS' (LE)  not used directly; we copy 4 bytes literally
+
+    /// <summary>Magic 'TDAS' (4 bytes). Wire 상 이 패키지가 total-das wire 포먷임을 표시.</summary>
     public static readonly byte[] MagicBytes = new byte[] { (byte)'T', (byte)'D', (byte)'A', (byte)'S' };
+
     public const ushort CurrentVersion = 1;
 
     public static int CalculateLength(int equipmentCount) =>
