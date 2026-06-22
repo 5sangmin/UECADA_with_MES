@@ -67,7 +67,7 @@
 
             const baseUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.VideoUrl));
             const posterUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ThumbnailUrl));
-            const intervalMs = 30000; // 30초마다 현재 status 재확인 (영상이 끝까지 재생되도록 충분히 길게)
+            const intervalMs = 3000; // 3초마다 HEAD 로 상태 재확인. 변경 없으면 영상은 계속 재생, 변경 있을 때만 src 교체.
 
             async function refreshIfStatusChanged() {
                 try {

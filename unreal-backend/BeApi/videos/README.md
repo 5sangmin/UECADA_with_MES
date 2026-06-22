@@ -117,7 +117,7 @@ ffmpeg -i CNC/status_1.webm -ss 00:00:00 -vframes 1 CNC/status_1.jpg
 | 레이아웃 | `object-fit: cover` 로 100vw × 100vh 채움 (잘림 허용) |
 | controls | 숨김 |
 | 재생 | `autoplay` + `loop` + `muted` (CEF autoplay 정책 통과) |
-| status / power 변화 감지 | 30 초마다 HEAD 요청으로 `X-Status-Code` / `X-Power` 변화 확인 후 자동 교체 |
+| status / power 변화 감지 | 3 초마다 HEAD 요청으로 `X-Status-Code` / `X-Power` 변화 확인 후 자동 교체 (변경 없으면 재생 유지) |
 
 ### UE5 Web Browser 플러그인 연동
 
