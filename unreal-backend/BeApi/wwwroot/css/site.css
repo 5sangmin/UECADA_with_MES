@@ -481,3 +481,88 @@ pre.code {
     outline-offset: -2px;
     background: #eef4ff;
 }
+
+/* ====== PR7 비디오 그리드 ====== */
+.video-grid {
+    display: grid;
+    grid-template-columns: 80px repeat(9, minmax(120px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+}
+.video-grid__corner {
+    /* 좌상단 빈 셀 */
+}
+.video-grid__col-head {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-align: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+}
+.video-grid__row-head {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    padding: 0 8px;
+    border-right: 1px solid var(--border);
+}
+.video-cell {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    text-decoration: none;
+    color: var(--text);
+    overflow: hidden;
+    transition: border-color 0.15s, transform 0.1s;
+}
+.video-cell:hover {
+    border-color: var(--primary);
+    transform: translateY(-1px);
+}
+.video-cell__thumb {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: #e5e7eb;
+    display: block;
+}
+.video-cell__thumb--error {
+    /* 썸네일 로드 실패 — 빈 회색 사각형 */
+    background: repeating-linear-gradient(
+        45deg, #e5e7eb 0 8px, #d1d5db 8px 16px
+    );
+}
+.video-cell__label {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 8px;
+    gap: 2px;
+}
+.video-cell__code {
+    font-size: 12px;
+    font-weight: 600;
+}
+.video-cell__sub {
+    font-size: 10px;
+    color: var(--muted);
+}
+
+/* video player */
+.video-player {
+    margin: 12px 0 16px;
+    background: #000;
+    border-radius: 6px;
+    overflow: hidden;
+    max-width: 960px;
+}
+.video-player video {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 540px;
+}

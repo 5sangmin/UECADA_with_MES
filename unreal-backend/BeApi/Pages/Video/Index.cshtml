@@ -1,0 +1,46 @@
+@page "/video"
+@model BeApi.Pages.Video.IndexModel
+@{
+    ViewData["Title"] = "비디오";
+}
+
+<section class="section">
+    <header class="section__head">
+        <h1>설비 영상 그리드</h1>
+        <span class="meta">
+            행=라인 (1/2/3) · 열=설비 9종 · 썸네일은 현재 status_code 기준 영상의 첫 프레임
+        </span>
+    </header>
+
+    <div class="video-grid">
+        @* 헤더 행: 빈 칸 + 설비 코드 *@
+        <div class="video-grid__corner"></div>
+        @foreach (var e in Model.Equipments)
+        {
+            <div class="video-grid__col-head">@e.EquipmentCode</div>
+        }
+
+        @* 라인별 행 *@
+        @foreach (var line in Model.Lines)
+        {
+            <div class="video-grid__row-head">line @line</div>
+            @foreach (var e in Model.Equipments)
+            {
+                var detailUrl = $"/video/{line}/{e.EquipmentId}";
+                var thumbUrl = $"/api/video/{line}/{e.EquipmentId}/thumbnail.jpg";
+                <a class="video-cell" href="@detailUrl"
+                   title="line @line · @e.EquipmentCode (id @e.EquipmentId)">
+                    <img class="video-cell__thumb"
+                         src="@thumbUrl"
+                         alt="@e.EquipmentCode line @line"
+                         loading="lazy"
+                         onerror="this.classList.add('video-cell__thumb--error'); this.removeAttribute('src');" />
+                    <div class="video-cell__label">
+                        <span class="video-cell__code">@e.EquipmentCode</span>
+                        <span class="video-cell__sub">line @line · id @e.EquipmentId</span>
+                    </div>
+                </a>
+            }
+        }
+    </div>
+</section>

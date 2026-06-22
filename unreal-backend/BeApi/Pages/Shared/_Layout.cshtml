@@ -1,7 +1,9 @@
 @*
     공통 레이아웃 — 운영 화면 4페이지의 헤더/내비/푸터.
     최소 CSS (site.css) 만 사용, 외부 의존 없음.
+    테스트 링크는 Development 환경에서만 노출.
 *@
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -18,7 +20,11 @@
                 <a href="/">대시보드</a>
                 <a href="/command/request">명령 전송</a>
                 <a href="/command/list">명령 이력</a>
-                <a href="/test/oneshot">테스트</a>
+                <a href="/video">비디오</a>
+                @if (Env.IsDevelopment())
+                {
+                    <a href="/test/oneshot">테스트</a>
+                }
             </nav>
             <div class="topbar__meta" id="server-time" data-iso="@DateTimeOffset.UtcNow.ToString("O")">
                 @DateTimeOffset.UtcNow.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")

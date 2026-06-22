@@ -6,6 +6,7 @@ using BeApi.Features.UdpRelay;
 using BeApi.Features.ConnectionStatus;
 using BeApi.Features.Latest;
 using BeApi.Features.Commands;
+using BeApi.Features.Video;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -56,6 +57,9 @@ try
 
     // PR5(Step 9~11): Command API (DTO/validation/idempotency, POST/GET)
     builder.Services.AddCommandsApi();
+
+    // PR7(Step13): Video Streaming API + 운영 화면 (Range 지원)
+    builder.Services.AddVideoApi(builder.Configuration);
 
     var app = builder.Build();
 
