@@ -11,6 +11,7 @@
 //   - GetByIdAsync, GetPagedAsync, GetLatestPerEquipmentAsync.
 
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using BeApi.Infrastructure.Persistence.Entities;
 
 namespace BeApi.Features.Commands;
@@ -115,27 +116,24 @@ public sealed class CommandService
             ? JsonDocument.Parse(req.Value.Value.GetRawText())
             : null;
 
-        // 6) request_json 은 외부 입력 원본 그대로 보존 (CAST-01 같은 코드 문자열 포함).
-        //    외부에서 별도 request_json 을 주지 않으면 본 DTO 를 직렬화.
-        var rawDtoJson = JsonSerializer.Serialize(new
+        // 6) request_json — 외부 시스템 wire 호환 4필드만, 정확한 순서로 직렬화.
+        //    형식: {"command_id": int, "equipment_id": "CAST-01", "command_type": "...", "value": ...}
+        //    JsonObject 로 인서트 순서를 보장 (System.Text.Json 의 익명 객체는 속성 순서를 보장하지 않으므로 명시).
+        var requestJsonNode = new JsonObject
         {
-            command_id = req.CommandId,
-            source_type = req.SourceType,
-            line_id = req.LineId,
-            equipment_id = req.EquipmentId, // 원본 (코드 문자열)
-            command_type = req.CommandType,
-            value = req.Value,
-            priority = req.Priority,
-            max_retry = req.MaxRetry,
-            created_by = req.CreatedBy,
-            idempotency_key = req.IdempotencyKey,
-        });
-        var requestJsonDoc = JsonDocument.Parse(rawDtoJson);
+            ["command_id"] = commandId,                     // 서버 발급 (또는 외부 명시값)
+            ["equipment_id"] = req.EquipmentId,             // 원본 코드 문자열 (예: "CAST-01")
+            ["command_type"] = req.CommandType,
+            ["value"] = req.Value.HasValue
+                ? JsonNode.Parse(req.Value.Value.GetRawText())
+                : null,
+        };
+        var requestJsonDoc = JsonDocument.Parse(requestJsonNode.ToJsonString());
 
         var entity = new CommandRequestEntity
         {
             CommandId = commandId,
-            SourceType = string.IsNullOrWhiteSpace(req.SourceType) ? "API" : req.SourceType!,
+            SourceType = string.IsNullOrWhiteSpace(req.SourceType) ? "unreal-backend" : req.SourceType!,
             LineId = req.LineId,
             EquipmentId = equipmentIdInt,
             CommandType = req.CommandType,
@@ -145,7 +143,7 @@ public sealed class CommandService
             Priority = req.Priority ?? 100,
             RetryCount = 0,
             MaxRetry = req.MaxRetry ?? 0,
-            CreatedBy = req.CreatedBy,
+            CreatedBy = string.IsNullOrWhiteSpace(req.CreatedBy) ? "unreal-backend" : req.CreatedBy!,
             CreatedAt = DateTimeOffset.UtcNow,
             IdempotencyKey = idemKey,
         };
