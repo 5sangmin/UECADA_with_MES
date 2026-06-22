@@ -1,0 +1,110 @@
+@page "/video/embed/{lineId:int}/{equipmentId:int}"
+@model BeApi.Pages.Video.EmbedModel
+@{
+    // Unreal Engine Web Browser 임베드용 — _Layout 을 사용하지 않는 독립 페이지.
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>video embed</title>
+    <style>
+        /* 페이지 자체를 영상만으로 채움. 메뉴/스크롤바/여백 전부 제거. */
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+        /* 영상은 뷰포트 전체. object-fit:cover 로 빈 공간 없이 채움 (잘림 허용). */
+        video.embed {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            object-fit: cover;
+            background: #000;
+            display: block;
+        }
+        /* 파일 없을 때 표시할 placeholder */
+        .missing {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            font: 14px/1.5 system-ui, sans-serif;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+    @if (Model.HasVideo)
+    {
+        <video class="embed"
+               autoplay loop muted playsinline
+               preload="auto"
+               poster="@Model.ThumbnailUrl"
+               src="@Model.VideoUrl"></video>
+    }
+    else
+    {
+        <div class="missing">no video (line=@Model.LineId, equipment=@Model.EquipmentId)</div>
+    }
+
+    <script>
+        // status / power 변화 대응: 일정 주기로 같은 URL 을 재요청하여 새 영상으로 전환.
+        // 응답에 Cache-Control: no-store 가 붙어 있으므로 매번 서버 상태가 반영됨.
+        // src 를 그대로 다시 set 하면 일부 브라우저는 같은 URL 이라며 무시할 수 있어 query 를 변경한다.
+        (function () {
+            const video = document.querySelector('video.embed');
+            if (!video) return;
+
+            const baseUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.VideoUrl));
+            const posterUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ThumbnailUrl));
+            const intervalMs = 30000; // 30초마다 현재 status 재확인 (영상이 끝까지 재생되도록 충분히 길게)
+
+            async function refreshIfStatusChanged() {
+                try {
+                    // HEAD 로 현재 매핑 상태만 확인 (실제 영상은 다운로드하지 않음)
+                    const head = await fetch(baseUrl, { method: 'HEAD', cache: 'no-store' });
+                    if (!head.ok) return;
+                    const status = head.headers.get('X-Status-Code');
+                    const power = head.headers.get('X-Power');
+                    const key = (power || '') + ':' + (status || '');
+                    if (video.dataset.lastKey && video.dataset.lastKey !== key) {
+                        // 변경 감지 → 새 영상으로 교체. cache-buster 로 강제 재요청.
+                        const bust = Date.now();
+                        video.poster = posterUrl + '?t=' + bust;
+                        video.src = baseUrl + '?t=' + bust;
+                        video.load();
+                        video.play().catch(function () { /* autoplay 제스처 제한 - 무시 */ });
+                    }
+                    video.dataset.lastKey = key;
+                } catch (_) {
+                    // 네트워크 일시 오류는 다음 tick 에서 재시도
+                }
+            }
+
+            // 첫 로드 시 현재 키 저장
+            refreshIfStatusChanged();
+            setInterval(refreshIfStatusChanged, intervalMs);
+
+            // autoplay 가 일부 정책에서 막혀도 muted 이므로 대부분 통과하지만,
+            // 혹시 모를 경우를 대비해 사용자 첫 인터랙션 시 재생 시도.
+            const tryPlay = function () {
+                video.play().catch(function () { /* ignore */ });
+                window.removeEventListener('pointerdown', tryPlay);
+                window.removeEventListener('keydown', tryPlay);
+            };
+            window.addEventListener('pointerdown', tryPlay);
+            window.addEventListener('keydown', tryPlay);
+        })();
+    </script>
+</body>
+</html>

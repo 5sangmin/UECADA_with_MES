@@ -106,3 +106,24 @@ ffmpeg -i CNC/status_1.webm -ss 00:00:00 -vframes 1 CNC/status_1.jpg
 응답에는 항상 `Cache-Control: no-cache, no-store, must-revalidate` 가 붙어 있으므로
 브라우저가 이전 영상/썸네일을 캐싱해서 상태가 최신으로 보이지 않는 문제를 완화합니다.
 그리드 페이지(`/video`)는 5초마다 썸네일에 cache-buster query 를 붙여 강제 갱신합니다.
+
+## Unreal Engine 임베드용 풀스크린 뷰어
+
+`/video/embed/{lineId}/{equipmentId}` — _Layout 없는 독립 페이지로 영상만 전체 화면을 채웁니다.
+
+| 항목 | 값 |
+|---|---|
+| URL 예시 | `http://localhost:5082/video/embed/1/501` |
+| 레이아웃 | `object-fit: cover` 로 100vw × 100vh 채움 (잘림 허용) |
+| controls | 숨김 |
+| 재생 | `autoplay` + `loop` + `muted` (CEF autoplay 정책 통과) |
+| status / power 변화 감지 | 30 초마다 HEAD 요청으로 `X-Status-Code` / `X-Power` 변화 확인 후 자동 교체 |
+
+### UE5 Web Browser 플러그인 연동
+
+1. UE5 에디터에서 **Plugins → Web Browser** 활성화
+2. UMG Widget 에 `Web Browser` 위젯 배치
+3. `Initial URL` 에 `http://<backend-host>:5082/video/embed/{line}/{equipmentId}` 설정
+4. 위젯 크기가 영상의 표시 영역이 됨 (위젯이 작으면 영상도 작게 렌더)
+
+> **주의**: UE5 의 기본 CEF 빌드는 H.264 가 비활성되어 있을 수 있어 webm(VP8/VP9) 권장. `Cache-Control: no-store` 가 응답에 붙어 있어 같은 URL 로 다시 진입해도 항상 최신 상태가 반영됩니다.

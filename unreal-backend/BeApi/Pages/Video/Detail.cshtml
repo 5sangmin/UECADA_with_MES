@@ -28,6 +28,7 @@
         <dl class="kv kv--wide">
             <dt>video URL</dt><dd><code>@Model.VideoUrl</code></dd>
             <dt>thumbnail URL</dt><dd><code>@Model.ThumbnailUrl</code></dd>
+            <dt>embed URL (Unreal)</dt><dd><code>/video/embed/@Model.LineId/@Model.EquipmentId</code></dd>
             <dt>equipment type</dt><dd>@Model.TypeCode</dd>
             <dt>power</dt><dd>@(Model.Power ? "on" : "off")</dd>
             <dt>status_code</dt><dd>@Model.CurrentStatusCode</dd>
@@ -45,5 +46,11 @@
 
     <div class="form__actions">
         <a class="btn" href="/video">← 그리드로</a>
+        @if (Model.HasVideo)
+        {
+            <a class="btn btn--primary" href="/video/embed/@Model.LineId/@Model.EquipmentId" target="_blank" rel="noopener">
+                전체화면 뷰어 열기 (Unreal 임베드용)
+            </a>
+        }
     </div>
 </section>
