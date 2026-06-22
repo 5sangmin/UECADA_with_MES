@@ -18,7 +18,7 @@
     @if (Model.HasVideo)
     {
         <div class="video-player">
-            <video controls autoplay muted playsinline
+            <video controls autoplay loop muted playsinline
                    preload="metadata"
                    poster="@Model.ThumbnailUrl"
                    src="@Model.VideoUrl">
