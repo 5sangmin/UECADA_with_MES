@@ -1,0 +1,100 @@
+@page "/video"
+@model BeApi.Pages.Video.IndexModel
+@{
+    ViewData["Title"] = "비디오";
+    // 페이지 로드 시점의 cache-buster (서버 사이드) — 페이지 리로드 시 모든 썸네일이 재요청됨.
+    var initialBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    // 클라이언트가 N초마다 자동 새로고침할 주기 (밀리초).
+    const int RefreshIntervalMs = 5000;
+}
+
+<section class="section">
+    <header class="section__head">
+        <h1>설비 영상 그리드</h1>
+        <span class="meta">
+            행=라인 (1/2/3) · 열=설비 9종 · 썸네일은 현재 status_code 기준 영상의 첫 프레임
+            <br />
+            <small>* 영상은 equipment 타입(CAST/CNC/WASH/ASSY/TEST) 별로 공유되므로 같은 행의 CNC-01~03, ASSY-01~02, TEST-01~02 는 동일한 영상을 사용합니다.</small>
+            <br />
+            <small>* 썸네일은 @(RefreshIntervalMs / 1000) 초마다 자동 새로고침됩니다.</small>
+        </span>
+    </header>
+
+    <div class="video-grid" data-refresh-interval="@RefreshIntervalMs">
+        @* 헤더 행: 빈 칸 + 설비 코드 *@
+        <div class="video-grid__corner"></div>
+        @foreach (var e in Model.Equipments)
+        {
+            <div class="video-grid__col-head">@e.EquipmentCode</div>
+        }
+
+        @* 라인별 행 *@
+        @foreach (var line in Model.Lines)
+        {
+            <div class="video-grid__row-head">line @line</div>
+            @foreach (var e in Model.Equipments)
+            {
+                var detailUrl = $"/video/{line}/{e.EquipmentId}";
+                // data-thumb-base 에는 query 없는 URL 을, src 에는 초기 cache-buster 를 붙여 둔다.
+                var thumbBase = $"/api/video/{line}/{e.EquipmentId}/thumbnail.jpg";
+                var thumbUrl = $"{thumbBase}?t={initialBust}";
+                <a class="video-cell" href="@detailUrl"
+                   title="line @line · @e.EquipmentCode (id @e.EquipmentId)">
+                    <img class="video-cell__thumb"
+                         src="@thumbUrl"
+                         data-thumb-base="@thumbBase"
+                         alt="@e.EquipmentCode line @line"
+                         loading="lazy"
+                         onerror="this.classList.add('video-cell__thumb--error'); this.removeAttribute('src');" />
+                    <div class="video-cell__label">
+                        <span class="video-cell__code">@e.EquipmentCode</span>
+                        <span class="video-cell__sub">line @line · id @e.EquipmentId</span>
+                    </div>
+                </a>
+            }
+        }
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        // 그리드의 모든 썸네일을 N 초마다 강제 갱신.
+        // - Cache-Control: no-cache 헤더가 있어도 <img> 가 이미 메모리에 보유한 경우
+        //   같은 URL 이면 재요청 자체를 안 할 수 있어, query string 으로 cache-buster 를 매번 새로 붙임.
+        // - status_code 가 바뀌어 다른 webm/jpg 로 매핑되어도 다음 tick 에 반영됨.
+        // - onerror 로 한 번 에러난 셀(파일 없음)은 video-cell__thumb--error 클래스를 갖고 src 가 비어 있으므로
+        //   재시도 대신 그대로 둔다 (필요시 수동 새로고침으로 복구).
+        (function () {
+            const grid = document.querySelector('.video-grid');
+            if (!grid) return;
+            const intervalMs = parseInt(grid.dataset.refreshInterval, 10) || 5000;
+
+            function refresh() {
+                const imgs = grid.querySelectorAll('img.video-cell__thumb[data-thumb-base]');
+                const bust = Date.now();
+                imgs.forEach(function (img) {
+                    if (img.classList.contains('video-cell__thumb--error')) return;
+                    const base = img.dataset.thumbBase;
+                    if (!base) return;
+                    img.src = base + '?t=' + bust;
+                });
+            }
+
+            // 탭이 보이지 않을 때는 새로고침 정지 (불필요한 트래픽 방지)
+            let timerId = null;
+            function start() {
+                if (timerId != null) return;
+                timerId = window.setInterval(refresh, intervalMs);
+            }
+            function stop() {
+                if (timerId == null) return;
+                window.clearInterval(timerId);
+                timerId = null;
+            }
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) stop(); else start();
+            });
+            start();
+        })();
+    </script>
+}

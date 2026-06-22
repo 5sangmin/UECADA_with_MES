@@ -1,0 +1,58 @@
+@page "/video/{lineId:int}/{equipmentId:int}"
+@model BeApi.Pages.Video.DetailModel
+@{
+    ViewData["Title"] = $"비디오 · line {Model.LineId} · id {Model.EquipmentId}";
+    // 페이지 재로드마다 새로운 cache-buster — 캐싱된 프레임이 남는 듯한 현상 방지.
+    var bust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+}
+
+<section class="section">
+    <header class="section__head">
+        <h1>line @Model.LineId · equipment @Model.EquipmentId</h1>
+        <span class="meta">
+            type = <strong>@(Model.TypeCode ?? "(unknown)")</strong> ·
+            power = <strong>@(Model.Power ? "on" : "off")</strong> ·
+            current status_code = <strong>@Model.CurrentStatusCode</strong> ·
+            source = <strong>@Model.ResolvedSource</strong>
+        </span>
+    </header>
+
+    @if (Model.HasVideo)
+    {
+        <div class="video-player">
+            <video controls autoplay loop muted playsinline
+                   preload="metadata"
+                   poster="@(Model.ThumbnailUrl)?t=@bust"
+                   src="@(Model.VideoUrl)?t=@bust">
+                브라우저가 webm 재생을 지원하지 않습니다.
+            </video>
+        </div>
+        <dl class="kv kv--wide">
+            <dt>video URL</dt><dd><code>@Model.VideoUrl</code></dd>
+            <dt>thumbnail URL</dt><dd><code>@Model.ThumbnailUrl</code></dd>
+            <dt>embed URL (Unreal)</dt><dd><code>/video/embed/@Model.LineId/@Model.EquipmentId</code></dd>
+            <dt>equipment type</dt><dd>@Model.TypeCode</dd>
+            <dt>power</dt><dd>@(Model.Power ? "on" : "off")</dd>
+            <dt>status_code</dt><dd>@Model.CurrentStatusCode</dd>
+            <dt>resolved source</dt><dd>@Model.ResolvedSource</dd>
+        </dl>
+    }
+    else
+    {
+        <p class="error">
+            매칭되는 영상 파일이 없습니다 (type=@(Model.TypeCode ?? "?"), status_code=@Model.CurrentStatusCode).
+            VIDEO_ROOT 디렉터리에 <code>@(Model.TypeCode ?? "{TYPE}")/status_@(Model.CurrentStatusCode).webm</code> 또는
+            <code>@(Model.TypeCode ?? "{TYPE}")/status_default.webm</code> 을 두십시오.
+        </p>
+    }
+
+    <div class="form__actions">
+        <a class="btn" href="/video">← 그리드로</a>
+        @if (Model.HasVideo)
+        {
+            <a class="btn btn--primary" href="/video/embed/@Model.LineId/@Model.EquipmentId" target="_blank" rel="noopener">
+                전체화면 뷰어 열기 (Unreal 임베드용)
+            </a>
+        }
+    </div>
+</section>
