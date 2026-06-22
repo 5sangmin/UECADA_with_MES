@@ -23,7 +23,7 @@
     else
     {
         <div class="table-wrap">
-            <table class="data-table">
+            <table class="data-table data-table--clickable">
                 <thead>
                     <tr>
                         <th>command_id</th>
@@ -41,8 +41,9 @@
                 <tbody>
                     @foreach (var c in pageData.Items)
                     {
-                        <tr>
-                            <td><a href="/command/detail?command_id=@c.CommandId">@c.CommandId</a></td>
+                        var detailUrl = $"/command/detail?command_id={c.CommandId}";
+                        <tr data-href="@detailUrl" tabindex="0" role="link">
+                            <td>@c.CommandId</td>
                             <td>@c.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
                             <td>@c.Status</td>
                             <td>@c.LineId</td>
@@ -79,3 +80,35 @@
         }
     </div>
 </section>
+
+@section Scripts {
+<script>
+(function () {
+    // 행 전체 클릭 시 상세 페이지로 이동.
+    //   - 일반 클릭: 같은 탭
+    //   - Ctrl/Cmd/가운데 클릭: 새 탭
+    //   - Enter 키: 같은 탭 (접근성)
+    var rows = document.querySelectorAll('tr[data-href]');
+    rows.forEach(function (tr) {
+        tr.addEventListener('click', function (e) {
+            // 텍스트 드래그 선택 중이면 이동 안 함
+            var sel = window.getSelection && window.getSelection();
+            if (sel && sel.toString().length > 0) return;
+            var url = tr.getAttribute('data-href');
+            if (!url) return;
+            if (e.ctrlKey || e.metaKey || e.button === 1) {
+                window.open(url, '_blank');
+            } else {
+                window.location.href = url;
+            }
+        });
+        tr.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                var url = tr.getAttribute('data-href');
+                if (url) window.location.href = url;
+            }
+        });
+    });
+})();
+</script>
+}

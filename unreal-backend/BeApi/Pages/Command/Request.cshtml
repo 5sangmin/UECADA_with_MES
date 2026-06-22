@@ -29,12 +29,12 @@
                         if (e.EquipmentCode == Model.EquipmentCode)
                         {
                             <option value="@e.EquipmentCode" selected
-                                    data-line="@e.LineId">@e.EquipmentCode (line @e.LineId / id @e.EquipmentId)</option>
+                                    data-line="@e.LineId">@e.EquipmentCode (id @e.EquipmentId)</option>
                         }
                         else
                         {
                             <option value="@e.EquipmentCode"
-                                    data-line="@e.LineId">@e.EquipmentCode (line @e.LineId / id @e.EquipmentId)</option>
+                                    data-line="@e.LineId">@e.EquipmentCode (id @e.EquipmentId)</option>
                         }
                     }
                 </select>

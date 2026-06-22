@@ -468,3 +468,16 @@ pre.code {
 /* misc */
 .muted { color: var(--muted); }
 .error { color: var(--danger); font-size: 13px; }
+
+/* row 전체 클릭 가능한 테이블 (PR6 명령 이력) */
+.data-table--clickable tbody tr {
+    cursor: pointer;
+}
+.data-table--clickable tbody tr:hover {
+    background: #eef4ff;
+}
+.data-table--clickable tbody tr:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+    background: #eef4ff;
+}
