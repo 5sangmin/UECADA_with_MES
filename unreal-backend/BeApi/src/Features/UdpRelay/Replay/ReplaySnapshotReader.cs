@@ -32,6 +32,45 @@ public sealed class ReplaySnapshotReader
         _logger = logger;
     }
 
+    /// <summary>
+    /// equipment_snapshot 에서 전체 (line_id, equipment_id) distinct 목록을 반환.
+    /// Replay 시 장비 슬롯 구성용.
+    /// </summary>
+    public async Task<IReadOnlyList<EquipmentSlotKey>> GetDistinctEquipmentsAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<TsdbDbContext>();
+        var rows = await db.EquipmentSnapshots
+            .AsNoTracking()
+            .Select(e => new { e.LineId, e.EquipmentId })
+            .Distinct()
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var list = new List<EquipmentSlotKey>(rows.Count);
+        foreach (var r in rows)
+        {
+            if (!_lut.TryGetLineId(r.LineId, out var lineIdInt))
+            {
+                _logger.LogWarning("Distinct: 알 수 없는 line_id '{lineId}' skip", r.LineId);
+                continue;
+            }
+            if (!_lut.TryGetEquipmentId(r.EquipmentId, out var equipmentIdInt))
+            {
+                _logger.LogWarning("Distinct: 알 수 없는 equipment_id '{eqId}' skip", r.EquipmentId);
+                continue;
+            }
+            list.Add(new EquipmentSlotKey(lineIdInt, equipmentIdInt));
+        }
+        // 정렬 (lineId, equipmentId)
+        list.Sort((a, b) =>
+        {
+            var c = a.LineId.CompareTo(b.LineId);
+            return c != 0 ? c : a.EquipmentId.CompareTo(b.EquipmentId);
+        });
+        return list;
+    }
+
     /// <summary>구간 내 row 가 존재하는지 빠르게 확인. 0건 fail-fast 용도.</summary>
     /// <remarks>
     /// Npgsql 은 timestamptz 컴럼에 DateTimeOffset 을 쓸 때 offset=0(UTC) 만 허용한다.
@@ -125,3 +164,6 @@ public sealed class ReplaySnapshotReader
 }
 
 public readonly record struct TsRecord(DateTimeOffset Ts, EquipmentRecord Record);
+
+/// <summary>27 장비 슬롯을 식별하는 키 (line_id, equipment_id).</summary>
+public readonly record struct EquipmentSlotKey(short LineId, short EquipmentId);

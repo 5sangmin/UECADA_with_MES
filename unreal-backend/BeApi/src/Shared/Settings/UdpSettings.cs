@@ -64,4 +64,10 @@ public class UdpReplaySettings
 
     /// <summary>같은 ts 그룹을 한 패킷으로 묶을 때 TSDB 페이지 사이즈(메모리 보호).</summary>
     public int FetchBatchSize { get; set; } = 5000;
+
+    /// <summary>
+    /// Replay 윈도우 크기(ms). 이 윈도우 안의 row 들을 한 패킷으로 묶어 송신.
+    /// 기본 2000ms (라이브 사이클과 동일한 페이스).
+    /// </summary>
+    public int WindowMs { get; set; } = 2000;
 }
