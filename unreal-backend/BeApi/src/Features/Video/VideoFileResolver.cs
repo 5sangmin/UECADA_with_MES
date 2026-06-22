@@ -52,8 +52,8 @@ public sealed class VideoFileResolver
         if (IsWithinRoot(fallback, root) && File.Exists(fallback))
         {
             _logger.LogDebug(
-                "Video resolver: {type}/status_{code}.{ext} 없음 → {type}/{default}.{ext} 사용",
-                typeCode, statusCode, extension, typeCode, _settings.DefaultBaseName);
+                "Video resolver: {Type}/status_{Code}.{Ext} 없음 → {DefaultName} fallback 사용",
+                typeCode, statusCode, extension, _settings.DefaultBaseName);
             return fallback;
         }
 
