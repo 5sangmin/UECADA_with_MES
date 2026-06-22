@@ -1,0 +1,176 @@
+@page "/command/request"
+@model BeApi.Pages.Command.RequestModel
+@{
+    ViewData["Title"] = "명령 전송";
+    var outcomeClass = Model.Outcome switch
+    {
+        "Created" => "ok",
+        "ReusedIdempotent" => "degraded",
+        null => "unknown",
+        _ => "down",
+    };
+}
+
+<section class="section">
+    <header class="section__head">
+        <h1>명령 전송</h1>
+        <span class="meta">POST /api/commands 와 동일 경로 — Razor server-side post-back</span>
+    </header>
+
+    <form method="post" class="form">
+        <div class="form__row">
+            <label>line_id
+                <input type="number" name="LineId" value="@Model.LineId" min="0" required />
+            </label>
+            <label>equipment_id
+                <select name="EquipmentCode" id="equip-select" required>
+                    @foreach (var e in Model.Equipments)
+                    {
+                        if (e.EquipmentCode == Model.EquipmentCode)
+                        {
+                            <option value="@e.EquipmentCode" selected
+                                    data-line="@e.LineId">@e.EquipmentCode (line @e.LineId / id @e.EquipmentId)</option>
+                        }
+                        else
+                        {
+                            <option value="@e.EquipmentCode"
+                                    data-line="@e.LineId">@e.EquipmentCode (line @e.LineId / id @e.EquipmentId)</option>
+                        }
+                    }
+                </select>
+            </label>
+            <label>command_type
+                <select name="CommandType" id="cmdtype-select" required>
+                    <option value="@Model.CommandType" selected>@Model.CommandType</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="form__row">
+            <label class="grow">value (JSON 또는 문자열)
+                <input type="text" name="ValueText" value="@Model.ValueText" placeholder='true, 12.5, "ON", {"k":1}' />
+            </label>
+            <label>priority
+                <input type="number" name="Priority" value="@Model.Priority" />
+            </label>
+            <label>max_retry
+                <input type="number" name="MaxRetry" value="@Model.MaxRetry" />
+            </label>
+        </div>
+
+        <div class="form__row">
+            <label>source_type
+                <input type="text" name="SourceType" value="@Model.SourceType" placeholder="unreal-backend" />
+            </label>
+            <label>created_by
+                <input type="text" name="CreatedBy" value="@Model.CreatedBy" placeholder="unreal-backend" />
+            </label>
+            <label class="grow">idempotency_key
+                <input type="text" name="IdempotencyKey" value="@Model.IdempotencyKey" />
+            </label>
+        </div>
+
+        <div class="form__actions">
+            <button type="submit" class="btn btn--primary">전송</button>
+            <a href="/command/request" class="btn">초기화</a>
+        </div>
+    </form>
+</section>
+
+@if (Model.Outcome != null)
+{
+    <section class="section">
+        <header class="section__head">
+            <h2>결과</h2>
+            <span class="badge badge--@outcomeClass">@Model.Outcome</span>
+        </header>
+
+        @if (Model.ErrorCode != null)
+        {
+            <p class="error">
+                <strong>@Model.ErrorCode</strong>: @Model.ErrorMessage
+            </p>
+        }
+
+        @if (Model.Result != null)
+        {
+            <dl class="kv kv--wide">
+                <dt>command_id</dt>
+                <dd><a href="/command/detail?command_id=@Model.Result.CommandId">@Model.Result.CommandId</a></dd>
+                <dt>id (row)</dt><dd>@Model.Result.Id</dd>
+                <dt>status</dt><dd>@Model.Result.Status</dd>
+                <dt>line_id</dt><dd>@Model.Result.LineId</dd>
+                <dt>equipment</dt><dd>@Model.Result.EquipmentCode (id @Model.Result.EquipmentId)</dd>
+                <dt>command_type</dt><dd>@Model.Result.CommandType</dd>
+                <dt>priority</dt><dd>@Model.Result.Priority</dd>
+                <dt>max_retry</dt><dd>@Model.Result.MaxRetry</dd>
+                <dt>created_by</dt><dd>@Model.Result.CreatedBy</dd>
+                <dt>created_at</dt><dd>@Model.Result.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+                <dt>idempotency_key</dt><dd>@(Model.Result.IdempotencyKey ?? "-")</dd>
+                <dt>request_json</dt>
+                <dd><pre class="code">@Model.Result.RequestJson.GetRawText()</pre></dd>
+                @if (Model.Result.CommandValue.HasValue)
+                {
+                    <dt>command_value</dt>
+                    <dd><pre class="code">@Model.Result.CommandValue.Value.GetRawText()</pre></dd>
+                }
+            </dl>
+        }
+    </section>
+}
+
+@section Scripts {
+<script>
+(function () {
+    var typesByPrefix = @Html.Raw(Model.CommandTypesByPrefixJson);
+    var equipSelect = document.getElementById('equip-select');
+    var typeSelect = document.getElementById('cmdtype-select');
+    var lineInput = document.querySelector('input[name="LineId"]');
+    var currentType = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CommandType));
+
+    function prefixOf(code) {
+        if (!code) return null;
+        var idx = code.indexOf('-');
+        return idx > 0 ? code.substring(0, idx) : null;
+    }
+
+    function refreshTypes(preserveSelection) {
+        var prefix = prefixOf(equipSelect.value);
+        var list = typesByPrefix[prefix] || [];
+        var prev = preserveSelection ? typeSelect.value : null;
+        typeSelect.innerHTML = '';
+        list.forEach(function (t) {
+            var opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            if (prev && prev === t) opt.selected = true;
+            typeSelect.appendChild(opt);
+        });
+        if (!prev || !list.includes(prev)) {
+            // 첫 항목 선택
+            if (list.length > 0) typeSelect.value = list[0];
+        }
+    }
+
+    function refreshLine() {
+        var opt = equipSelect.options[equipSelect.selectedIndex];
+        if (opt && opt.dataset.line) lineInput.value = opt.dataset.line;
+    }
+
+    equipSelect.addEventListener('change', function () {
+        refreshTypes(false);
+        refreshLine();
+    });
+
+    // 초기 1회: 서버 선택값 보존 시도
+    var keep = currentType && (typesByPrefix[prefixOf(equipSelect.value)] || []).includes(currentType);
+    if (keep) {
+        // 옵션을 다시 채우되 현재 값 유지
+        refreshTypes(true);
+        typeSelect.value = currentType;
+    } else {
+        refreshTypes(false);
+    }
+})();
+</script>
+}

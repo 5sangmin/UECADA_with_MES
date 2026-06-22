@@ -26,6 +26,8 @@ try
     );
 
     builder.Services.AddControllers();
+    // PR6(Step12): 운영용 Razor Pages (대시보드/명령 폼/리스트/상세)
+    builder.Services.AddRazorPages();
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen(c =>
     {
@@ -67,8 +69,13 @@ try
     }
 
     app.UseSerilogRequestLogging();
+
+    // PR6(Step12): wwwroot 정적 파일(site.css) + Razor Pages 라우팅
+    app.UseStaticFiles();
+
     app.MapHealthChecks("/health");
     app.MapControllers();
+    app.MapRazorPages();
 
     // PR1(Step3): EF Core 마이그레이션을 수행하지 않으므로
     // 시작 직전에 기존 DB 스키마(필수 테이블/뷰) 존재 여부를 검증한다.

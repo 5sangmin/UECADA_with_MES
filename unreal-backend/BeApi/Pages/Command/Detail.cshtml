@@ -1,0 +1,119 @@
+@page "/command/detail"
+@model BeApi.Pages.Command.DetailModel
+@{
+    ViewData["Title"] = $"명령 상세 #{Model.CommandId}";
+    var d = Model.Detail;
+}
+
+<section class="section">
+    <header class="section__head">
+        <h1>명령 상세</h1>
+        <span class="meta">command_id = @Model.CommandId</span>
+    </header>
+
+    @if (Model.NotFound || d == null)
+    {
+        <p class="error">해당 command_id 의 row 가 존재하지 않습니다.</p>
+        <a class="btn" href="/command/list">목록으로</a>
+    }
+    else
+    {
+        <h2>Request</h2>
+        <dl class="kv kv--wide">
+            <dt>command_id</dt><dd>@d.Request.CommandId</dd>
+            <dt>id (row)</dt><dd>@d.Request.Id</dd>
+            <dt>status</dt><dd>@d.Request.Status</dd>
+            <dt>source_type</dt><dd>@d.Request.SourceType</dd>
+            <dt>line_id</dt><dd>@d.Request.LineId</dd>
+            <dt>equipment</dt><dd>@(d.Request.EquipmentCode ?? d.Request.EquipmentId.ToString()) (id @d.Request.EquipmentId)</dd>
+            <dt>command_type</dt><dd>@d.Request.CommandType</dd>
+            <dt>priority</dt><dd>@d.Request.Priority</dd>
+            <dt>retry</dt><dd>@d.Request.RetryCount / @d.Request.MaxRetry</dd>
+            <dt>created_by</dt><dd>@(d.Request.CreatedBy ?? "-")</dd>
+            <dt>created_at</dt><dd>@d.Request.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+            <dt>picked_at</dt><dd>@(d.Request.PickedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "-")</dd>
+            <dt>started_at</dt><dd>@(d.Request.StartedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "-")</dd>
+            <dt>finished_at</dt><dd>@(d.Request.FinishedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "-")</dd>
+            <dt>worker_id</dt><dd>@(d.Request.WorkerId ?? "-")</dd>
+            <dt>idempotency_key</dt><dd>@(d.Request.IdempotencyKey ?? "-")</dd>
+            <dt>last_error</dt><dd class="muted">@(d.Request.LastError ?? "-")</dd>
+            <dt>request_json</dt>
+            <dd><pre class="code">@d.Request.RequestJson.GetRawText()</pre></dd>
+            @if (d.Request.CommandValue.HasValue)
+            {
+                <dt>command_value</dt>
+                <dd><pre class="code">@d.Request.CommandValue.Value.GetRawText()</pre></dd>
+            }
+        </dl>
+
+        <h2>History (@d.History.Count)</h2>
+        @if (d.History.Count == 0)
+        {
+            <p class="muted">history 기록이 아직 없습니다.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>changed_at</th>
+                            <th>request_status</th>
+                            <th>old → new</th>
+                            <th>accepted</th>
+                            <th>cmd_status</th>
+                            <th>process_index</th>
+                            <th>response_event_id</th>
+                            <th>source_node_id</th>
+                            <th>last_error</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var h in d.History)
+                        {
+                            <tr>
+                                <td>@(h.ChangedAt?.ToLocalTime().ToString("HH:mm:ss") ?? "-")</td>
+                                <td>@h.RequestStatus</td>
+                                <td>@(h.OldStatus ?? "-") → @(h.NewStatus ?? "-")</td>
+                                <td>@(h.Accepted?.ToString() ?? "-")</td>
+                                <td>@(h.CmdStatus?.ToString() ?? "-")</td>
+                                <td>@(h.ProcessIndex?.ToString() ?? "-")</td>
+                                <td>@(h.ResponseEventId?.ToString() ?? "-")</td>
+                                <td class="muted">@(h.SourceNodeId ?? "-")</td>
+                                <td class="muted">@(h.ResponseLastError ?? "-")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+        <h2>Latest Response</h2>
+        @if (d.Latest == null)
+        {
+            <p class="muted">아직 응답이 도착하지 않았습니다.</p>
+        }
+        else
+        {
+            <dl class="kv kv--wide">
+                <dt>status</dt><dd>@d.Latest.Status</dd>
+                <dt>accepted</dt><dd>@(d.Latest.Accepted?.ToString() ?? "-")</dd>
+                <dt>cmd_status</dt><dd>@(d.Latest.CmdStatus?.ToString() ?? "-")</dd>
+                <dt>command_type</dt><dd>@(d.Latest.CommandType ?? "-")</dd>
+                <dt>first_observed_at</dt><dd>@d.Latest.FirstObservedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+                <dt>updated_at</dt><dd>@d.Latest.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</dd>
+                <dt>source_node_id</dt><dd class="muted">@(d.Latest.SourceNodeId ?? "-")</dd>
+                <dt>last_error</dt><dd class="muted">@(d.Latest.LastError ?? "-")</dd>
+                @if (d.Latest.ResponseJson.HasValue)
+                {
+                    <dt>response_json</dt>
+                    <dd><pre class="code">@d.Latest.ResponseJson.Value.GetRawText()</pre></dd>
+                }
+            </dl>
+        }
+
+        <div class="form__actions">
+            <a class="btn" href="/command/list">목록으로</a>
+        </div>
+    }
+</section>

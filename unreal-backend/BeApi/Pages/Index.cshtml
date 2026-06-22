@@ -1,0 +1,118 @@
+@page "/"
+@model BeApi.Pages.IndexModel
+@{
+    ViewData["Title"] = "대시보드";
+    var overallText = Model.Overall.ToString().ToUpperInvariant();
+    var overallClass = Model.Overall switch
+    {
+        BeApi.Features.ConnectionStatus.ConnectionState.Ok => "ok",
+        BeApi.Features.ConnectionStatus.ConnectionState.Degraded => "degraded",
+        BeApi.Features.ConnectionStatus.ConnectionState.Down => "down",
+        _ => "unknown",
+    };
+}
+
+<section class="section">
+    <header class="section__head">
+        <h1>연결 상태</h1>
+        <span class="badge badge--@overallClass">Overall: @overallText</span>
+    </header>
+
+    <div class="status-grid">
+        @foreach (var t in Model.StatusTargets)
+        {
+            var cls = t.State?.ToLowerInvariant() ?? "unknown";
+            <article class="status-card status-card--@cls">
+                <div class="status-card__head">
+                    <h2>@t.Target.ToUpperInvariant()</h2>
+                    <span class="badge badge--@cls">@t.State</span>
+                </div>
+                <dl class="kv">
+                    <dt>checked_at</dt>
+                    <dd>@(t.CheckedAt?.ToLocalTime().ToString("HH:mm:ss") ?? "-")</dd>
+                    <dt>latency</dt>
+                    <dd>@(t.LatencyMs.HasValue ? $"{t.LatencyMs:F1} ms" : "-")</dd>
+                    <dt>last_success</dt>
+                    <dd>@(t.LastSuccessAt?.ToLocalTime().ToString("HH:mm:ss") ?? "-")</dd>
+                    <dt>last_error</dt>
+                    <dd class="muted">@(t.LastError ?? "-")</dd>
+                </dl>
+            </article>
+        }
+    </div>
+</section>
+
+<section class="section">
+    <header class="section__head">
+        <h1>27 설비 Latest</h1>
+        @if (Model.LatestEnvelope != null)
+        {
+            <span class="meta">
+                count=@Model.LatestEnvelope.Count
+                · overall_source=<strong>@Model.LatestEnvelope.OverallSource</strong>
+                · @Model.LatestEnvelope.GeneratedAt.ToLocalTime().ToString("HH:mm:ss")
+            </span>
+        }
+    </header>
+
+    <div class="counts">
+        @foreach (var (src, cnt) in Model.SourceCounts.OrderBy(x => x.Key))
+        {
+            <span class="badge badge--@(src == "cache" ? "ok" : src == "tsdb" ? "degraded" : "unknown")">
+                @src: @cnt
+            </span>
+        }
+    </div>
+
+    @if (Model.LatestEnvelope != null && Model.LatestEnvelope.Items.Count > 0)
+    {
+        <div class="table-wrap">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>line</th>
+                        <th>equip</th>
+                        <th>ts</th>
+                        <th>age (s)</th>
+                        <th>source</th>
+                        <th>power</th>
+                        <th>status</th>
+                        <th>progress</th>
+                        <th>cycle</th>
+                        <th>part_count</th>
+                        <th>cmd_id</th>
+                        <th>cmd_acc</th>
+                        <th>cmd_status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var i in Model.LatestEnvelope.Items
+                        .OrderBy(x => x.LineId).ThenBy(x => x.EquipmentId))
+                    {
+                        <tr>
+                            <td>@i.LineId</td>
+                            <td>@i.EquipmentId</td>
+                            <td>@i.Ts.ToLocalTime().ToString("HH:mm:ss")</td>
+                            <td>@i.AgeSeconds.ToString("F1")</td>
+                            <td>
+                                <span class="badge badge--@(i.Source == "cache" ? "ok" : i.Source == "tsdb" ? "degraded" : "unknown")">@i.Source</span>
+                            </td>
+                            <td>@(i.Power ? "ON" : "OFF")</td>
+                            <td>@i.StatusCode</td>
+                            <td>@i.Progress.ToString("F2")</td>
+                            <td>@i.CycleTime.ToString("F2")</td>
+                            <td>@i.PartCount</td>
+                            <td>@i.CmdId</td>
+                            <td>@i.CmdAccepted</td>
+                            <td>@i.CmdStatus</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else
+    {
+        <p class="muted">표시할 데이터가 없습니다.</p>
+    }
+</section>
