@@ -47,3 +47,7 @@ Thumbs.db
 
 # Local convenience symlink (canonical path: frontend/UECADA_3)
 /UECADA_3
+
+# .NET build artifacts (unreal-backend / BeApi)
+**/bin/
+**/obj/

@@ -52,6 +52,11 @@ try
     app.MapHealthChecks("/health");
     app.MapControllers();
 
+    // PR1(Step3): EF Core 마이그레이션을 수행하지 않으므로
+    // 시작 직전에 기존 DB 스키마(필수 테이블/뷰) 존재 여부를 검증한다.
+    // 누락 시 InvalidOperationException 으로 fail-fast.
+    await app.Services.VerifyDatabaseSchemaAsync(app.Logger);
+
     app.Run();
 }
 catch (Exception ex)
