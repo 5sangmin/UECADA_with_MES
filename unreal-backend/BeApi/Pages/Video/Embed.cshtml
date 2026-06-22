@@ -3,6 +3,8 @@
 @{
     // Unreal Engine Web Browser 임베드용 — _Layout 을 사용하지 않는 독립 페이지.
     Layout = null;
+    // 초기 src 부터 cache-buster 를 붙여 페이지 로드 시점 기준으로 강제 새로고침.
+    var initialBust = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 }
 <!DOCTYPE html>
 <html lang="ko">
@@ -46,11 +48,12 @@
 <body>
     @if (Model.HasVideo)
     {
+        // src 에 처음부터 ?t=... 을 붙여, 페이지를 새로고침할 때마다 다른 URL 이 되도록 함.
         <video class="embed"
                autoplay loop muted playsinline
                preload="auto"
-               poster="@Model.ThumbnailUrl"
-               src="@Model.VideoUrl"></video>
+               poster="@(Model.ThumbnailUrl)?t=@initialBust"
+               src="@(Model.VideoUrl)?t=@initialBust"></video>
     }
     else
     {
@@ -58,47 +61,98 @@
     }
 
     <script>
-        // status / power 변화 대응: 일정 주기로 같은 URL 을 재요청하여 새 영상으로 전환.
-        // 응답에 Cache-Control: no-store 가 붙어 있으므로 매번 서버 상태가 반영됨.
-        // src 를 그대로 다시 set 하면 일부 브라우저는 같은 URL 이라며 무시할 수 있어 query 를 변경한다.
+        // ----------------------------------------------------------------------
+        // status / power 변화 실시간 반영 로직
+        //
+        // 1) 초기 로드: src 에 ?t={ms} 가 이미 붙어 있어 페이지 리로드 시 항상 신선.
+        // 2) 폴링: 3초마다 HEAD /api/video/{l}/{e} 로 X-Status-Code / X-Power 만 확인.
+        //    응답 본문은 0 바이트라 부하 무시 가능.
+        // 3) 변경 감지: 이전 key 와 다르면 src 를 새 ?t 값으로 갱신해 강제 재로드.
+        //    중요: <video> 는 현재 재생 중인 미디어를 메모리에 들고 있어
+        //         같은 URL 로 다시 set 하면 fetch 자체를 안 함 → cache-buster query 필수.
+        // 4) 안전망: HEAD 가 막히는 환경(프록시 등)에서도 동작하도록 fallback 도 처리.
+        // ----------------------------------------------------------------------
         (function () {
             const video = document.querySelector('video.embed');
             if (!video) return;
 
-            const baseUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.VideoUrl));
-            const posterUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ThumbnailUrl));
-            const intervalMs = 3000; // 3초마다 HEAD 로 상태 재확인. 변경 없으면 영상은 계속 재생, 변경 있을 때만 src 교체.
+            const baseVideoUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.VideoUrl));
+            const basePosterUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ThumbnailUrl));
+            const pollIntervalMs = 3000;
 
-            async function refreshIfStatusChanged() {
+            // 초기 key: 페이지 로드 시점의 상태를 즉시 한 번 읽어와 baseline 으로 저장.
+            let lastKey = null;
+
+            function makeKey(status, power) {
+                return (power || '') + ':' + (status || '');
+            }
+
+            function swapVideo(newKey) {
+                const bust = Date.now();
+                // poster 먼저 갱신 (로드 중에도 자연스러운 표시)
+                video.poster = basePosterUrl + '?t=' + bust;
+                // src 교체 — 같은 URL 이면 브라우저가 무시할 수 있으므로 query 를 매번 변경.
+                video.src = baseVideoUrl + '?t=' + bust;
+                // load() 호출로 새 미디어 소스 강제 인식. muted 라 autoplay 통과.
+                video.load();
+                const playPromise = video.play();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                    playPromise.catch(function () { /* autoplay 제스처 제한 등 - 무시 */ });
+                }
+                lastKey = newKey;
+                console.debug('[video-embed] swapped to', newKey, 'bust=', bust);
+            }
+
+            async function poll() {
                 try {
-                    // HEAD 로 현재 매핑 상태만 확인 (실제 영상은 다운로드하지 않음)
-                    const head = await fetch(baseUrl, { method: 'HEAD', cache: 'no-store' });
+                    // HEAD 자체에도 cache-buster 를 붙여 프록시/CEF 가 헤더 응답을 캐싱하지 않도록.
+                    const url = baseVideoUrl + '?head=' + Date.now();
+                    const head = await fetch(url, {
+                        method: 'HEAD',
+                        cache: 'no-store',
+                        // CEF/브라우저가 통합 캐시를 쓰는 경우 강제로 우회
+                        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                    });
                     if (!head.ok) return;
                     const status = head.headers.get('X-Status-Code');
                     const power = head.headers.get('X-Power');
-                    const key = (power || '') + ':' + (status || '');
-                    if (video.dataset.lastKey && video.dataset.lastKey !== key) {
-                        // 변경 감지 → 새 영상으로 교체. cache-buster 로 강제 재요청.
-                        const bust = Date.now();
-                        video.poster = posterUrl + '?t=' + bust;
-                        video.src = baseUrl + '?t=' + bust;
-                        video.load();
-                        video.play().catch(function () { /* autoplay 제스처 제한 - 무시 */ });
+                    const key = makeKey(status, power);
+
+                    if (lastKey === null) {
+                        // 첫 폴링: baseline 만 기록하고 종료 (페이지 로드 시 이미 최신을 재생 중)
+                        lastKey = key;
+                        console.debug('[video-embed] baseline key=', key);
+                        return;
                     }
-                    video.dataset.lastKey = key;
-                } catch (_) {
-                    // 네트워크 일시 오류는 다음 tick 에서 재시도
+                    if (key !== lastKey) {
+                        console.debug('[video-embed] change detected:', lastKey, '→', key);
+                        swapVideo(key);
+                    }
+                } catch (err) {
+                    // 네트워크 일시 오류는 다음 tick 에서 재시도. 콘솔에만 남김.
+                    console.debug('[video-embed] poll error', err);
                 }
             }
 
-            // 첫 로드 시 현재 키 저장
-            refreshIfStatusChanged();
-            setInterval(refreshIfStatusChanged, intervalMs);
+            // 첫 폴링 즉시 → 이후 setInterval
+            poll();
+            const timerId = setInterval(poll, pollIntervalMs);
+
+            // 탭 비활성 시 폴링 정지 → 재활성 시 즉시 한 번 + 재개
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) {
+                    // visibility 가 hidden 으로 가도 setInterval 은 계속 도는데, throttle 됨.
+                    // 명시적으로 멈추지는 않고, 복귀 시 즉시 한 번 더 체크해서 갭을 메움.
+                } else {
+                    poll();
+                }
+            });
 
             // autoplay 가 일부 정책에서 막혀도 muted 이므로 대부분 통과하지만,
             // 혹시 모를 경우를 대비해 사용자 첫 인터랙션 시 재생 시도.
             const tryPlay = function () {
-                video.play().catch(function () { /* ignore */ });
+                const p = video.play();
+                if (p && typeof p.catch === 'function') p.catch(function () { /* ignore */ });
                 window.removeEventListener('pointerdown', tryPlay);
                 window.removeEventListener('keydown', tryPlay);
             };

@@ -56,7 +56,12 @@ public sealed class VideoController : ControllerBase
         Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
         Response.Headers["Pragma"] = "no-cache";
         Response.Headers["Expires"] = "0";
-        return PhysicalFile(res.FilePath, contentType, enableRangeProcessing: true);
+        // PhysicalFile 은 파일의 LastWriteTimeUtc 로 Last-Modified / ETag 를 자동 설정해 304 Not Modified 를 유발함.
+        // status / power 가 바뀌면 동일 URL 이 다른 파일을 가리키는 구조라, conditional GET 을 차단해야 서버 상태 업데이트가 반영됨.
+        var fileResult = PhysicalFile(res.FilePath, contentType, enableRangeProcessing: true);
+        fileResult.LastModified = null;
+        fileResult.EntityTag = null;
+        return fileResult;
     }
 
     [HttpGet("{lineId:int}/{equipmentId:int}/thumbnail.jpg")]
@@ -84,7 +89,11 @@ public sealed class VideoController : ControllerBase
         Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
         Response.Headers["Pragma"] = "no-cache";
         Response.Headers["Expires"] = "0";
-        return PhysicalFile(res.FilePath, contentType);
+        // ETag / Last-Modified 동일 이유로 제거 (conditional GET 으로 304 유발 안 되게).
+        var fileResult = PhysicalFile(res.FilePath, contentType);
+        fileResult.LastModified = null;
+        fileResult.EntityTag = null;
+        return fileResult;
     }
 
     private static string ResolveContentType(string path, string fallback)
