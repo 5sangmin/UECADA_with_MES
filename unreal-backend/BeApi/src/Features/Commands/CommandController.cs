@@ -1,12 +1,12 @@
 // src/Features/Commands/CommandController.cs
 //
-// 엔드포인트 (Q3=A 전 범위):
+// 엔드포인트:
 //   POST   /api/commands
 //   GET    /api/commands?page=&pageSize=
-//   GET    /api/commands/{commandId}                  → 단건 + history + latest
-//   GET    /api/commands/latest/{lineId}/{equipmentId} → 설비별 최신 응답
+//   GET    /api/commands/{commandId:int}                  → request + history + latest
+//   GET    /api/commands/latest/{lineId:int}/{equipmentId:int}
 //
-// Idempotency-Key 헤더 또는 body.idempotencyKey 둘 다 허용 (Q2=A).
+// Idempotency-Key 헤더 또는 body.idempotency_key.
 
 using BeApi.Shared.Models;
 using Microsoft.AspNetCore.Mvc;
@@ -40,12 +40,6 @@ public sealed class CommandController : ControllerBase
             return BadRequest(ApiResponse<CommandResponseDto>.Fail("VALIDATION_FAILED", msg));
         }
 
-        if (string.IsNullOrWhiteSpace(request.CommandType))
-        {
-            return BadRequest(ApiResponse<CommandResponseDto>.Fail(
-                "VALIDATION_FAILED", "commandType 은 필수입니다."));
-        }
-
         Request.Headers.TryGetValue(IdempotencyHeaderName, out var headerValues);
         var idemHeader = headerValues.Count > 0 ? headerValues[0] : null;
 
@@ -56,17 +50,23 @@ public sealed class CommandController : ControllerBase
             CommandService.CreateOutcome.Created =>
                 CreatedAtAction(
                     nameof(GetByCommandId),
-                    new { commandId = result.Dto.CommandId },
+                    new { commandId = result.Dto!.CommandId },
                     ApiResponse<CommandResponseDto>.Ok(result.Dto)),
 
             CommandService.CreateOutcome.ReusedIdempotent =>
-                // 멱등 재사용: 200 OK + 동일 row.
-                Ok(ApiResponse<CommandResponseDto>.Ok(result.Dto)),
+                Ok(ApiResponse<CommandResponseDto>.Ok(result.Dto!)),
 
             CommandService.CreateOutcome.DuplicateCommandId =>
                 Conflict(ApiResponse<CommandResponseDto>.Fail(
-                    "DUPLICATE_COMMAND_ID",
-                    $"commandId={result.Dto.CommandId} 이 이미 존재합니다.")),
+                    result.ErrorCode!, result.ErrorMessage!)),
+
+            CommandService.CreateOutcome.InvalidEquipmentCode =>
+                BadRequest(ApiResponse<CommandResponseDto>.Fail(
+                    result.ErrorCode!, result.ErrorMessage!)),
+
+            CommandService.CreateOutcome.InvalidCommandType =>
+                BadRequest(ApiResponse<CommandResponseDto>.Fail(
+                    result.ErrorCode!, result.ErrorMessage!)),
 
             _ => StatusCode(StatusCodes.Status500InternalServerError,
                 ApiResponse<CommandResponseDto>.Fail("UNKNOWN_OUTCOME", "정의되지 않은 결과"))
@@ -76,28 +76,22 @@ public sealed class CommandController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<ApiResponse<CommandPageDto>>> GetPaged(
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 50,
+        [FromQuery(Name = "page_size")] int pageSize = 50,
         CancellationToken ct = default)
     {
         var dto = await _service.GetPagedAsync(page, pageSize, ct).ConfigureAwait(false);
         return Ok(ApiResponse<CommandPageDto>.Ok(dto));
     }
 
-    [HttpGet("{commandId}")]
+    [HttpGet("{commandId:int}")]
     public async Task<ActionResult<ApiResponse<CommandDetailDto>>> GetByCommandId(
-        string commandId, CancellationToken ct)
+        int commandId, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(commandId))
-        {
-            return BadRequest(ApiResponse<CommandDetailDto>.Fail(
-                "VALIDATION_FAILED", "commandId 가 비어있습니다."));
-        }
-
         var dto = await _service.GetByCommandIdAsync(commandId, ct).ConfigureAwait(false);
         if (dto == null)
         {
             return NotFound(ApiResponse<CommandDetailDto>.Fail(
-                "COMMAND_NOT_FOUND", $"commandId={commandId} 을 찾을 수 없습니다."));
+                "COMMAND_NOT_FOUND", $"command_id={commandId} 을 찾을 수 없습니다."));
         }
         return Ok(ApiResponse<CommandDetailDto>.Ok(dto));
     }

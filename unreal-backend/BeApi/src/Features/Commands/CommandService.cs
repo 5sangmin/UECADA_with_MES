@@ -1,13 +1,14 @@
 // src/Features/Commands/CommandService.cs
 //
 // Application layer.
-//   - CreateAsync: DTO → CommandRequestEntity. commandId 자동 생성.
-//                  idempotencyKey 가 있으면 동일 키 row 우선 검사 → 있으면 그 row 반환 (멱등).
-//   - GetByIdAsync: 단건 + history + latest 묶음.
-//   - GetPagedAsync, GetLatestPerEquipmentAsync.
-//
-// 트랜잭션은 단일 INSERT 라 별도 트랜잭션 처리 안 함.
-// JsonDocument <-> JsonElement 는 PostgresQL jsonb 와 mapping.
+//   - CreateAsync:
+//       1) EquipmentCodeResolver 로 "CAST-01" → (prefix, equipmentId).
+//       2) CommandTypeCatalog 로 prefix × command_type 검증.
+//       3) idempotency_key 가 있으면 동일 키 row 우선 검사 → 재사용 (멱등).
+//       4) command_id: 외부 명시값 우선, 없으면 command_id_seq.nextval.
+//       5) request_json 에는 원본(코드 문자열 포함) 그대로 저장.
+//       6) command_value(jsonb) 에는 req.value 그대로 (primitive 또는 JSON).
+//   - GetByIdAsync, GetPagedAsync, GetLatestPerEquipmentAsync.
 
 using System.Text.Json;
 using BeApi.Infrastructure.Persistence.Entities;
@@ -25,74 +26,118 @@ public sealed class CommandService
         _logger = logger;
     }
 
-    public enum CreateOutcome { Created, ReusedIdempotent, DuplicateCommandId }
+    public enum CreateOutcome
+    {
+        Created,
+        ReusedIdempotent,
+        DuplicateCommandId,
+        InvalidEquipmentCode,
+        InvalidCommandType,
+    }
 
-    public sealed record CreateResult(CreateOutcome Outcome, CommandResponseDto Dto);
+    public sealed record CreateResult(
+        CreateOutcome Outcome,
+        CommandResponseDto? Dto,
+        string? ErrorCode,
+        string? ErrorMessage);
 
-    /// <summary>
-    /// POST /api/commands 본문 처리.
-    ///  1) headerIdempotencyKey or req.IdempotencyKey 가 있으면 동일 키 검색 → 있으면 그대로 반환 (ReusedIdempotent).
-    ///  2) req.CommandId 가 명시되었는데 이미 존재 → DuplicateCommandId.
-    ///  3) 아니면 새 commandId 생성하고 INSERT.
-    /// </summary>
     public async Task<CreateResult> CreateAsync(
         CreateCommandRequest req,
         string? headerIdempotencyKey,
         CancellationToken ct)
     {
+        // 1) 설비 코드 해석
+        if (!EquipmentCodeResolver.TryResolve(req.EquipmentId, out var resolved, out var resolveError))
+        {
+            return new CreateResult(
+                CreateOutcome.InvalidEquipmentCode,
+                null,
+                "INVALID_EQUIPMENT_CODE",
+                resolveError);
+        }
+        var equipmentIdInt = resolved!.EquipmentId;
+        var prefix = resolved.Prefix;
+
+        // 2) command_type 검증
+        if (!CommandTypeCatalog.IsValid(prefix, req.CommandType))
+        {
+            var allowed = string.Join(", ", CommandTypeCatalog.AllowedFor(prefix));
+            return new CreateResult(
+                CreateOutcome.InvalidCommandType,
+                null,
+                "INVALID_COMMAND_TYPE",
+                $"command_type='{req.CommandType}' 은 prefix='{prefix}' 에 허용되지 않습니다. 허용: [{allowed}]");
+        }
+
+        // 3) idempotency 검사
         var idemKey = !string.IsNullOrWhiteSpace(headerIdempotencyKey)
             ? headerIdempotencyKey
             : (string.IsNullOrWhiteSpace(req.IdempotencyKey) ? null : req.IdempotencyKey);
 
-        // 1) idempotency 검사
         if (idemKey != null)
         {
             var existing = await _repo.GetByIdempotencyKeyAsync(idemKey, ct).ConfigureAwait(false);
             if (existing != null)
             {
-                _logger.LogInformation("Command 멱등 재사용: idempotencyKey={key}, commandId={cid}", idemKey, existing.CommandId);
-                return new CreateResult(CreateOutcome.ReusedIdempotent, ToDto(existing));
+                _logger.LogInformation(
+                    "Command 멱등 재사용: idempotency_key={key}, command_id={cid}",
+                    idemKey, existing.CommandId);
+                return new CreateResult(
+                    CreateOutcome.ReusedIdempotent,
+                    ToDto(existing, req.EquipmentId),
+                    null, null);
             }
         }
 
-        // 2) commandId 처리
-        var commandId = string.IsNullOrWhiteSpace(req.CommandId)
-            ? GenerateCommandId()
-            : req.CommandId!.Trim();
-
-        if (!string.IsNullOrWhiteSpace(req.CommandId))
+        // 4) command_id 결정
+        int commandId;
+        if (req.CommandId.HasValue)
         {
+            commandId = req.CommandId.Value;
             var clash = await _repo.GetByCommandIdAsync(commandId, ct).ConfigureAwait(false);
             if (clash != null)
             {
-                _logger.LogWarning("Command 중복 commandId 거부: {cid}", commandId);
-                return new CreateResult(CreateOutcome.DuplicateCommandId, ToDto(clash));
+                _logger.LogWarning("Command 중복 command_id 거부: {cid}", commandId);
+                return new CreateResult(
+                    CreateOutcome.DuplicateCommandId,
+                    ToDto(clash, req.EquipmentId),
+                    "DUPLICATE_COMMAND_ID",
+                    $"command_id={commandId} 이 이미 존재합니다.");
             }
-        }
-
-        // 3) JsonDocument 변환 (jsonb 매핑)
-        var commandValueDoc = req.CommandValue.HasValue
-            ? JsonDocument.Parse(req.CommandValue.Value.GetRawText())
-            : null;
-
-        JsonDocument requestJsonDoc;
-        if (req.RequestJson.HasValue)
-        {
-            requestJsonDoc = JsonDocument.Parse(req.RequestJson.Value.GetRawText());
         }
         else
         {
-            // 본 DTO 그대로 직렬화해서 저장
-            var raw = JsonSerializer.Serialize(req);
-            requestJsonDoc = JsonDocument.Parse(raw);
+            commandId = await _repo.NextCommandIdAsync(ct).ConfigureAwait(false);
         }
+
+        // 5) command_value 변환 — primitive 도 그대로 jsonb 에 저장 (jsonb 는 primitive 허용).
+        var commandValueDoc = req.Value.HasValue
+            ? JsonDocument.Parse(req.Value.Value.GetRawText())
+            : null;
+
+        // 6) request_json 은 외부 입력 원본 그대로 보존 (CAST-01 같은 코드 문자열 포함).
+        //    외부에서 별도 request_json 을 주지 않으면 본 DTO 를 직렬화.
+        var rawDtoJson = JsonSerializer.Serialize(new
+        {
+            command_id = req.CommandId,
+            source_type = req.SourceType,
+            line_id = req.LineId,
+            equipment_id = req.EquipmentId, // 원본 (코드 문자열)
+            command_type = req.CommandType,
+            value = req.Value,
+            priority = req.Priority,
+            max_retry = req.MaxRetry,
+            created_by = req.CreatedBy,
+            idempotency_key = req.IdempotencyKey,
+        });
+        var requestJsonDoc = JsonDocument.Parse(rawDtoJson);
 
         var entity = new CommandRequestEntity
         {
             CommandId = commandId,
             SourceType = string.IsNullOrWhiteSpace(req.SourceType) ? "API" : req.SourceType!,
             LineId = req.LineId,
-            EquipmentId = req.EquipmentId,
+            EquipmentId = equipmentIdInt,
             CommandType = req.CommandType,
             CommandValue = commandValueDoc,
             RequestJson = requestJsonDoc,
@@ -107,13 +152,16 @@ public sealed class CommandService
 
         var saved = await _repo.CreateAsync(entity, ct).ConfigureAwait(false);
         _logger.LogInformation(
-            "Command 신규 생성: commandId={cid}, line={l}, equip={e}, type={t}",
-            saved.CommandId, saved.LineId, saved.EquipmentId, saved.CommandType);
+            "Command 신규 생성: command_id={cid}, line={l}, equip={ec}({eid}), type={t}",
+            saved.CommandId, saved.LineId, req.EquipmentId, saved.EquipmentId, saved.CommandType);
 
-        return new CreateResult(CreateOutcome.Created, ToDto(saved));
+        return new CreateResult(
+            CreateOutcome.Created,
+            ToDto(saved, req.EquipmentId),
+            null, null);
     }
 
-    public async Task<CommandDetailDto?> GetByCommandIdAsync(string commandId, CancellationToken ct)
+    public async Task<CommandDetailDto?> GetByCommandIdAsync(int commandId, CancellationToken ct)
     {
         var req = await _repo.GetByCommandIdAsync(commandId, ct).ConfigureAwait(false);
         if (req == null) return null;
@@ -124,19 +172,18 @@ public sealed class CommandService
         var history = historyRows.Select(ToHistoryDto).ToList();
         var latestDto = latest != null ? ToLatestDto(latest) : null;
 
-        return new CommandDetailDto(ToDto(req), history, latestDto);
+        return new CommandDetailDto(ToDto(req, equipmentCodeOrigin: null), history, latestDto);
     }
 
     public async Task<CommandPageDto> GetPagedAsync(int page, int pageSize, CancellationToken ct)
     {
-        // 가벼운 범위 보정
         page = page < 1 ? 1 : page;
         pageSize = pageSize is < 1 or > 200 ? 50 : pageSize;
 
         var rows = await _repo.GetPagedAsync(page, pageSize, ct).ConfigureAwait(false);
         var total = await _repo.CountAsync(ct).ConfigureAwait(false);
 
-        var items = rows.Select(ToDto).ToList();
+        var items = rows.Select(r => ToDto(r, equipmentCodeOrigin: null)).ToList();
         return new CommandPageDto(page, pageSize, total, items);
     }
 
@@ -148,25 +195,23 @@ public sealed class CommandService
 
     // ----------------- helpers -----------------
 
-    private static string GenerateCommandId()
+    /// <summary>
+    /// EquipmentEntity.EquipmentId (int) → 추정 equipment_code 문자열.
+    /// 외부에서 받은 원본 code 가 있으면 그걸 우선 사용. 없으면 base 역산.
+    /// </summary>
+    private static CommandResponseDto ToDto(CommandRequestEntity e, string? equipmentCodeOrigin)
     {
-        // 8 byte timestamp + 4 byte random → URL-safe-ish.
-        var nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var rand = Random.Shared.Next(0, int.MaxValue);
-        return $"cmd-{nowMs:x}-{rand:x8}";
-    }
-
-    private static CommandResponseDto ToDto(CommandRequestEntity e)
-    {
+        var code = equipmentCodeOrigin ?? TryReverseCode(e.EquipmentId);
         return new CommandResponseDto(
             Id: e.Id,
             CommandId: e.CommandId,
             SourceType: e.SourceType,
             LineId: e.LineId,
             EquipmentId: e.EquipmentId,
+            EquipmentCode: code,
             CommandType: e.CommandType,
-            CommandValue: e.CommandValue is null ? null : Clone(e.CommandValue),
-            RequestJson: Clone(e.RequestJson),
+            CommandValue: e.CommandValue is null ? null : e.CommandValue.RootElement.Clone(),
+            RequestJson: e.RequestJson.RootElement.Clone(),
             Status: e.Status,
             Priority: e.Priority,
             RetryCount: e.RetryCount,
@@ -179,6 +224,25 @@ public sealed class CommandService
             WorkerId: e.WorkerId,
             LastError: e.LastError,
             IdempotencyKey: e.IdempotencyKey);
+    }
+
+    private static string? TryReverseCode(int equipmentId)
+    {
+        // 100~599 범위에서 prefix 역산.
+        if (equipmentId is < 100 or > 599) return null;
+        var prefixBase = equipmentId / 100 * 100;
+        var prefix = prefixBase switch
+        {
+            100 => "CAST",
+            200 => "CNC",
+            300 => "WASH",
+            400 => "ASSY",
+            500 => "TEST",
+            _ => null,
+        };
+        if (prefix == null) return null;
+        var yy = equipmentId - prefixBase;
+        return $"{prefix}-{yy:D2}";
     }
 
     private static CommandHistoryItemDto ToHistoryDto(CommandHistoryViewEntity e)
@@ -211,26 +275,12 @@ public sealed class CommandService
             Status: e.Status,
             Accepted: e.Accepted,
             CmdStatus: e.CmdStatus,
-            ResponseJson: e.ResponseJson is null ? null : Clone(e.ResponseJson),
+            ResponseJson: e.ResponseJson is null ? null : e.ResponseJson.RootElement.Clone(),
             SourceTsEpochMs: e.SourceTsEpochMs,
             FirstObservedAt: e.FirstObservedAt,
             UpdatedAt: e.UpdatedAt,
             SnapshotKey: e.SnapshotKey,
             SourceNodeId: e.SourceNodeId,
             LastError: e.LastError);
-    }
-
-    /// <summary>
-    /// JsonDocument 를 JsonElement (값 복사) 로 변환.
-    /// JsonDocument 가 dispose 되면 JsonElement 가 죽기 때문에, RawText 를 통해 한번 더 파싱한 doc 의 element 를 그대로 사용.
-    /// 응답 직렬화 시점에는 doc 의 lifecycle 이 유지되므로 안전 (EF 가 트래킹 안 함, 즉시 응답 직렬화).
-    /// </summary>
-    private static JsonElement Clone(JsonDocument doc)
-    {
-        // RootElement 자체를 그대로 노출하면 DbContext 가 닫힌 후 NRE 가능.
-        // 안전하게 RawText 로 다시 파싱하고 그 doc 을 정적으로 들고 있는 wrapper 가 필요하지만,
-        // ASP.NET 응답 파이프라인에서는 컨트롤러가 끝나기 전 직렬화가 끝나므로 RootElement 만 노출.
-        // → 운영 안정성이 더 중요하면 JsonNode/Dictionary 변환 도입을 고려.
-        return doc.RootElement.Clone();
     }
 }

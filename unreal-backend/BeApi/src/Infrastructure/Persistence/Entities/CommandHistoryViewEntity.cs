@@ -4,7 +4,7 @@ namespace BeApi.Infrastructure.Persistence.Entities;
 
 public class CommandHistoryViewEntity
 {
-    public string CommandId { get; set; } = string.Empty;
+    public int CommandId { get; set; }
     public string SourceType { get; set; } = string.Empty;
     public int LineId { get; set; }
     public int EquipmentId { get; set; }

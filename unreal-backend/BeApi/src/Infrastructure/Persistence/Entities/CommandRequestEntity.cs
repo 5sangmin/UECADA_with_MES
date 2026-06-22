@@ -5,7 +5,8 @@ namespace BeApi.Infrastructure.Persistence.Entities;
 public class CommandRequestEntity
 {
     public long Id { get; set; }
-    public string CommandId { get; set; } = string.Empty;
+    /// <summary>UDP wire 의 std::int32_t cmd_id 와 1:1 대응.</summary>
+    public int CommandId { get; set; }
     public string SourceType { get; set; } = string.Empty;
     public int LineId { get; set; }
     public int EquipmentId { get; set; }

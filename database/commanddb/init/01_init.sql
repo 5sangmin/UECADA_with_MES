@@ -1,7 +1,19 @@
+-- 0) command_id 발급용 sequence (BeApi 가 nextval 로 가져감)
+--    int32 범위를 넘지 않도로 maxvalue 설정. cycle 안 함.
+CREATE SEQUENCE IF NOT EXISTS public.command_id_seq
+    AS integer
+    INCREMENT BY 1
+    MINVALUE 1
+    MAXVALUE 2147483647
+    START WITH 1
+    NO CYCLE;
+
 -- 1) 외부 시스템이 적재하는 요청 원장
+--    command_id: UDP wire 의 std::int32_t cmd_id 와 1:1 대응 (32-bit signed).
+--                외부 입력 시에도 정수만 허용. 단조 증가 권장.
 CREATE TABLE IF NOT EXISTS public.command_request (
     id bigserial PRIMARY KEY,
-    command_id text NOT NULL UNIQUE,
+    command_id integer NOT NULL UNIQUE,
     source_type text NOT NULL,
     line_id integer NOT NULL,
     equipment_id integer NOT NULL,
@@ -36,9 +48,10 @@ CREATE INDEX IF NOT EXISTS idx_command_request_idempotency_key
 
 
 -- 2) x-das Node-RED가 관측한 응답 이벤트 로그
+--    command_id 는 command_request.command_id 와 동일한 int32 echo (UDP 응답 record 의 cmd_id).
 CREATE TABLE IF NOT EXISTS public.command_response_event (
     id bigserial PRIMARY KEY,
-    command_id text NOT NULL,
+    command_id integer NOT NULL,
     line_id integer NOT NULL,
     equipment_id integer NOT NULL,
     accepted boolean,
@@ -66,7 +79,7 @@ CREATE INDEX IF NOT EXISTS idx_command_response_event_observed_at
 CREATE TABLE IF NOT EXISTS public.command_latest_response (
     line_id integer NOT NULL,
     equipment_id integer NOT NULL,
-    command_id text NOT NULL,
+    command_id integer NOT NULL,
     command_type text,
     status text NOT NULL,
     accepted boolean,
