@@ -6,13 +6,15 @@
 //   VIDEO_ROOT  → 절대/상대 경로. 비어 있으면 './videos' (현재 작업 디렉터리 기준).
 //
 // 디렉터리 컨벤션:
-//   {VIDEO_ROOT}/status_{code}.webm
-//   {VIDEO_ROOT}/status_{code}.jpg        (썸네일, 사전 생성)
-//   {VIDEO_ROOT}/status_default.webm      (fallback)
-//   {VIDEO_ROOT}/status_default.jpg
+//   {VIDEO_ROOT}/{TYPE}/status_{code}.webm
+//   {VIDEO_ROOT}/{TYPE}/status_{code}.jpg        (썸네일, 사전 생성)
+//   {VIDEO_ROOT}/{TYPE}/status_default.webm      (타입별 fallback)
+//   {VIDEO_ROOT}/{TYPE}/status_default.jpg
 //
-// 모든 (line, equipment) 는 같은 status_code → 같은 파일을 공유한다.
-// 즉 영상은 "설비 상태에 따른 테스트 영상" 이며 line/equipment 별로 다른 파일이 아니다.
+// TYPE 은 equipmentId 의 백의 자리로 결정 (CAST/CNC/WASH/ASSY/TEST — EquipmentTypeResolver 참조).
+// 라인(line) 은 영상 파일 선택에 영향을 주지 않는다 — line 1/2/3 의 같은 타입은 모두 같은 영상.
+//
+// status_code 값: 0=IDLE, 1=RUNNING, 2=COMPLETED, 3=WARNING, 4=ERROR
 
 namespace BeApi.Features.Video;
 
@@ -27,7 +29,7 @@ public sealed class VideoSettings
     /// <summary>썸네일 확장자 (기본 jpg, 사전 생성).</summary>
     public string ThumbnailExtension { get; init; } = "jpg";
 
-    /// <summary>status 별 파일이 없을 때 사용할 기본 파일명 (확장자 제외).</summary>
+    /// <summary>status 별 파일이 없을 때 사용할 기본 파일명 (확장자 제외). 각 타입 폴더 안에 위치.</summary>
     public string DefaultBaseName { get; init; } = "status_default";
 
     /// <summary>status 별 파일 prefix (예: 'status_1.webm').</summary>

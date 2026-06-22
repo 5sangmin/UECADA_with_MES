@@ -1,15 +1,15 @@
 // src/Features/Video/VideoFileResolver.cs
 //
-// status_code → 실제 파일 경로 매핑.
+// (typeCode, status_code) → 실제 파일 경로 매핑.
 //
 // 우선순위:
-//   1) {root}/{prefix}{code}.{ext}       (예: status_1.webm)
-//   2) {root}/{defaultBaseName}.{ext}    (예: status_default.webm)
+//   1) {root}/{typeCode}/{prefix}{code}.{ext}      (예: CNC/status_1.webm)
+//   2) {root}/{typeCode}/{defaultBaseName}.{ext}   (예: CNC/status_default.webm)
 //   3) null (호출자가 404 처리)
 //
 // 보안: 절대 경로 결정 후 RootPath 의 하위에 있는지 재검증 (path traversal 방지).
-//       파일명은 status_code(int) 만 사용하므로 사용자 입력이 경로에 직접 들어가지 않지만
-//       방어적으로 한 번 더 검사한다.
+//       typeCode 는 EquipmentTypeResolver 가 반환한 화이트리스트(CAST/CNC/WASH/ASSY/TEST) 중 하나이므로
+//       사용자 입력이 경로에 직접 들어가지 않지만 방어적으로 한 번 더 검사한다.
 
 namespace BeApi.Features.Video;
 
@@ -24,37 +24,43 @@ public sealed class VideoFileResolver
         _logger = logger;
     }
 
-    public string? ResolveVideoPath(int statusCode)
-        => Resolve(statusCode, _settings.VideoExtension);
+    public string? ResolveVideoPath(string typeCode, int statusCode)
+        => Resolve(typeCode, statusCode, _settings.VideoExtension);
 
-    public string? ResolveThumbnailPath(int statusCode)
-        => Resolve(statusCode, _settings.ThumbnailExtension);
+    public string? ResolveThumbnailPath(string typeCode, int statusCode)
+        => Resolve(typeCode, statusCode, _settings.ThumbnailExtension);
 
-    private string? Resolve(int statusCode, string extension)
+    private string? Resolve(string typeCode, int statusCode, string extension)
     {
+        if (string.IsNullOrWhiteSpace(typeCode))
+        {
+            return null;
+        }
+
         var root = _settings.GetAbsoluteRoot();
+        var typeDir = Path.Combine(root, typeCode);
 
         // 1) status 별 파일
-        var primary = Path.Combine(root, $"{_settings.StatusFilePrefix}{statusCode}.{extension}");
+        var primary = Path.Combine(typeDir, $"{_settings.StatusFilePrefix}{statusCode}.{extension}");
         if (IsWithinRoot(primary, root) && File.Exists(primary))
         {
             return primary;
         }
 
-        // 2) default fallback
-        var fallback = Path.Combine(root, $"{_settings.DefaultBaseName}.{extension}");
+        // 2) 타입별 default fallback
+        var fallback = Path.Combine(typeDir, $"{_settings.DefaultBaseName}.{extension}");
         if (IsWithinRoot(fallback, root) && File.Exists(fallback))
         {
             _logger.LogDebug(
-                "Video resolver: status_{code}.{ext} 없음 → default 사용",
-                statusCode, extension);
+                "Video resolver: {type}/status_{code}.{ext} 없음 → {type}/{default}.{ext} 사용",
+                typeCode, statusCode, extension, typeCode, _settings.DefaultBaseName);
             return fallback;
         }
 
         // 3) 없음
         _logger.LogWarning(
-            "Video resolver: status={code} ext={ext} 매칭 파일 없음. root={root}",
-            statusCode, extension, root);
+            "Video resolver: type={type} status={code} ext={ext} 매칭 파일 없음. root={root}",
+            typeCode, statusCode, extension, root);
         return null;
     }
 

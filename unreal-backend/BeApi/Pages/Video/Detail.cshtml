@@ -8,7 +8,9 @@
     <header class="section__head">
         <h1>line @Model.LineId · equipment @Model.EquipmentId</h1>
         <span class="meta">
-            current status_code = <strong>@Model.StatusCode</strong> · source = <strong>@Model.ResolvedSource</strong>
+            type = <strong>@(Model.TypeCode ?? "(unknown)")</strong> ·
+            current status_code = <strong>@Model.StatusCode</strong> ·
+            source = <strong>@Model.ResolvedSource</strong>
         </span>
     </header>
 
@@ -25,6 +27,7 @@
         <dl class="kv kv--wide">
             <dt>video URL</dt><dd><code>@Model.VideoUrl</code></dd>
             <dt>thumbnail URL</dt><dd><code>@Model.ThumbnailUrl</code></dd>
+            <dt>equipment type</dt><dd>@Model.TypeCode</dd>
             <dt>status_code</dt><dd>@Model.StatusCode</dd>
             <dt>resolved source</dt><dd>@Model.ResolvedSource</dd>
         </dl>
@@ -32,9 +35,9 @@
     else
     {
         <p class="error">
-            매칭되는 영상 파일이 없습니다 (status_code=@Model.StatusCode).
-            VIDEO_ROOT 디렉터리에 <code>status_@Model.StatusCode.webm</code> 또는
-            <code>status_default.webm</code> 을 두십시오.
+            매칭되는 영상 파일이 없습니다 (type=@(Model.TypeCode ?? "?"), status_code=@Model.StatusCode).
+            VIDEO_ROOT 디렉터리에 <code>@(Model.TypeCode ?? "{TYPE}")/status_@Model.StatusCode.webm</code> 또는
+            <code>@(Model.TypeCode ?? "{TYPE}")/status_default.webm</code> 을 두십시오.
         </p>
     }
 
