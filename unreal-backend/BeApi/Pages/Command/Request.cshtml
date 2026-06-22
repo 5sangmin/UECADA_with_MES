@@ -28,13 +28,11 @@
                     {
                         if (e.EquipmentCode == Model.EquipmentCode)
                         {
-                            <option value="@e.EquipmentCode" selected
-                                    data-line="@e.LineId">@e.EquipmentCode (id @e.EquipmentId)</option>
+                            <option value="@e.EquipmentCode" selected>@e.EquipmentCode (id @e.EquipmentId)</option>
                         }
                         else
                         {
-                            <option value="@e.EquipmentCode"
-                                    data-line="@e.LineId">@e.EquipmentCode (id @e.EquipmentId)</option>
+                            <option value="@e.EquipmentCode">@e.EquipmentCode (id @e.EquipmentId)</option>
                         }
                     }
                 </select>
@@ -125,7 +123,6 @@
     var typesByPrefix = @Html.Raw(Model.CommandTypesByPrefixJson);
     var equipSelect = document.getElementById('equip-select');
     var typeSelect = document.getElementById('cmdtype-select');
-    var lineInput = document.querySelector('input[name="LineId"]');
     var currentType = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.CommandType));
 
     function prefixOf(code) {
@@ -152,14 +149,10 @@
         }
     }
 
-    function refreshLine() {
-        var opt = equipSelect.options[equipSelect.selectedIndex];
-        if (opt && opt.dataset.line) lineInput.value = opt.dataset.line;
-    }
-
+    // equipment_id 는 line 별로 중복되므로 line_id 는 자동 채움을 하지 않는다.
+    // 운영자가 line_id 입력란을 직접 변경한다. 설비 변경 시엔 command_type 드롭다운만 갱신.
     equipSelect.addEventListener('change', function () {
         refreshTypes(false);
-        refreshLine();
     });
 
     // 초기 1회: 서버 선택값 보존 시도
