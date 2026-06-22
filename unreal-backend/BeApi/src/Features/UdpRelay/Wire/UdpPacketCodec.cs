@@ -124,4 +124,45 @@ public static class UdpPacketCodec
         packetTsEpochMs = BinaryPrimitives.ReadInt64LittleEndian(source.Slice(8, 8));
         return true;
     }
+
+    /// <summary>
+    /// 인덱스 i 의 record 를 EquipmentRecord 로 파싱.
+    /// source 는 전체 payload (header + records) 여야 한다.
+    /// </summary>
+    public static bool TryReadRecord(ReadOnlySpan<byte> source, int index, out EquipmentRecord record)
+    {
+        record = default;
+        if (source.Length < HeaderSize) return false;
+        var offset = HeaderSize + index * RecordSize;
+        if (offset + RecordSize > source.Length) return false;
+
+        var s = source.Slice(offset, RecordSize);
+
+        record = new EquipmentRecord(
+            LineId:              BinaryPrimitives.ReadInt16LittleEndian(s.Slice(0, 2)),
+            EquipmentId:         BinaryPrimitives.ReadInt16LittleEndian(s.Slice(2, 2)),
+            TsEpochMs:           BinaryPrimitives.ReadInt64LittleEndian(s.Slice(4, 8)),
+            Heartbeat:           BinaryPrimitives.ReadInt32LittleEndian(s.Slice(12, 4)),
+            QualityCode:         BinaryPrimitives.ReadInt16LittleEndian(s.Slice(16, 2)),
+            Power:               s[18],
+            Reserved:            s[19],
+            StatusCode:          BinaryPrimitives.ReadInt16LittleEndian(s.Slice(20, 2)),
+            Progress:            BinaryPrimitives.ReadSingleLittleEndian(s.Slice(22, 4)),
+            CycleTime:           BinaryPrimitives.ReadSingleLittleEndian(s.Slice(26, 4)),
+            PartCount:           BinaryPrimitives.ReadInt32LittleEndian(s.Slice(30, 4)),
+            Data1Setpoint:       BinaryPrimitives.ReadSingleLittleEndian(s.Slice(34, 4)),
+            Data1Sensor:         BinaryPrimitives.ReadSingleLittleEndian(s.Slice(38, 4)),
+            Data2Setpoint:       BinaryPrimitives.ReadSingleLittleEndian(s.Slice(42, 4)),
+            Data2Sensor:         BinaryPrimitives.ReadSingleLittleEndian(s.Slice(46, 4)),
+            Data3Setpoint:       BinaryPrimitives.ReadSingleLittleEndian(s.Slice(50, 4)),
+            Data3Sensor:         BinaryPrimitives.ReadSingleLittleEndian(s.Slice(54, 4)),
+            ExternalData1Sensor: BinaryPrimitives.ReadSingleLittleEndian(s.Slice(58, 4)),
+            ExternalData2Sensor: BinaryPrimitives.ReadSingleLittleEndian(s.Slice(62, 4)),
+            ExternalData3Sensor: BinaryPrimitives.ReadSingleLittleEndian(s.Slice(66, 4)),
+            ExternalData4Sensor: BinaryPrimitives.ReadSingleLittleEndian(s.Slice(70, 4)),
+            CmdId:               BinaryPrimitives.ReadInt32LittleEndian(s.Slice(74, 4)),
+            CmdAccepted:         BinaryPrimitives.ReadInt32LittleEndian(s.Slice(78, 4)),
+            CmdStatus:           BinaryPrimitives.ReadInt32LittleEndian(s.Slice(82, 4)));
+        return true;
+    }
 }

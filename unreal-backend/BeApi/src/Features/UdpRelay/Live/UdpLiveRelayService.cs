@@ -92,6 +92,7 @@ public sealed class UdpLiveRelayService : BackgroundService
                 await sender.SendAsync(payload, payload.Length, multicastEndpoint).ConfigureAwait(false);
                 packetCount++;
                 _observer.NotifyLivePacket(packetTs, equipmentCount);
+                _observer.NotifyLivePayload(payload);  // PR4: latest cache 갱신용
 
                 if (packetCount % 100 == 1)
                 {

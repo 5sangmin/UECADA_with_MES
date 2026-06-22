@@ -4,6 +4,7 @@ using Serilog;
 using BeApi.Infrastructure.Persistence.Extensions;
 using BeApi.Features.UdpRelay;
 using BeApi.Features.ConnectionStatus;
+using BeApi.Features.Latest;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -38,6 +39,11 @@ try
     // Step 2에서 추가: 공통 설정 등록
     builder.Services.AddSharedSettings(builder.Configuration);
     builder.Services.AddPersistence(builder.Configuration);
+
+    // PR4(Step 7~8): Latest Data API (UDP 메모리 캐시 + TSDB fallback)
+    // ⚠️ 순서 주의: AddUdpRelayAndReplay 이 LatestCache 를 IUdpLiveObserver 로 참조하므로
+    //          AddLatestApi 를 먼저 호출해 LatestCache 을 DI 에 등록해둔다.
+    builder.Services.AddLatestApi();
 
     // PR2(Step15): UDP Live Relay + Replay
     builder.Services.AddUdpRelayAndReplay(builder.Configuration);
