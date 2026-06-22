@@ -2,9 +2,9 @@
 @model BeApi.Pages.Command.ListModel
 @{
     ViewData["Title"] = "명령 이력";
-    var page = Model.PageData;
+    var pageData = Model.PageData;
     var hasPrev = Model.PageNumber > 1;
-    var hasNext = page != null && page.Items.Count == Model.PageSize;
+    var hasNext = pageData != null && pageData.Items.Count == Model.PageSize;
 }
 
 <section class="section">
@@ -12,11 +12,11 @@
         <h1>명령 이력</h1>
         <span class="meta">
             page=@Model.PageNumber · page_size=@Model.PageSize
-            @if (page != null) { <text>· count=@page.Count</text> }
+            @if (pageData != null) { <text>· count=@pageData.Count</text> }
         </span>
     </header>
 
-    @if (page == null || page.Items.Count == 0)
+    @if (pageData == null || pageData.Items.Count == 0)
     {
         <p class="muted">표시할 명령이 없습니다.</p>
     }
@@ -39,7 +39,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var c in page.Items)
+                    @foreach (var c in pageData.Items)
                     {
                         <tr>
                             <td><a href="/command/detail?command_id=@c.CommandId">@c.CommandId</a></td>

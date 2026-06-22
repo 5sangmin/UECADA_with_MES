@@ -22,16 +22,16 @@ public class DetailModel : PageModel
     public int CommandId { get; set; }
 
     public CommandDetailDto? Detail { get; private set; }
-    public bool NotFound { get; private set; }
+    public bool IsNotFound { get; private set; }
 
     public async Task OnGetAsync(CancellationToken ct)
     {
         if (CommandId <= 0)
         {
-            NotFound = true;
+            IsNotFound = true;
             return;
         }
         Detail = await _commandService.GetByCommandIdAsync(CommandId, ct).ConfigureAwait(false);
-        NotFound = Detail == null;
+        IsNotFound = Detail == null;
     }
 }

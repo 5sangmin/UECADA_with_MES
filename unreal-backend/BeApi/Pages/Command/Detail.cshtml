@@ -11,7 +11,7 @@
         <span class="meta">command_id = @Model.CommandId</span>
     </header>
 
-    @if (Model.NotFound || d == null)
+    @if (Model.IsNotFound || d == null)
     {
         <p class="error">해당 command_id 의 row 가 존재하지 않습니다.</p>
         <a class="btn" href="/command/list">목록으로</a>
