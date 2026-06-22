@@ -33,8 +33,15 @@ public sealed class ReplaySnapshotReader
     }
 
     /// <summary>구간 내 row 가 존재하는지 빠르게 확인. 0건 fail-fast 용도.</summary>
-    public async Task<bool> HasAnyAsync(DateTimeOffset fromUtc, DateTimeOffset toUtc, CancellationToken ct)
+    /// <remarks>
+    /// Npgsql 은 timestamptz 컴럼에 DateTimeOffset 을 쓸 때 offset=0(UTC) 만 허용한다.
+    /// 따라서 쿼리 직전 UTC 로 변환한다 (절대 시각은 동일).
+    /// </remarks>
+    public async Task<bool> HasAnyAsync(DateTimeOffset from, DateTimeOffset to, CancellationToken ct)
     {
+        var fromUtc = from.ToUniversalTime();
+        var toUtc = to.ToUniversalTime();
+
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TsdbDbContext>();
         return await db.EquipmentSnapshots
@@ -48,10 +55,13 @@ public sealed class ReplaySnapshotReader
     /// ts 오름차순으로 EquipmentRecord 를 stream. 변환 실패(LUT 미스) row 는 skip + 경고 로그.
     /// </summary>
     public async IAsyncEnumerable<TsRecord> StreamAsync(
-        DateTimeOffset fromUtc,
-        DateTimeOffset toUtc,
+        DateTimeOffset from,
+        DateTimeOffset to,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
+        var fromUtc = from.ToUniversalTime();
+        var toUtc = to.ToUniversalTime();
+
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TsdbDbContext>();
 
