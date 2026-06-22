@@ -18,7 +18,10 @@ public static class UdpRelayServiceExtensions
         services.AddSingleton<EquipmentLut>();
 
         // Live relay
-        services.AddSingleton<IUdpLiveObserver, NullUdpLiveObserver>();
+        // PR3: NullUdpLiveObserver → UdpLiveStatusObserver 교체.
+        // Connection Status 체커(UdpConnectionChecker) 가 이 관측자의 수치를 읽는다.
+        services.AddSingleton<UdpLiveStatusObserver>();
+        services.AddSingleton<IUdpLiveObserver>(sp => sp.GetRequiredService<UdpLiveStatusObserver>());
         services.AddHostedService<UdpLiveRelayService>();
 
         // Replay

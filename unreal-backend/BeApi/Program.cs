@@ -3,6 +3,7 @@ using BeApi.Shared.Extensions;
 using Serilog;
 using BeApi.Infrastructure.Persistence.Extensions;
 using BeApi.Features.UdpRelay;
+using BeApi.Features.ConnectionStatus;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -40,6 +41,9 @@ try
 
     // PR2(Step15): UDP Live Relay + Replay
     builder.Services.AddUdpRelayAndReplay(builder.Configuration);
+
+    // PR3(Step 4~6): Connection Status (opcua/udp/tsdb/commanddb 주기 체크, 메모리만)
+    builder.Services.AddConnectionStatus();
 
     var app = builder.Build();
 
