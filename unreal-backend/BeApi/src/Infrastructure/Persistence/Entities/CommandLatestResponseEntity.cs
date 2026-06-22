@@ -6,7 +6,7 @@ public class CommandLatestResponseEntity
 {
     public int LineId { get; set; }
     public int EquipmentId { get; set; }
-    public string CommandId { get; set; } = string.Empty;
+    public int CommandId { get; set; }
     public string? CommandType { get; set; }
     public string Status { get; set; } = string.Empty;
     public bool? Accepted { get; set; }

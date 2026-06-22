@@ -5,7 +5,7 @@ namespace BeApi.Infrastructure.Persistence.Entities;
 public class CommandResponseEventEntity
 {
     public long Id { get; set; }
-    public string CommandId { get; set; } = string.Empty;
+    public int CommandId { get; set; }
     public int LineId { get; set; }
     public int EquipmentId { get; set; }
     public bool? Accepted { get; set; }

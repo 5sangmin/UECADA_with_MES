@@ -13,7 +13,7 @@ public class CommandRepository : ICommandRepository
         _db = db;
     }
 
-    public async Task<CommandRequestEntity?> GetByCommandIdAsync(string commandId, CancellationToken ct = default)
+    public async Task<CommandRequestEntity?> GetByCommandIdAsync(int commandId, CancellationToken ct = default)
         => await _db.CommandRequests
             .AsNoTracking()
             .FirstOrDefaultAsync(x => x.CommandId == commandId, ct);
@@ -31,6 +31,9 @@ public class CommandRepository : ICommandRepository
             .Take(pageSize)
             .ToListAsync(ct);
 
+    public async Task<int> CountAsync(CancellationToken ct = default)
+        => await _db.CommandRequests.AsNoTracking().CountAsync(ct);
+
     public async Task<CommandRequestEntity> CreateAsync(CommandRequestEntity entity, CancellationToken ct = default)
     {
         _db.CommandRequests.Add(entity);
@@ -38,7 +41,20 @@ public class CommandRepository : ICommandRepository
         return entity;
     }
 
-    public async Task<IReadOnlyList<CommandHistoryViewEntity>> GetHistoryAsync(string commandId, CancellationToken ct = default)
+    public async Task<int> NextCommandIdAsync(CancellationToken ct = default)
+    {
+        // FromSqlRaw·Scalar 알림 수준으로는 EF 가 제한적. ADO.NET 으로 직접 조회.
+        var conn = _db.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync(ct).ConfigureAwait(false);
+
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT nextval('public.command_id_seq')::int";
+        var raw = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+        return Convert.ToInt32(raw);
+    }
+
+    public async Task<IReadOnlyList<CommandHistoryViewEntity>> GetHistoryAsync(int commandId, CancellationToken ct = default)
         => await _db.CommandHistories
             .AsNoTracking()
             .Where(x => x.CommandId == commandId)
