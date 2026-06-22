@@ -1,0 +1,114 @@
+@page "/command/list"
+@model BeApi.Pages.Command.ListModel
+@{
+    ViewData["Title"] = "명령 이력";
+    var pageData = Model.PageData;
+    var hasPrev = Model.PageNumber > 1;
+    var hasNext = pageData != null && pageData.Items.Count == Model.PageSize;
+}
+
+<section class="section">
+    <header class="section__head">
+        <h1>명령 이력</h1>
+        <span class="meta">
+            page=@Model.PageNumber · page_size=@Model.PageSize
+            @if (pageData != null) { <text>· count=@pageData.Count</text> }
+        </span>
+    </header>
+
+    @if (pageData == null || pageData.Items.Count == 0)
+    {
+        <p class="muted">표시할 명령이 없습니다.</p>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data-table data-table--clickable">
+                <thead>
+                    <tr>
+                        <th>command_id</th>
+                        <th>created_at</th>
+                        <th>status</th>
+                        <th>line</th>
+                        <th>equipment</th>
+                        <th>command_type</th>
+                        <th>priority</th>
+                        <th>retry</th>
+                        <th>created_by</th>
+                        <th>idempotency_key</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in pageData.Items)
+                    {
+                        var detailUrl = $"/command/detail?command_id={c.CommandId}";
+                        <tr data-href="@detailUrl" tabindex="0" role="link">
+                            <td>@c.CommandId</td>
+                            <td>@c.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <td>@c.Status</td>
+                            <td>@c.LineId</td>
+                            <td>@(c.EquipmentCode ?? c.EquipmentId.ToString())</td>
+                            <td>@c.CommandType</td>
+                            <td>@c.Priority</td>
+                            <td>@c.RetryCount / @c.MaxRetry</td>
+                            <td>@(c.CreatedBy ?? "-")</td>
+                            <td class="muted">@(c.IdempotencyKey ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+    <div class="pager">
+        @if (hasPrev)
+        {
+            <a class="btn" href="/command/list?page=@(Model.PageNumber - 1)&page_size=@Model.PageSize">‹ 이전</a>
+        }
+        else
+        {
+            <span class="btn btn--disabled">‹ 이전</span>
+        }
+        <span class="pager__current">페이지 @Model.PageNumber</span>
+        @if (hasNext)
+        {
+            <a class="btn" href="/command/list?page=@(Model.PageNumber + 1)&page_size=@Model.PageSize">다음 ›</a>
+        }
+        else
+        {
+            <span class="btn btn--disabled">다음 ›</span>
+        }
+    </div>
+</section>
+
+@section Scripts {
+<script>
+(function () {
+    // 행 전체 클릭 시 상세 페이지로 이동.
+    //   - 일반 클릭: 같은 탭
+    //   - Ctrl/Cmd/가운데 클릭: 새 탭
+    //   - Enter 키: 같은 탭 (접근성)
+    var rows = document.querySelectorAll('tr[data-href]');
+    rows.forEach(function (tr) {
+        tr.addEventListener('click', function (e) {
+            // 텍스트 드래그 선택 중이면 이동 안 함
+            var sel = window.getSelection && window.getSelection();
+            if (sel && sel.toString().length > 0) return;
+            var url = tr.getAttribute('data-href');
+            if (!url) return;
+            if (e.ctrlKey || e.metaKey || e.button === 1) {
+                window.open(url, '_blank');
+            } else {
+                window.location.href = url;
+            }
+        });
+        tr.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                var url = tr.getAttribute('data-href');
+                if (url) window.location.href = url;
+            }
+        });
+    });
+})();
+</script>
+}

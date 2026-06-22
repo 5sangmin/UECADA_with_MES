@@ -1,0 +1,66 @@
+@page "/test/oneshot"
+@model BeApi.Pages.Test.OneShotModel
+@{
+    ViewData["Title"] = "테스트 · One-shot 명령";
+}
+
+<section class="section">
+    <header class="section__head">
+        <h1>One-shot 명령 테스트</h1>
+        <span class="meta">
+            각 링크 클릭 = /command/request?...&autoSubmit=1 즉시 전송
+        </span>
+    </header>
+
+    <p class="muted">
+        · <strong>전송</strong> 컬럼: 클릭 즉시 명령 등록 (autoSubmit=1)<br />
+        · <strong>폼 확인</strong> 컬럼: 폼에 값만 prefill, 수동으로 [전송] 버튼 클릭<br />
+        · idempotency_key 는 비워두므로 같은 시나리오를 반복 클릭하면 매번 새 row 가 생성됩니다.
+    </p>
+
+    <div class="table-wrap">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>시나리오</th>
+                    <th>설명</th>
+                    <th>line</th>
+                    <th>equip</th>
+                    <th>command_type</th>
+                    <th>value</th>
+                    <th>전송</th>
+                    <th>폼 확인</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < Model.Scenarios.Count; i++)
+                {
+                    var s = Model.Scenarios[i];
+                    <tr>
+                        <td>@(i + 1)</td>
+                        <td>@s.Title</td>
+                        <td class="muted">@s.Description</td>
+                        <td>@s.line</td>
+                        <td>@s.equip</td>
+                        <td>@s.commandType</td>
+                        <td>@s.value</td>
+                        <td><a class="btn btn--primary" href="@s.ToUrl()">▶ 전송</a></td>
+                        <td><a class="btn" href="@s.ToPrefillUrl()">폼 열기</a></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+<section class="section">
+    <header class="section__head">
+        <h2>참고 · URL 직접 사용</h2>
+    </header>
+    <p class="muted">
+        외부 도구(PowerShell, Postman 등)에서 GET 으로 호출해도 autoSubmit=1 이면 즉시 등록됩니다.
+        다음은 첫 시나리오의 예시입니다:
+    </p>
+    <pre class="code">GET http://localhost:5082@Model.Scenarios[0].ToUrl()</pre>
+</section>

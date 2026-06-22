@@ -1,0 +1,40 @@
+@*
+    공통 레이아웃 — 운영 화면 4페이지의 헤더/내비/푸터.
+    최소 CSS (site.css) 만 사용, 외부 의존 없음.
+*@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - UECADA Operations</title>
+    <link rel="stylesheet" href="~/css/site.css" />
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar__inner">
+            <a class="brand" href="/">UECADA Ops</a>
+            <nav class="nav">
+                <a href="/">대시보드</a>
+                <a href="/command/request">명령 전송</a>
+                <a href="/command/list">명령 이력</a>
+                <a href="/test/oneshot">테스트</a>
+            </nav>
+            <div class="topbar__meta" id="server-time" data-iso="@DateTimeOffset.UtcNow.ToString("O")">
+                @DateTimeOffset.UtcNow.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        @RenderBody()
+    </main>
+
+    <footer class="footer">
+        <span>UECADA Backend</span>
+        <span>build @System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version</span>
+    </footer>
+
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
