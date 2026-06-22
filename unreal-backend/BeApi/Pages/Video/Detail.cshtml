@@ -10,17 +10,18 @@
     <header class="section__head">
         <h1>line @Model.LineId · equipment @Model.EquipmentId</h1>
         <span class="meta">
-            type = <strong>@(Model.TypeCode ?? "(unknown)")</strong> ·
-            power = <strong>@(Model.Power ? "on" : "off")</strong> ·
-            current status_code = <strong>@Model.CurrentStatusCode</strong> ·
-            source = <strong>@Model.ResolvedSource</strong>
+            type = <strong id="meta-type">@(Model.TypeCode ?? "(unknown)")</strong> ·
+            power = <strong id="meta-power">@(Model.Power ? "on" : "off")</strong> ·
+            current status_code = <strong id="meta-status">@Model.CurrentStatusCode</strong> ·
+            source = <strong id="meta-source">@Model.ResolvedSource</strong>
         </span>
     </header>
 
     @if (Model.HasVideo)
     {
         <div class="video-player">
-            <video controls autoplay loop muted playsinline
+            <video id="detail-video"
+                   controls autoplay loop muted playsinline
                    preload="metadata"
                    poster="@(Model.ThumbnailUrl)?t=@bust"
                    src="@(Model.VideoUrl)?t=@bust">
@@ -31,10 +32,10 @@
             <dt>video URL</dt><dd><code>@Model.VideoUrl</code></dd>
             <dt>thumbnail URL</dt><dd><code>@Model.ThumbnailUrl</code></dd>
             <dt>embed URL (Unreal)</dt><dd><code>/video/embed/@Model.LineId/@Model.EquipmentId</code></dd>
-            <dt>equipment type</dt><dd>@Model.TypeCode</dd>
-            <dt>power</dt><dd>@(Model.Power ? "on" : "off")</dd>
-            <dt>status_code</dt><dd>@Model.CurrentStatusCode</dd>
-            <dt>resolved source</dt><dd>@Model.ResolvedSource</dd>
+            <dt>equipment type</dt><dd id="kv-type">@Model.TypeCode</dd>
+            <dt>power</dt><dd id="kv-power">@(Model.Power ? "on" : "off")</dd>
+            <dt>status_code</dt><dd id="kv-status">@Model.CurrentStatusCode</dd>
+            <dt>resolved source</dt><dd id="kv-source">@Model.ResolvedSource</dd>
         </dl>
     }
     else
@@ -56,3 +57,109 @@
         }
     </div>
 </section>
+
+@if (Model.HasVideo)
+{
+    <script>
+        // ----------------------------------------------------------------------
+        // Detail 페이지 실시간 갱신 (Embed 와 동일한 폴링 패턴 + 텍스트 메타 동기화)
+        //
+        // 1) 3초마다 HEAD /api/video/{l}/{e} 로 X-Status-Code / X-Power / X-Equipment-Type / X-Video-Source 확인.
+        // 2) 변화 감지 시 <video> src/poster 를 ?t={ms} cache-buster 로 강제 재로드.
+        // 3) 동시에 상단 meta (#meta-*) 와 kv 테이블 (#kv-*) 텍스트도 함께 업데이트.
+        // 4) 첫 폴링은 baseline 만 등록하고 종료 — 페이지 로드 직후 즉시 swap 되는 깜빡임 방지.
+        // ----------------------------------------------------------------------
+        (function () {
+            const video = document.getElementById('detail-video');
+            if (!video) return;
+
+            const baseVideoUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.VideoUrl));
+            const basePosterUrl = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ThumbnailUrl));
+            const pollIntervalMs = 3000;
+
+            const elMetaType = document.getElementById('meta-type');
+            const elMetaPower = document.getElementById('meta-power');
+            const elMetaStatus = document.getElementById('meta-status');
+            const elMetaSource = document.getElementById('meta-source');
+            const elKvType = document.getElementById('kv-type');
+            const elKvPower = document.getElementById('kv-power');
+            const elKvStatus = document.getElementById('kv-status');
+            const elKvSource = document.getElementById('kv-source');
+
+            let lastKey = null;
+
+            function makeKey(status, power) {
+                return (power || '') + ':' + (status || '');
+            }
+
+            function setText(el, value) {
+                if (el && value != null && el.textContent !== value) {
+                    el.textContent = value;
+                }
+            }
+
+            function updateMeta(type, power, status, source) {
+                setText(elMetaType, type || '(unknown)');
+                setText(elMetaPower, power === 'on' ? 'on' : 'off');
+                setText(elMetaStatus, status);
+                setText(elMetaSource, source);
+                setText(elKvType, type);
+                setText(elKvPower, power === 'on' ? 'on' : 'off');
+                setText(elKvStatus, status);
+                setText(elKvSource, source);
+            }
+
+            function swapVideo(newKey) {
+                const bust = Date.now();
+                video.poster = basePosterUrl + '?t=' + bust;
+                video.src = baseVideoUrl + '?t=' + bust;
+                video.load();
+                const playPromise = video.play();
+                if (playPromise && typeof playPromise.catch === 'function') {
+                    playPromise.catch(function () { /* autoplay 제스처 제한 등 무시 */ });
+                }
+                lastKey = newKey;
+                console.debug('[video-detail] swapped to', newKey, 'bust=', bust);
+            }
+
+            async function poll() {
+                try {
+                    const url = baseVideoUrl + '?head=' + Date.now();
+                    const head = await fetch(url, {
+                        method: 'HEAD',
+                        cache: 'no-store',
+                        headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                    });
+                    if (!head.ok) return;
+                    const status = head.headers.get('X-Status-Code');
+                    const power = head.headers.get('X-Power');
+                    const type = head.headers.get('X-Equipment-Type');
+                    const source = head.headers.get('X-Video-Source');
+                    const key = makeKey(status, power);
+
+                    // 텍스트 메타는 baseline 이전이든 이후든 항상 최신화 (서버가 진실 공급원)
+                    updateMeta(type, power, status, source);
+
+                    if (lastKey === null) {
+                        lastKey = key;
+                        console.debug('[video-detail] baseline key=', key);
+                        return;
+                    }
+                    if (key !== lastKey) {
+                        console.debug('[video-detail] change detected:', lastKey, '→', key);
+                        swapVideo(key);
+                    }
+                } catch (err) {
+                    console.debug('[video-detail] poll error', err);
+                }
+            }
+
+            poll();
+            setInterval(poll, pollIntervalMs);
+
+            document.addEventListener('visibilitychange', function () {
+                if (!document.hidden) poll();
+            });
+        })();
+    </script>
+}
