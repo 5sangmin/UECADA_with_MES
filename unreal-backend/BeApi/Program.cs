@@ -61,11 +61,16 @@ try
     // 누락 시 InvalidOperationException 으로 fail-fast.
     await app.Services.VerifyDatabaseSchemaAsync(app.Logger);
 
-    // PR2(Step15): EquipmentLut 을 즉시 인스턴스화하여 LUT 누락 시 fail-fast.
+    // PR2(Step15): EquipmentLut 을 즉시 인스턴스화.
+    //   - LUT 가 비어있으면 short.TryParse 기반 항등 변환
+    //   - LUT 에 값이 있으면 whitelist 동작
     using (var scope = app.Services.CreateScope())
     {
-        _ = scope.ServiceProvider.GetRequiredService<BeApi.Features.UdpRelay.Lut.EquipmentLut>();
-        app.Logger.LogInformation("EquipmentLut 검증 완료.");
+        var lut = scope.ServiceProvider.GetRequiredService<BeApi.Features.UdpRelay.Lut.EquipmentLut>();
+        app.Logger.LogInformation(
+            "EquipmentLut 초기화 완료. lineWhitelist={lw}({lc}), equipmentWhitelist={ew}({ec})",
+            lut.HasLineWhitelist, lut.LineCount,
+            lut.HasEquipmentWhitelist, lut.EquipmentCount);
     }
 
     app.Run();
