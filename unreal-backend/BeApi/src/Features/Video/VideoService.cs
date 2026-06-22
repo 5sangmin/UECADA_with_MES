@@ -31,8 +31,9 @@ public sealed class VideoService
         int EquipmentId,
         string? TypeCode,
         int StatusCode,
+        bool Power,
         string? FilePath,
-        string Source); // "status" | "default" | "missing" | "unknown_type"
+        string Source); // "status" | "default" | "power_off" | "missing" | "unknown_type"
 
     public async Task<Resolution> ResolveVideoAsync(int lineId, int equipmentId, CancellationToken ct)
         => await ResolveAsync(lineId, equipmentId, isThumbnail: false, ct).ConfigureAwait(false);
@@ -48,12 +49,30 @@ public sealed class VideoService
             _logger.LogWarning(
                 "Video resolve: equipmentId={e} 가 알려진 타입(1xx/2xx/3xx/4xx/5xx) 이 아닙니다. line={l}",
                 equipmentId, lineId);
-            return new Resolution(lineId, equipmentId, null, 0, null, "unknown_type");
+            return new Resolution(lineId, equipmentId, null, 0, false, null, "unknown_type");
         }
 
         var latest = await _latestService.GetLatestAsync((short)lineId, (short)equipmentId, ct).ConfigureAwait(false);
         var statusCode = latest?.StatusCode ?? 0;
+        var power = latest?.Power ?? false;
 
+        // power-off 는 status 없이 바로 타입별 default 로 매핑 (status 값은 고려하지 않음).
+        // status_default.{ext} 가 존재해야 재생 가능.
+        if (!power)
+        {
+            var defaultPath = isThumbnail
+                ? _resolver.ResolveDefaultThumbnailPath(typeCode)
+                : _resolver.ResolveDefaultVideoPath(typeCode);
+
+            var defaultSource = defaultPath == null ? "missing" : "power_off";
+            _logger.LogDebug(
+                "Video resolve: line={l} equip={e} type={t} POWER-OFF kind={k} → {src} ({path})",
+                lineId, equipmentId, typeCode, isThumbnail ? "thumb" : "video",
+                defaultSource, defaultPath ?? "(none)");
+            return new Resolution(lineId, equipmentId, typeCode, statusCode, power, defaultPath, defaultSource);
+        }
+
+        // power-on 이면 status 기준으로 매핑 (status_{code} → status_default → null)
         var path = isThumbnail
             ? _resolver.ResolveThumbnailPath(typeCode, statusCode)
             : _resolver.ResolveVideoPath(typeCode, statusCode);
@@ -73,10 +92,10 @@ public sealed class VideoService
         }
 
         _logger.LogDebug(
-            "Video resolve: line={l} equip={e} type={t} status={s} kind={k} → {src} ({path})",
+            "Video resolve: line={l} equip={e} type={t} status={s} power=on kind={k} → {src} ({path})",
             lineId, equipmentId, typeCode, statusCode, isThumbnail ? "thumb" : "video",
             source, path ?? "(none)");
 
-        return new Resolution(lineId, equipmentId, typeCode, statusCode, path, source);
+        return new Resolution(lineId, equipmentId, typeCode, statusCode, power, path, source);
     }
 }

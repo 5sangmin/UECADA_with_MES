@@ -30,6 +30,34 @@ public sealed class VideoFileResolver
     public string? ResolveThumbnailPath(string typeCode, int statusCode)
         => Resolve(typeCode, statusCode, _settings.ThumbnailExtension);
 
+    /// <summary>status 명시 없이 바로 타입별 default 파일을 찾는다 (power-off 등에서 사용).</summary>
+    public string? ResolveDefaultVideoPath(string typeCode)
+        => ResolveDefault(typeCode, _settings.VideoExtension);
+
+    /// <summary>status 명시 없이 바로 타입별 default 썸네일을 찾는다.</summary>
+    public string? ResolveDefaultThumbnailPath(string typeCode)
+        => ResolveDefault(typeCode, _settings.ThumbnailExtension);
+
+    private string? ResolveDefault(string typeCode, string extension)
+    {
+        if (string.IsNullOrWhiteSpace(typeCode))
+        {
+            return null;
+        }
+
+        var root = _settings.GetAbsoluteRoot();
+        var typeDir = Path.Combine(root, typeCode);
+        var fallback = Path.Combine(typeDir, $"{_settings.DefaultBaseName}.{extension}");
+        if (IsWithinRoot(fallback, root) && File.Exists(fallback))
+        {
+            return fallback;
+        }
+        _logger.LogWarning(
+            "Video resolver: {Type}/{DefaultName}.{Ext} 없음 (power-off fallback)",
+            typeCode, _settings.DefaultBaseName, extension);
+        return null;
+    }
+
     private string? Resolve(string typeCode, int statusCode, string extension)
     {
         if (string.IsNullOrWhiteSpace(typeCode))

@@ -33,6 +33,11 @@ VIDEO_ROOT=C:\path\to\videos   # 미설정 시 ./videos (실행 디렉터리 기
 | 3 | WARNING |
 | 4 | ERROR |
 
+### Power off 정책
+
+TSDB 의 `power` 컬럼이 `false` 이면 status_code 와 무관하게 항상 타입별 `status_default.webm` 으로 매핑됩니다.
+(power-off 를 독립적인 status 로 추가하지 않고 default 영상으로 표현.)
+
 ### 디렉터리 구조
 
 ```
@@ -86,10 +91,18 @@ ffmpeg -i CNC/status_1.webm -ss 00:00:00 -vframes 1 CNC/status_1.jpg
 | `GET /api/video/{lineId}/{equipmentId}` | equipmentId → 타입 변환 후 `{TYPE}/status_{code}.webm` 스트림 (Range 지원) |
 | `GET /api/video/{lineId}/{equipmentId}/thumbnail.jpg` | 동일 (타입, status) 의 `{TYPE}/status_{code}.jpg` 반환 |
 
-파일이 없으면 `{TYPE}/status_default.*` 로 fallback, 그것도 없으면 404.
-equipmentId 의 백의 자리가 1~5 가 아니면 404 (`UNKNOWN_EQUIPMENT_TYPE`).
+파일 매핑 우선순위:
+
+1. **power == false** → status 고려 없이 바로 `{TYPE}/status_default.{ext}` (없으면 404)
+2. **power == true** 이면 `{TYPE}/status_{statusCode}.{ext}` → `{TYPE}/status_default.{ext}` → 404
+3. equipmentId 의 백의 자리가 1~5 가 아니면 즉시 404 (`UNKNOWN_EQUIPMENT_TYPE`)
 
 응답 헤더에 디버그 정보 노출:
 - `X-Equipment-Type`: 매칭된 타입 (CAST/CNC/WASH/ASSY/TEST)
-- `X-Status-Code`: 매칭된 status_code
-- `X-Video-Source`: `status` (정확 매칭) / `default` (fallback)
+- `X-Status-Code`: 원본 status_code (power-off 일 때도 동일)
+- `X-Power`: `on` / `off`
+- `X-Video-Source`: `status` (정확 매칭) / `default` (status 파일 없어 fallback) / `power_off` (power-off 이라 default)
+
+응답에는 항상 `Cache-Control: no-cache, no-store, must-revalidate` 가 붙어 있으므로
+브라우저가 이전 영상/썸네일을 캐싱해서 상태가 최신으로 보이지 않는 문제를 완화합니다.
+그리드 페이지(`/video`)는 5초마다 썸네일에 cache-buster query 를 붙여 강제 갱신합니다.

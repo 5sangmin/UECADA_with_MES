@@ -9,6 +9,7 @@
         <h1>line @Model.LineId · equipment @Model.EquipmentId</h1>
         <span class="meta">
             type = <strong>@(Model.TypeCode ?? "(unknown)")</strong> ·
+            power = <strong>@(Model.Power ? "on" : "off")</strong> ·
             current status_code = <strong>@Model.CurrentStatusCode</strong> ·
             source = <strong>@Model.ResolvedSource</strong>
         </span>
@@ -28,6 +29,7 @@
             <dt>video URL</dt><dd><code>@Model.VideoUrl</code></dd>
             <dt>thumbnail URL</dt><dd><code>@Model.ThumbnailUrl</code></dd>
             <dt>equipment type</dt><dd>@Model.TypeCode</dd>
+            <dt>power</dt><dd>@(Model.Power ? "on" : "off")</dd>
             <dt>status_code</dt><dd>@Model.CurrentStatusCode</dd>
             <dt>resolved source</dt><dd>@Model.ResolvedSource</dd>
         </dl>

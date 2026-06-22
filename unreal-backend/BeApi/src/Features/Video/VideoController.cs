@@ -46,10 +46,16 @@ public sealed class VideoController : ControllerBase
         }
 
         var contentType = ResolveContentType(res.FilePath, "video/webm");
-        // 응답 헤더에 매칭된 type / status_code / source 를 디버그용으로 노출 (CORS preflight 영향 없음)
+        // 응답 헤더에 매칭된 type / status_code / power / source 를 디버그용으로 노출 (CORS preflight 영향 없음)
         Response.Headers["X-Equipment-Type"] = res.TypeCode ?? string.Empty;
         Response.Headers["X-Status-Code"] = res.StatusCode.ToString();
+        Response.Headers["X-Power"] = res.Power ? "on" : "off";
         Response.Headers["X-Video-Source"] = res.Source;
+        // 영상 파일 자체는 특정 설비·상태 조합의 스냅샷이 아니라 공유 리소스이면서도,
+        // status / power 가 바뀌면 URL 은 동일하지만 다른 파일이 나와야 함 → 캐싱 안 되게 명시.
+        Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+        Response.Headers["Pragma"] = "no-cache";
+        Response.Headers["Expires"] = "0";
         return PhysicalFile(res.FilePath, contentType, enableRangeProcessing: true);
     }
 
@@ -71,8 +77,13 @@ public sealed class VideoController : ControllerBase
         var contentType = ResolveContentType(res.FilePath, "image/jpeg");
         Response.Headers["X-Equipment-Type"] = res.TypeCode ?? string.Empty;
         Response.Headers["X-Status-Code"] = res.StatusCode.ToString();
+        Response.Headers["X-Power"] = res.Power ? "on" : "off";
         Response.Headers["X-Video-Source"] = res.Source;
         // 썸네일은 단순 이미지 — Range 불필요.
+        // 그리드에서 status / power 가 바뀌어도 이미지가 계속 캐싱되어 이전 프레임이 보이는 문제 방지.
+        Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+        Response.Headers["Pragma"] = "no-cache";
+        Response.Headers["Expires"] = "0";
         return PhysicalFile(res.FilePath, contentType);
     }
 

@@ -24,6 +24,7 @@ public class DetailModel : PageModel
 
     public string? TypeCode { get; private set; }
     public int CurrentStatusCode { get; private set; }
+    public bool Power { get; private set; }
     public string ResolvedSource { get; private set; } = "missing";
     public bool HasVideo { get; private set; }
     public string VideoUrl => $"/api/video/{LineId}/{EquipmentId}";
@@ -34,6 +35,7 @@ public class DetailModel : PageModel
         var resolution = await _videoService.ResolveVideoAsync(LineId, EquipmentId, ct).ConfigureAwait(false);
         TypeCode = resolution.TypeCode;
         CurrentStatusCode = resolution.StatusCode;
+        Power = resolution.Power;
         ResolvedSource = resolution.Source;
         HasVideo = resolution.FilePath != null;
     }
