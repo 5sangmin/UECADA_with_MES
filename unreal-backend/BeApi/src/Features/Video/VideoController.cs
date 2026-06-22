@@ -1,12 +1,16 @@
 // src/Features/Video/VideoController.cs
 //
-// GET /api/video/{lineId}/{equipmentId}                → webm 스트림 (Range 지원)
-// GET /api/video/{lineId}/{equipmentId}/thumbnail.jpg  → 첫 프레임 jpg
+// GET|HEAD /api/video/{lineId}/{equipmentId}                → webm 스트림 (Range 지원)
+// GET|HEAD /api/video/{lineId}/{equipmentId}/thumbnail.jpg  → 첫 프레임 jpg
 //
 // PhysicalFile + enableRangeProcessing:true 로 Range 헤더 처리:
 //   - 클라이언트가 Range 없으면 200 OK + Content-Length
 //   - Range 있으면 206 Partial Content + Content-Range + Accept-Ranges
 // HTML5 <video> 태그 (Unreal CEF 포함) 의 seek/buffer 가 정상 동작.
+//
+// HEAD 메서드는 embed 페이지의 상태 변경 폴링에서 사용 — 본문 없이 X-Status-Code/X-Power 헤더만 확인.
+// ASP.NET Core MVC 는 [HttpGet] 만으로는 HEAD 를 허용하지 않으므로 [AcceptVerbs] 로 두 메서드를 명시.
+// HEAD 응답은 프레임워크가 자동으로 본문을 비우고 헤더만 전송하므로, 영상 파일 본문 전송은 발생하지 않음.
 //
 // 영상은 equipment 타입(CAST/CNC/WASH/ASSY/TEST) + status_code 로 결정.
 // line 은 영상 파일 선택에 영향 없음 — line 1/2/3 의 같은 타입은 같은 파일 공유.
@@ -30,7 +34,7 @@ public sealed class VideoController : ControllerBase
         _settings = settings;
     }
 
-    [HttpGet("{lineId:int}/{equipmentId:int}")]
+    [AcceptVerbs("GET", "HEAD", Route = "{lineId:int}/{equipmentId:int}")]
     public async Task<IActionResult> GetVideo(int lineId, int equipmentId, CancellationToken ct)
     {
         var res = await _service.ResolveVideoAsync(lineId, equipmentId, ct).ConfigureAwait(false);
@@ -64,7 +68,7 @@ public sealed class VideoController : ControllerBase
         return fileResult;
     }
 
-    [HttpGet("{lineId:int}/{equipmentId:int}/thumbnail.jpg")]
+    [AcceptVerbs("GET", "HEAD", Route = "{lineId:int}/{equipmentId:int}/thumbnail.jpg")]
     public async Task<IActionResult> GetThumbnail(int lineId, int equipmentId, CancellationToken ct)
     {
         var res = await _service.ResolveThumbnailAsync(lineId, equipmentId, ct).ConfigureAwait(false);
