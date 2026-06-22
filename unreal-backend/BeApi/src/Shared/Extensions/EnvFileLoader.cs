@@ -35,7 +35,10 @@ public static class EnvFileLoader
                 // clobberExistingVars: false → OS 환경변수가 이미 설정되어 있으면 덮어쓰지 않음.
                 //   → OS ENV > .env 우선순위 유지.
                 // onlyExactPath: true → 부모 디렉터리 자동 탐색 비활성 (우리가 명시적으로 경로 원함).
-                DotNetEnv.Env.Load(candidate, options: new DotNetEnv.Env.LoadOptions(
+                // LoadOptions 는 DotNetEnv 네임스페이스의 최상위 타입 (Env 의 nested 타입이 아님).
+                // clobberExistingVars: false → 이미 OS 환경변수가 설정되어 있으면 덮어쓰지 않음 (OS ENV 우선).
+                // onlyExactPath: true → 부모 디렉터리 자동 탐색 비활성 (우리가 명시적으로 경로 관리).
+                DotNetEnv.Env.Load(candidate, options: new DotNetEnv.LoadOptions(
                     setEnvVars: true,
                     clobberExistingVars: false,
                     onlyExactPath: true));
