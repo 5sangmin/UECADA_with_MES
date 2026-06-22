@@ -5,6 +5,7 @@ using BeApi.Infrastructure.Persistence.Extensions;
 using BeApi.Features.UdpRelay;
 using BeApi.Features.ConnectionStatus;
 using BeApi.Features.Latest;
+using BeApi.Features.Commands;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -50,6 +51,9 @@ try
 
     // PR3(Step 4~6): Connection Status (opcua/udp/tsdb/commanddb 주기 체크, 메모리만)
     builder.Services.AddConnectionStatus();
+
+    // PR5(Step 9~11): Command API (DTO/validation/idempotency, POST/GET)
+    builder.Services.AddCommandsApi();
 
     var app = builder.Build();
 

@@ -31,6 +31,9 @@ public class CommandRepository : ICommandRepository
             .Take(pageSize)
             .ToListAsync(ct);
 
+    public async Task<int> CountAsync(CancellationToken ct = default)
+        => await _db.CommandRequests.AsNoTracking().CountAsync(ct);
+
     public async Task<CommandRequestEntity> CreateAsync(CommandRequestEntity entity, CancellationToken ct = default)
     {
         _db.CommandRequests.Add(entity);

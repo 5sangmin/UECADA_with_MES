@@ -7,6 +7,7 @@ public interface ICommandRepository
     Task<CommandRequestEntity?> GetByCommandIdAsync(string commandId, CancellationToken ct = default);
     Task<CommandRequestEntity?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default);
     Task<IReadOnlyList<CommandRequestEntity>> GetPagedAsync(int page, int pageSize, CancellationToken ct = default);
+    Task<int> CountAsync(CancellationToken ct = default);
     Task<CommandRequestEntity> CreateAsync(CommandRequestEntity entity, CancellationToken ct = default);
 
     Task<IReadOnlyList<CommandHistoryViewEntity>> GetHistoryAsync(string commandId, CancellationToken ct = default);
