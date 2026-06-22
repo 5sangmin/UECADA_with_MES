@@ -23,6 +23,10 @@ public sealed class EquipmentLut
     private readonly IReadOnlyDictionary<string, short>? _lines;
     private readonly IReadOnlyDictionary<string, short>? _equipments;
 
+    // 역방향 (short → text). whitelist 모드 일 때만 의미 있음.
+    private readonly IReadOnlyDictionary<short, string>? _linesReverse;
+    private readonly IReadOnlyDictionary<short, string>? _equipmentsReverse;
+
     public EquipmentLut(IOptions<EquipmentLutSettings> options)
     {
         var s = options.Value;
@@ -32,6 +36,13 @@ public sealed class EquipmentLut
         _equipments = s.Equipments.Count == 0
             ? null
             : new Dictionary<string, short>(s.Equipments, StringComparer.OrdinalIgnoreCase);
+
+        _linesReverse = _lines == null
+            ? null
+            : _lines.GroupBy(kv => kv.Value).ToDictionary(g => g.Key, g => g.First().Key);
+        _equipmentsReverse = _equipments == null
+            ? null
+            : _equipments.GroupBy(kv => kv.Value).ToDictionary(g => g.Key, g => g.First().Key);
     }
 
     public int LineCount => _lines?.Count ?? 0;
@@ -57,5 +68,25 @@ public sealed class EquipmentLut
             return _equipments.TryGetValue(equipmentKey, out equipmentId);
         }
         return short.TryParse(equipmentKey, out equipmentId);
+    }
+
+    /// <summary>wire short → line_id text. whitelist 모드 이면 역방향 사전, 아니면 ToString.</summary>
+    public string GetLineKey(short lineId)
+    {
+        if (_linesReverse != null && _linesReverse.TryGetValue(lineId, out var key))
+        {
+            return key;
+        }
+        return lineId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>wire short → equipment_id text. whitelist 모드 이면 역방향 사전, 아니면 ToString.</summary>
+    public string GetEquipmentKey(short equipmentId)
+    {
+        if (_equipmentsReverse != null && _equipmentsReverse.TryGetValue(equipmentId, out var key))
+        {
+            return key;
+        }
+        return equipmentId.ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
 }

@@ -14,6 +14,10 @@ namespace BeApi.Features.ConnectionStatus.Checkers;
 
 public sealed class UdpConnectionChecker : IConnectionChecker
 {
+    // PR4 이후 IUdpLiveObserver 의 마지막 등록은 CompositeUdpLiveObserver 이다.
+    // status 수치는 항상 UdpLiveStatusObserver 에서 온다 (Composite 가 위임).
+    // 의미적으로 명확하게 하려면 UdpLiveStatusObserver 를 직접 주입해도 되지만,
+    // 레이어 경계 관점에서 인터페이스 의존이 더 느슨해 IUdpLiveObserver 를 유지한다.
     private readonly IUdpLiveObserver _observer;
     private readonly UdpSettings _udp;
 
