@@ -1,5 +1,6 @@
 using BeApi.Api.Middleware;
 using BeApi.Shared.Extensions;
+using BeApi.Shared.Diagnostics;
 using Serilog;
 using BeApi.Infrastructure.Persistence.Extensions;
 using BeApi.Features.UdpRelay;
@@ -8,6 +9,12 @@ using BeApi.Features.Latest;
 using BeApi.Features.Commands;
 using BeApi.Features.Video;
 
+// PR8(Step14): .env 파일 로딩 (있을 경우에만).
+//   - WebApplication.CreateBuilder 가 환경변수를 Configuration 으로 흡수하기 전에
+//     반드시 호출되어야 한다 → Log.Logger 설정보다도 먼저.
+//   - 파일이 없으면 silent skip.
+var envFilePath = EnvFileLoader.LoadIfPresent();
+
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
     .CreateBootstrapLogger();
@@ -15,6 +22,15 @@ Log.Logger = new LoggerConfiguration()
 try
 {
     Log.Information("be-api 시작 중...");
+
+    if (envFilePath is not null)
+    {
+        Log.Information(".env 파일 로드 완료: {EnvFilePath}", envFilePath);
+    }
+    else
+    {
+        Log.Information(".env 파일을 찾지 못함 — OS 환경변수 / appsettings 만 사용.");
+    }
 
     var builder = WebApplication.CreateBuilder(args);
 
@@ -85,6 +101,11 @@ try
     // 시작 직전에 기존 DB 스키마(필수 테이블/뷰) 존재 여부를 검증한다.
     // 누락 시 InvalidOperationException 으로 fail-fast.
     await app.Services.VerifyDatabaseSchemaAsync(app.Logger);
+
+    // PR8(Step14): 운영 전제 조건 자가진단.
+    //   - VIDEO_ROOT 누락/오설정 시 fail-fast (영상 페이지가 죽음 없이 404 가 되는 함정 방지)
+    //   - OPC UA / UDP 포트 / Multicast NIC 는 경고만 (실제 바인딩은 HostedService 가 시도)
+    StartupSelfCheck.Run(app.Services, app.Logger);
 
     // PR2(Step15): EquipmentLut 을 즉시 인스턴스화.
     //   - LUT 가 비어있으면 short.TryParse 기반 항등 변환

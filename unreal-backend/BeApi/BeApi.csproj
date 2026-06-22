@@ -17,6 +17,8 @@
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.7.0" />
+    <!-- PR8(Step14): .env 파일 자동 로딩 (Local Windows + dotnet run 운영 환경) -->
+    <PackageReference Include="DotNetEnv" Version="3.1.1" />
   </ItemGroup>
 
 </Project>
