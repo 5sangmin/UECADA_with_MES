@@ -331,49 +331,92 @@ function Stop-LocalJob {
 
 # ---------- status ----------
 
+function Get-ComposePsLines {
+    # docker compose ps 의 stderr 를 흡수하고 stdout 만 줄 배열로 돌려준다.
+    # PowerShell 의 ErrorActionPreference=Stop 환경에서 docker 가 stderr 로
+    # 경고(예: 'The "LINE_ID" variable is not set...') 만 찍어도 NativeCommandError
+    # 를 던지는 문제를 회피하기 위해 게이트로 둘러쌜다.
+    param([string[]]$ComposeArgs)
+
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $raw = & docker compose @ComposeArgs ps --format "{{.Service}}|{{.State}}" 2>$null
+    } finally {
+        $ErrorActionPreference = $prev
+    }
+    if ($null -eq $raw) { return @() }
+    return ($raw -split "`r?`n") | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+}
+
+function Write-StatusLines {
+    param([string]$Name, [string[]]$Lines, [string]$Suffix = "")
+
+    if ($null -eq $Lines -or $Lines.Count -eq 0) {
+        $label = if ([string]::IsNullOrEmpty($Suffix)) { $Name } else { "$Name ($Suffix)" }
+        Write-Host ("  {0,-22} : (no containers)" -f $label)
+        return
+    }
+    $label = if ([string]::IsNullOrEmpty($Suffix)) { $Name } else { "$Name ($Suffix)" }
+    Write-Host ("  {0,-22} :" -f $label)
+    foreach ($l in $Lines) {
+        $parts = $l -split '\|', 2
+        $svc   = if ($parts.Count -ge 1) { $parts[0] } else { $l }
+        $state = if ($parts.Count -ge 2) { $parts[1] } else { "" }
+        Write-Host ("      - {0,-22} {1}" -f $svc, $state)
+    }
+}
+
 function Show-Status {
     Write-Host ""
     Write-Host "=== UECADA status ==="
 
     foreach ($name in $StartOrder) {
-        if ($DockerComponents -contains $name) {
-            $dir = $Paths[$name]
-            if (-not (Test-Path $dir)) {
-                Write-Host ("  {0,-16} : (not found: $dir)" -f $name)
-                continue
-            }
-            Push-Location $dir
-            try {
-                if ($name -eq "command-center") {
-                    $out = & docker compose --env-file .env.command-center -f docker-compose.command-center.yml ps --format "{{.Service}}|{{.State}}" 2>$null
-                } else {
-                    $out = & docker compose ps --format "{{.Service}}|{{.State}}" 2>$null
+        try {
+            if ($DockerComponents -contains $name) {
+                $dir = $Paths[$name]
+                if (-not (Test-Path $dir)) {
+                    Write-Host ("  {0,-22} : (not found: $dir)" -f $name)
+                    continue
                 }
-                if ([string]::IsNullOrWhiteSpace($out)) {
-                    Write-Host ("  {0,-16} : (no containers)" -f $name)
+                Push-Location $dir
+                try {
+                    switch ($name) {
+                        "command-center" {
+                            $lines = Get-ComposePsLines -ComposeArgs @("--env-file",".env.command-center","-f","docker-compose.command-center.yml")
+                            Write-StatusLines -Name $name -Lines $lines
+                        }
+                        "equip-sim" {
+                            # equip-sim 은 .env.line01/02/03 으로 3번 등록되어 있다.
+                            foreach ($env in @(".env.line01", ".env.line02", ".env.line03")) {
+                                $lines = Get-ComposePsLines -ComposeArgs @("--env-file", $env)
+                                $tag = $env -replace '^\.env\.', ''
+                                Write-StatusLines -Name $name -Lines $lines -Suffix $tag
+                            }
+                        }
+                        default {
+                            $lines = Get-ComposePsLines -ComposeArgs @()
+                            Write-StatusLines -Name $name -Lines $lines
+                        }
+                    }
+                } finally {
+                    Pop-Location
+                }
+            } elseif ($JobComponents -contains $name) {
+                $id = Get-JobId -Name $name
+                if ($null -eq $id) {
+                    Write-Host ("  {0,-22} : (no job recorded)" -f $name)
                 } else {
-                    $lines = $out -split "`r?`n" | Where-Object { $_ -ne "" }
-                    Write-Host ("  {0,-16} :" -f $name)
-                    foreach ($l in $lines) {
-                        $parts = $l -split '\|', 2
-                        Write-Host ("      - {0,-20} {1}" -f $parts[0], $parts[1])
+                    $j = Get-Job -Id $id -ErrorAction SilentlyContinue
+                    if ($null -eq $j) {
+                        Write-Host ("  {0,-22} : Job $id (missing)" -f $name)
+                    } else {
+                        Write-Host ("  {0,-22} : Job $id ({1})" -f $name, $j.State)
                     }
                 }
-            } finally {
-                Pop-Location
             }
-        } elseif ($JobComponents -contains $name) {
-            $id = Get-JobId -Name $name
-            if ($null -eq $id) {
-                Write-Host ("  {0,-16} : (no job recorded)" -f $name)
-            } else {
-                $j = Get-Job -Id $id -ErrorAction SilentlyContinue
-                if ($null -eq $j) {
-                    Write-Host ("  {0,-16} : Job $id (missing)" -f $name)
-                } else {
-                    Write-Host ("  {0,-16} : Job $id ({1})" -f $name, $j.State)
-                }
-            }
+        } catch {
+            Write-Warning "[$name] status failed: $_"
         }
     }
     Write-Host ""
