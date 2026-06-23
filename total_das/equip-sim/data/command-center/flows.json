@@ -216,7 +216,8 @@
     "wires": [
       [
         "ack_debug",
-        "ack_console_log"
+        "ack_console_log",
+        "ackrouter_to_sink"
       ]
     ]
   },
@@ -301,6 +302,13 @@
     "label": "Picker — CommandDB poll → OPC UA write",
     "disabled": false,
     "info": "Picker flow (PR15).\n\nPolls public.command_request (CommandDB) at 1 Hz. Atomically picks at most one\nrow per line via DISTINCT ON + FOR UPDATE SKIP LOCKED, while skipping lines that\nalready have a PICKED/SENT command in flight. The single UPDATE...RETURNING in\nthe CTE writes:\n    status      = 'SENT'\n    worker_id   = $1   (env WORKER_ID, default 'command-center')\n    picked_at   = now()\n    started_at  = now()\nand returns the picked rows (id, command_id, line_id, request_json).\n\nFor each returned row, we write the (already wire-compatible) request_json to\nns=1;s=Line-0X.Request on the OPC UA Server. line-das clients subscribed to\nthat variable then process the command and write the Ack back.\n\nNote: FSM in CONTRACT.md lists REQUESTED → PICKED → SENT as separate steps.\nWe collapse PICKED → SENT into one UPDATE here because (a) the actual OPC UA\nwrite happens immediately after, (b) both timestamps are set anyway. If the\nOPC UA write fails the row stays SENT until the timeout sweeper (PR17)\nreclaims it. PICKED-without-SENT is not an observable state in this\nimplementation."
+  },
+  {
+    "id": "tab_command_response_sink",
+    "type": "tab",
+    "label": "Command Response Sink — Ack → CommandDB",
+    "disabled": false,
+    "info": "Receive normalised Ack from ack_router (Loopback subscribe Line-0X.Ack) and write to command_latest_response / command_response_event in CommandDB.\n\nReplaces the X_DAS total-das sink path. Single source of truth: Line-0X.Ack channel."
   },
   {
     "id": "pg_cfg_commanddb",
@@ -456,6 +464,164 @@
     ]
   },
   {
+    "id": "ackrouter_to_sink",
+    "type": "link out",
+    "z": "tab_command_center",
+    "name": "to command response sink",
+    "mode": "link",
+    "links": [
+      "sink_link_in"
+    ],
+    "x": 940,
+    "y": 540,
+    "wires": []
+  },
+  {
+    "id": "sink_link_in",
+    "type": "link in",
+    "z": "tab_command_response_sink",
+    "name": "from ack_router",
+    "links": [
+      "ackrouter_to_sink"
+    ],
+    "x": 140,
+    "y": 220,
+    "wires": [
+      [
+        "fn_normalize_ack_for_sink"
+      ]
+    ]
+  },
+  {
+    "id": "fn_normalize_ack_for_sink",
+    "type": "function",
+    "z": "tab_command_response_sink",
+    "name": "fn_normalize_ack_for_sink",
+    "func": "// fn_normalize_ack_for_sink\n// 입력: ack_router 출력\n//   msg.payload = { line, raw, parsed: {line_id, equipment_id, cmd_id, cmd_accepted, cmd_status, observed_at}, parseError, receivedAt }\n// 출력: 2개 (latest upsert / event insert) — 두 번째는 fingerprint changed 시에만 emit\n// postgresql 노드 호출 패턴: msg.query (string) + msg.params (array)\n\nconst p = msg.payload || {};\nconst parsed = p.parsed || null;\nif (!parsed || p.parseError) {\n    node.status({ fill: 'yellow', shape: 'ring', text: p.parseError || 'no parsed' });\n    return null;\n}\n\nconst lineId = Number(parsed.line_id);\nconst equipmentId = Number(parsed.equipment_id);\nconst commandId = Number(parsed.cmd_id);\nconst cmdAccepted = Number(parsed.cmd_accepted);\nconst cmdStatus = Number(parsed.cmd_status);\nconst accepted = cmdAccepted === 1;\n\nif (!Number.isFinite(lineId) || !Number.isFinite(equipmentId)) {\n    node.status({ fill: 'yellow', shape: 'ring', text: 'missing identity' });\n    return null;\n}\nif (!Number.isFinite(commandId) || commandId === 0) {\n    node.status({ fill: 'grey', shape: 'ring', text: `${lineId}.${equipmentId} no cmdid` });\n    return null;\n}\nif (!Number.isFinite(cmdStatus)) {\n    node.status({ fill: 'yellow', shape: 'ring', text: 'no cmd_status' });\n    return null;\n}\n\n// status text mapping (init.sql command_latest_response.status 가 text NOT NULL)\nfunction mapStatus(acc, s) {\n    if (acc === false) return 'REJECTED';\n    if (s === 0) return acc ? 'ACCEPTED' : 'UNKNOWN';\n    if (s === 1) return 'RUNNING';\n    if (s === 2) return 'COMPLETED';\n    if (s === 3) return 'ERROR';\n    if (s === 4) return 'FAULT';\n    if (s === 5) return 'TIMEOUT';\n    if (s === 6) return 'REJECTED_INVALID';\n    if (s === 7) return 'REJECTED_BUSY';\n    return 'UNKNOWN';\n}\nconst status = mapStatus(accepted, cmdStatus);\n\nconst observedAt = parsed.observed_at || p.receivedAt || new Date().toISOString();\nconst snapshotKey = `${lineId}.${equipmentId}`;\nconst sourceNodeId = `command-center/ack/${p.line || 'Line-0X'}`;\n\nconst responseJson = JSON.stringify({\n    source: 'command_center_ack_channel',\n    receivedAt: p.receivedAt,\n    observed_at: observedAt,\n    line: p.line,\n    parsed: parsed,\n    raw: typeof p.raw === 'string' ? p.raw : JSON.stringify(p.raw)\n});\n\n// fingerprint cache for changed detection\nconst cacheKey = `${lineId}.${equipmentId}`;\nconst cache = flow.get('cmdSinkFingerprint') || {};\nconst fingerprint = `${commandId}|${accepted}|${cmdStatus}`;\nconst prev = cache[cacheKey];\nconst changed = prev !== fingerprint;\ncache[cacheKey] = fingerprint;\nflow.set('cmdSinkFingerprint', cache);\n\n// === latest upsert msg ===\nconst LATEST_SQL = `\nINSERT INTO public.command_latest_response (\n    line_id, equipment_id, command_id, command_type, status,\n    accepted, cmd_status, response_json, source_tsepochms,\n    first_observed_at, updated_at, snapshot_key, source_node_id, last_error\n) VALUES (\n    $1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,\n    COALESCE($10::timestamptz, now()), now(), $11, $12, $13\n)\nON CONFLICT (line_id, equipment_id)\nDO UPDATE SET\n    command_id = EXCLUDED.command_id,\n    command_type = EXCLUDED.command_type,\n    status = EXCLUDED.status,\n    accepted = EXCLUDED.accepted,\n    cmd_status = EXCLUDED.cmd_status,\n    response_json = EXCLUDED.response_json,\n    source_tsepochms = EXCLUDED.source_tsepochms,\n    updated_at = now(),\n    snapshot_key = EXCLUDED.snapshot_key,\n    source_node_id = EXCLUDED.source_node_id,\n    last_error = EXCLUDED.last_error\n`;\n\nconst latestMsg = RED.util.cloneMessage(msg);\nlatestMsg.topic = 'command.latest.upsert';\nlatestMsg.query = LATEST_SQL;\nlatestMsg.params = [\n    lineId,\n    equipmentId,\n    commandId,\n    null,\n    status,\n    accepted,\n    cmdStatus,\n    responseJson,\n    null,\n    observedAt,\n    snapshotKey,\n    sourceNodeId,\n    null\n];\nlatestMsg.payload = null;\n\nlet eventMsg = null;\nif (changed) {\n    const EVENT_SQL = `\nINSERT INTO public.command_response_event (\n    command_id, line_id, equipment_id, accepted, cmd_status, status,\n    response_json, source_tsepochms, observed_at, snapshot_key, source_node_id, last_error\n) VALUES (\n    $1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9::timestamptz,$10,$11,$12\n)\n`;\n    eventMsg = RED.util.cloneMessage(msg);\n    eventMsg.topic = 'command.event.insert';\n    eventMsg.query = EVENT_SQL;\n    eventMsg.params = [\n        commandId, lineId, equipmentId, accepted, cmdStatus, status,\n        responseJson, null, observedAt, snapshotKey, sourceNodeId, null\n    ];\n    eventMsg.payload = null;\n}\n\nnode.status({\n    fill: changed ? 'green' : 'blue',\n    shape: 'dot',\n    text: `${lineId}.${equipmentId} cmd=${commandId} ${changed ? 'latest+event' : 'latest-only'}`\n});\n\nreturn [latestMsg, eventMsg];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 220,
+    "wires": [
+      [
+        "pg_command_latest_upsert_cc",
+        "debug_sink_prepared_latest"
+      ],
+      [
+        "pg_command_event_insert_cc",
+        "debug_sink_prepared_event"
+      ]
+    ]
+  },
+  {
+    "id": "pg_command_latest_upsert_cc",
+    "type": "postgresql",
+    "z": "tab_command_response_sink",
+    "name": "CC Command latest upsert",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg_commanddb",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 700,
+    "y": 180,
+    "wires": [
+      [
+        "debug_sink_latest_result"
+      ]
+    ]
+  },
+  {
+    "id": "pg_command_event_insert_cc",
+    "type": "postgresql",
+    "z": "tab_command_response_sink",
+    "name": "CC Command event insert",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg_commanddb",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 700,
+    "y": 260,
+    "wires": [
+      [
+        "debug_sink_event_result"
+      ]
+    ]
+  },
+  {
+    "id": "debug_sink_prepared_latest",
+    "type": "debug",
+    "z": "tab_command_response_sink",
+    "name": "CC sink prepared latest",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 700,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "debug_sink_prepared_event",
+    "type": "debug",
+    "z": "tab_command_response_sink",
+    "name": "CC sink prepared event",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 700,
+    "y": 320,
+    "wires": []
+  },
+  {
+    "id": "debug_sink_latest_result",
+    "type": "debug",
+    "z": "tab_command_response_sink",
+    "name": "CC latest result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload",
+    "statusType": "auto",
+    "x": 980,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "debug_sink_event_result",
+    "type": "debug",
+    "z": "tab_command_response_sink",
+    "name": "CC event result",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload",
+    "statusType": "auto",
+    "x": 980,
+    "y": 260,
+    "wires": []
+  },
+  {
     "id": "tab_ack_handler",
     "type": "tab",
     "label": "Ack Handler — Response sink → request status",
@@ -497,7 +663,7 @@
     "type": "function",
     "z": "tab_ack_handler",
     "name": "Build ack-poll query",
-    "func": "// PR17 Ack Handler — Build ack-poll query (idempotent).\n//\n// Polls CommandDB once per tick. Joins command_request (status='SENT')\n// with command_latest_response on (line_id, equipment_id, command_id).\n// Picks rows whose cmd_status is terminal (2..7).\n//   2 = COMPLETED          → SUCCEEDED\n//   3 = BUSY,  4 = FAULT,  5 = TIMEOUT\n//   6 = REJECTED_INVALID,  7 = REJECTED_BUSY\n//   → all map to FAILED in command_request.status\n//\n// Idempotency: UPDATE WHERE re-guards t.status='SENT'. Running this\n// poll twice in parallel is safe — only one will flip a given row.\n//\n// Stability under unstable comms: every tick is self-recovering. A missed\n// tick or transient DB error simply replays on the next tick because\n// command_latest_response is upserted by total-das independently.\n//\n// retry/timeout 는 PR18 책임. 여기는 terminal ack 만 처리.\n\nmsg.query = `\nWITH terminal_responses AS (\n    SELECT r.id, r.command_id, r.line_id, r.equipment_id, r.worker_id,\n           lr.cmd_status, lr.accepted,\n           lr.updated_at AS responded_at,\n           lr.last_error AS resp_error\n    FROM public.command_request r\n    JOIN public.command_latest_response lr\n      ON lr.line_id = r.line_id\n     AND lr.equipment_id = r.equipment_id\n     AND lr.command_id = r.command_id\n    WHERE r.status = 'SENT'\n      AND lr.cmd_status IN (2, 3, 4, 5, 6, 7)\n)\nUPDATE public.command_request t\nSET status = CASE WHEN tr.cmd_status = 2 THEN 'SUCCEEDED' ELSE 'FAILED' END,\n    finished_at = COALESCE(tr.responded_at, now()),\n    last_error  = CASE WHEN tr.cmd_status = 2 THEN NULL\n                       ELSE COALESCE(tr.resp_error,\n                                     'cmd_status=' || tr.cmd_status::text)\n                  END\nFROM terminal_responses tr\nWHERE t.id = tr.id\n  AND t.status = 'SENT'\nRETURNING t.id, t.command_id, t.line_id, t.equipment_id,\n          t.status AS new_status, t.finished_at, t.last_error;\n`;\nmsg.parameters = [];\nreturn msg;\n",
+    "func": "// PR17 Ack Handler — Build ack-poll query (idempotent).\n//\n// Polls CommandDB once per tick. Joins command_request (status='SENT')\n// with command_latest_response on (line_id, equipment_id, command_id).\n// Picks rows whose cmd_status is terminal (2..7).\n//   2 = COMPLETED          → SUCCEEDED\n//   3 = BUSY,  4 = FAULT,  5 = TIMEOUT\n//   6 = REJECTED_INVALID,  7 = REJECTED_BUSY\n//   → all map to FAILED in command_request.status\n//\n// Idempotency: UPDATE WHERE re-guards t.status='SENT'. Running this\n// poll twice in parallel is safe — only one will flip a given row.\n//\n// Stability under unstable comms: every tick is self-recovering. A missed\n// tick or transient DB error simply replays on the next tick because\n// command_latest_response is upserted by total-das independently.\n//\n// retry/timeout 는 PR18 책임. 여기는 terminal ack 만 처리.\n\nmsg.query = `\nWITH terminal_responses AS (\n    SELECT r.id, r.command_id, r.line_id, r.equipment_id, r.worker_id,\n           lr.cmd_status, lr.accepted,\n           lr.updated_at AS responded_at,\n           lr.last_error AS resp_error\n    FROM public.command_request r\n    JOIN public.command_latest_response lr\n      ON lr.line_id = r.line_id\n     AND lr.equipment_id = r.equipment_id\n     AND lr.command_id = r.command_id\n    WHERE r.status = 'SENT'\n      AND lr.cmd_status IN (2, 3, 4, 5, 6, 7)\n)\nUPDATE public.command_request t\nSET status = CASE WHEN tr.cmd_status = 2 THEN 'SUCCEEDED' ELSE 'FAILED' END,\n    finished_at = COALESCE(tr.responded_at, now()),\n    last_error  = CASE WHEN tr.cmd_status = 2 THEN NULL\n                       ELSE COALESCE(tr.resp_error,\n                                     'cmd_status=' || tr.cmd_status::text)\n                  END\nFROM terminal_responses tr\nWHERE t.id = tr.id\n  AND t.status = 'SENT'\nRETURNING t.id, t.command_id, t.line_id, t.equipment_id,\n          t.status AS new_status, t.finished_at, t.last_error;\n`;\nmsg.params = [];\nreturn msg;\n",
     "outputs": 1,
     "timeout": "",
     "noerr": 0,
