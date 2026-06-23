@@ -4,7 +4,7 @@
     "type": "tab",
     "label": "Command Center — OPC UA Server",
     "disabled": false,
-    "info": "Command Center OPC UA Server.\n\nNamespace ns=1\nVariables per line (LINE-01 / LINE-02 / LINE-03):\n  - <Line>.Request  (String, writable=false from clients — server only)\n  - <Line>.Ack      (String, writable=true  — clients write back here)\n\nClients (line-das) connect via:\n  opc.tcp://command-center:5160/UA/CommandCenter\n(factory-net only — not exposed to host)\n\nThis flow only sets up the address space + emits debug on Ack writes.\nDB integration is handled by Picker (PR13) and AckHandler (PR14) flows."
+    "info": "Command Center OPC UA Server + loopback OPC UA Client (subscribe).\n\nNamespace ns=1\nVariables per line (LINE-01 / LINE-02 / LINE-03):\n  - <Line>.Request  (String, server-only convention — line-das only reads)\n  - <Line>.Ack      (String, writable — line-das writes back here)\n\nClients (line-das) connect via:\n  opc.tcp://command-center:5160/UA/CommandCenter\n\nThe loopback OPC UA Client subscribes to the three Ack variables so we can\nreceive client writes. (node-red-contrib-opcua's OpcUa-Server does not emit\nclient writes on its output wire in 0.2.351 — verified empirically.)\n\nDB integration is handled by Picker (PR13) and AckHandler (PR14)."
   },
 
   {
@@ -43,17 +43,16 @@
     "maxBufferSize": "10485760",
     "maxSessions": 20,
     "x": 720,
-    "y": 240,
+    "y": 200,
     "wires": [
       [
-        "server_out_debug",
-        "ack_router"
+        "server_out_debug"
       ]
     ]
   },
 
   {
-    "id": "boot_inject",
+    "id": "boot_inject_server",
     "type": "inject",
     "z": "tab_command_center",
     "name": "Boot — register variables",
@@ -70,7 +69,7 @@
     "payload": "",
     "payloadType": "str",
     "x": 220,
-    "y": 240,
+    "y": 200,
     "wires": [
       [
         "register_variables"
@@ -83,14 +82,14 @@
     "type": "function",
     "z": "tab_command_center",
     "name": "Register Line-0X Request/Ack vars",
-    "func": "// Register six variables on the OPC UA Server:\n//   ns=1;s=Line-01.Request   (String, initial '')\n//   ns=1;s=Line-01.Ack       (String, initial '')\n//   ns=1;s=Line-02.Request   ...\n//   ns=1;s=Line-02.Ack       ...\n//   ns=1;s=Line-03.Request   ...\n//   ns=1;s=Line-03.Ack       ...\n//\n// Per node-red-contrib-opcua convention, send one message per variable\n// with topic 'ns=1;s=<Name>;datatype=String;browseName=<Name>' and\n// payload { opcuaCommand: 'addVariable' }.\n\nconst lines = ['Line-01', 'Line-02', 'Line-03'];\nconst messages = [];\n\nfor (const line of lines) {\n    for (const suffix of ['Request', 'Ack']) {\n        const varName = `${line}.${suffix}`;\n        messages.push({\n            topic: `ns=1;s=${varName};datatype=String;browseName=${varName}`,\n            payload: { opcuaCommand: 'addVariable' }\n        });\n        // Initial value write — empty string.\n        // Some versions of contrib-opcua require the variable to exist before write;\n        // sending the value right after register works because the server processes\n        // messages in order on a single inbox.\n        messages.push({\n            topic: `ns=1;s=${varName}`,\n            payload: ''\n        });\n    }\n}\n\nnode.status({ fill: 'green', shape: 'dot', text: `registered ${messages.length / 2} vars` });\nreturn [messages];\n",
+    "func": "// Register six variables on the OPC UA Server:\n//   ns=1;s=Line-01.Request   (String, default '')\n//   ns=1;s=Line-01.Ack       (String, default '')\n//   ns=1;s=Line-02.Request   ...\n//   ns=1;s=Line-02.Ack       ...\n//   ns=1;s=Line-03.Request   ...\n//   ns=1;s=Line-03.Ack       ...\n//\n// Per node-red-contrib-opcua convention, send one message per variable\n// with topic 'ns=1;s=<Name>;datatype=String;browseName=<Name>' and\n// payload { opcuaCommand: 'addVariable' }.\n//\n// addVariable with datatype=String defaults the initial value to ''.\n// We deliberately do NOT push an explicit initial-value write here:\n// that requires a Variable-write payload shape ({messageType, namespace,\n// variableName, variableValue, datatype}) which is easy to get wrong and\n// produces noisy warnings. The default is already what we want.\n\nconst lines = ['Line-01', 'Line-02', 'Line-03'];\nconst messages = [];\n\nfor (const line of lines) {\n    for (const suffix of ['Request', 'Ack']) {\n        const varName = `${line}.${suffix}`;\n        messages.push({\n            topic: `ns=1;s=${varName};datatype=String;browseName=${varName}`,\n            payload: { opcuaCommand: 'addVariable' }\n        });\n    }\n}\n\nnode.status({ fill: 'green', shape: 'dot', text: `registered ${messages.length} vars` });\nreturn [messages];\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
     "finalize": "",
     "libs": [],
     "x": 480,
-    "y": 240,
+    "y": 200,
     "wires": [
       [
         "opcua_server_main"
@@ -102,7 +101,7 @@
     "id": "server_out_debug",
     "type": "debug",
     "z": "tab_command_center",
-    "name": "OPC UA Server output",
+    "name": "OPC UA Server raw output",
     "active": true,
     "tosidebar": true,
     "console": false,
@@ -110,24 +109,119 @@
     "targetType": "full",
     "statusVal": "",
     "statusType": "auto",
-    "x": 970,
-    "y": 180,
+    "x": 980,
+    "y": 140,
     "wires": []
+  },
+
+  {
+    "id": "ep_loopback",
+    "type": "OpcUa-Endpoint",
+    "z": "tab_command_center",
+    "name": "Loopback Command Center endpoint",
+    "endpoint": "opc.tcp://127.0.0.1:5160/UA/CommandCenter",
+    "secpol": "None",
+    "secmode": "None",
+    "none": true,
+    "login": false,
+    "usercert": false,
+    "usercertificate": "",
+    "userprivatekey": ""
+  },
+
+  {
+    "id": "opcua_client_loopback",
+    "type": "OpcUa-Client",
+    "z": "tab_command_center",
+    "endpoint": "ep_loopback",
+    "action": "subscribe",
+    "deadbandtype": "a",
+    "deadbandvalue": 0,
+    "time": 250,
+    "timeUnit": "ms",
+    "certificate": "n",
+    "localfile": "",
+    "localkeyfile": "",
+    "securitymode": "None",
+    "securitypolicy": "None",
+    "useTransport": false,
+    "maxChunkCount": 64,
+    "maxMessageSize": 10485760,
+    "receiveBufferSize": 10485760,
+    "sendBufferSize": 10485760,
+    "setstatusandtime": false,
+    "keepsessionalive": true,
+    "name": "Loopback subscribe Line-0X.Ack",
+    "applicationName": "CommandCenter Node-RED",
+    "applicationUri": "urn:command-center:node-red",
+    "x": 720,
+    "y": 360,
+    "wires": [
+      [
+        "ack_router"
+      ]
+    ]
+  },
+
+  {
+    "id": "boot_inject_client",
+    "type": "inject",
+    "z": "tab_command_center",
+    "name": "Boot — start Ack subscriptions",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "6",
+    "topic": "",
+    "payload": "",
+    "payloadType": "str",
+    "x": 220,
+    "y": 360,
+    "wires": [
+      [
+        "build_subscriptions"
+      ]
+    ]
+  },
+
+  {
+    "id": "build_subscriptions",
+    "type": "function",
+    "z": "tab_command_center",
+    "name": "Build Ack subscriptions (3 messages)",
+    "func": "// Emit one message per Ack variable to the OpcUa-Client subscribe node.\n//   msg.topic   = nodeId (e.g. 'ns=1;s=Line-01.Ack')\n//   msg.payload = sampling interval in ms (int)\n//\n// The client opens a subscription per topic and forwards change\n// notifications to its output. (node-red-contrib-opcua convention.)\n//\n// We use 250 ms sampling; the client time/timeUnit also caps the publish\n// rate. Ack writes are very infrequent so this is more than enough.\n\nconst interval_ms = 250;\nconst lines = ['Line-01', 'Line-02', 'Line-03'];\nconst messages = [];\n\nfor (const line of lines) {\n    messages.push({\n        topic: `ns=1;s=${line}.Ack`,\n        payload: interval_ms,\n        interval: interval_ms,\n        datatype: 'String'\n    });\n}\n\nnode.status({ fill: 'green', shape: 'dot', text: `${messages.length} subs` });\nreturn [messages];\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 480,
+    "y": 360,
+    "wires": [
+      [
+        "opcua_client_loopback"
+      ]
+    ]
   },
 
   {
     "id": "ack_router",
     "type": "function",
     "z": "tab_command_center",
-    "name": "Ack router (filter Line-XX.Ack writes)",
-    "func": "// Filter messages emitted by the OPC UA Server that correspond to an\n// external client writing to one of the Ack variables.\n//\n// node-red-contrib-opcua emits messages on the OpcUa-Server's output when\n// the address space changes. The exact shape varies by version; the safe\n// heuristic is:\n//   - msg.topic contains 'Line-0X.Ack' (or NodeId form ns=1;s=Line-0X.Ack)\n//   - msg.payload is the new value (string in our case)\n//\n// We only forward Ack writes from clients (line-das). Empty-string writes\n// from our own boot initialiser are skipped.\n\nconst topic = String(msg.topic || '');\nconst payload = msg.payload;\n\n// Match nodeId form: ns=1;s=Line-0X.Ack  (X = 1..3)\nconst nodeIdMatch = topic.match(/^ns=1;s=(Line-0[123])\\.Ack$/);\n// Match browseName form: Line-0X.Ack\nconst browseMatch = topic.match(/^(Line-0[123])\\.Ack$/);\nconst lineMatch = nodeIdMatch || browseMatch;\n\nif (!lineMatch) {\n    return null;  // not an Ack write\n}\n\n// Skip our own boot initial write of '' to avoid log noise.\nif (payload === '' || payload === undefined || payload === null) {\n    return null;\n}\n\nconst line = lineMatch[1];\n\nlet parsed = null;\nlet parseError = null;\ntry {\n    parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;\n} catch (e) {\n    parseError = e.message;\n}\n\nconst out = {\n    topic: `ack/${line}`,\n    payload: {\n        line,\n        raw: payload,\n        parsed,\n        parseError,\n        receivedAt: new Date().toISOString()\n    }\n};\n\nnode.status({ fill: 'blue', shape: 'dot', text: `${line} ack` });\nreturn out;\n",
+    "name": "Ack router",
+    "func": "// Input: msg from OPC UA loopback client subscribe.\n//   msg.topic   = 'ns=1;s=Line-0X.Ack'\n//   msg.payload = new String value (JSON-encoded by line-das)\n//\n// We skip empty / null payloads (initial server defaults) and JSON-parse\n// the rest, then forward a normalised envelope downstream.\n\nconst topic = String(msg.topic || '');\nconst nodeIdMatch = topic.match(/^ns=1;s=(Line-0[123])\\.Ack$/);\nif (!nodeIdMatch) {\n    return null;\n}\n\nconst payload = msg.payload;\nif (payload === '' || payload === undefined || payload === null) {\n    return null;  // initial default or empty notification\n}\n\nconst line = nodeIdMatch[1];\n\nlet parsed = null;\nlet parseError = null;\ntry {\n    parsed = typeof payload === 'string' ? JSON.parse(payload) : payload;\n} catch (e) {\n    parseError = e.message;\n}\n\nconst out = {\n    topic: `ack/${line}`,\n    payload: {\n        line,\n        raw: payload,\n        parsed,\n        parseError,\n        receivedAt: new Date().toISOString()\n    }\n};\n\nnode.status({ fill: 'blue', shape: 'dot', text: `${line} ack` });\nreturn out;\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
     "finalize": "",
     "libs": [],
-    "x": 990,
-    "y": 280,
+    "x": 970,
+    "y": 360,
     "wires": [
       [
         "ack_debug",
@@ -148,8 +242,8 @@
     "targetType": "msg",
     "statusVal": "",
     "statusType": "auto",
-    "x": 1260,
-    "y": 240,
+    "x": 1240,
+    "y": 320,
     "wires": []
   },
 
@@ -164,8 +258,8 @@
     "initialize": "",
     "finalize": "",
     "libs": [],
-    "x": 1260,
-    "y": 320,
+    "x": 1240,
+    "y": 400,
     "wires": [
       []
     ]
@@ -175,7 +269,7 @@
     "id": "server_status_inject",
     "type": "inject",
     "z": "tab_command_center",
-    "name": "(disabled) manual: log endpoint",
+    "name": "(manual) log endpoint URL",
     "props": [
       {
         "p": "payload"
@@ -189,7 +283,7 @@
     "payload": "",
     "payloadType": "date",
     "x": 220,
-    "y": 380,
+    "y": 520,
     "wires": [
       [
         "log_endpoint"
@@ -202,14 +296,14 @@
     "type": "function",
     "z": "tab_command_center",
     "name": "log endpoint URL",
-    "func": "// Useful diagnostic — prints the public endpoint URL clients should use.\nconst host = 'command-center';\nconst port = (env.get('OPCUA_SERVER_PORT') || '5160');\nconst url = `opc.tcp://${host}:${port}/UA/CommandCenter`;\nconsole.log(`[OPC UA Server] endpoint: ${url}`);\nnode.status({ fill: 'grey', shape: 'ring', text: url });\nreturn null;\n",
+    "func": "// Useful diagnostic — prints the public endpoint URL clients should use.\nconst host = 'command-center';\nconst port = (env.get('OPCUA_SERVER_PORT') || '5160');\nconst url = `opc.tcp://${host}:${port}/UA/CommandCenter`;\nconsole.log(`[OPC UA Server] endpoint (factory-net): ${url}`);\nconsole.log(`[OPC UA Server] endpoint (host diag)  : opc.tcp://127.0.0.1:${port}/UA/CommandCenter`);\nnode.status({ fill: 'grey', shape: 'ring', text: url });\nreturn null;\n",
     "outputs": 1,
     "noerr": 0,
     "initialize": "",
     "finalize": "",
     "libs": [],
     "x": 490,
-    "y": 380,
+    "y": 520,
     "wires": [
       []
     ]
