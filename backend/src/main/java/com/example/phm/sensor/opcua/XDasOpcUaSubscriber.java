@@ -2,6 +2,7 @@ package com.example.phm.sensor.opcua;
 
 import static org.eclipse.milo.opcua.stack.core.types.builtin.unsigned.Unsigned.uint;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -12,6 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.example.phm.alarm.service.EquipmentStateAlarmService;
 import com.example.phm.config.XDasOpcUaProperties;
 import com.example.phm.sensor.SensorBufferRegistry;
 import com.example.phm.sensor.SensorFrame;
@@ -33,6 +35,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
+/**
+ * X_DAS OPC UA 구독기.
+ *
+ * <p>두 네임스페이스를 동시에 구독한다:
+ * <ul>
+ *   <li><b>ns=2 (deprecated)</b>: 기존 numeric leaf → {@link SensorBufferRegistry} ring buffer.
+ *       진동 분석(ai-api) 등 기존 경로가 사용하므로 유지하되 신규 로직에서는 사용하지 않는다.
+ *       향후 영향 평가 후 별도 PR 에서 정리 예정.</li>
+ *   <li><b>ns=3 (canonical)</b>: power/status_code 등 13+필드 → {@link EquipmentSnapshotStore} 스냅샷.
+ *       설비상태 판정 및 알람 생성의 단일 진실 소스.</li>
+ * </ul>
+ */
 @Component
 public class XDasOpcUaSubscriber implements SmartLifecycle {
 
@@ -41,16 +55,26 @@ public class XDasOpcUaSubscriber implements SmartLifecycle {
 
     private final XDasOpcUaProperties properties;
     private final SensorBufferRegistry registry;
+    private final EquipmentSnapshotStore snapshotStore;
+    private final EquipmentStateAlarmService stateAlarmService;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicLong clientHandle = new AtomicLong(1);
 
     private volatile ExecutorService executor;
     private volatile OpcUaClient client;
     private volatile Map<String, XDasOpcUaNodeMapping> mappingsByNodeId = Map.of();
+    private volatile Map<String, XDasNs3NodeMapping> ns3MappingsByNodeId = Map.of();
 
-    public XDasOpcUaSubscriber(XDasOpcUaProperties properties, SensorBufferRegistry registry) {
+    public XDasOpcUaSubscriber(
+            XDasOpcUaProperties properties,
+            SensorBufferRegistry registry,
+            EquipmentSnapshotStore snapshotStore,
+            EquipmentStateAlarmService stateAlarmService
+    ) {
         this.properties = properties;
         this.registry = registry;
+        this.snapshotStore = snapshotStore;
+        this.stateAlarmService = stateAlarmService;
     }
 
     @Override
@@ -119,10 +143,16 @@ public class XDasOpcUaSubscriber implements SmartLifecycle {
     }
 
     private void subscribeUntilStopped() throws Exception {
-        List<XDasOpcUaNodeMapping> mappings =
+        // ns=2 (deprecated) — ring buffer 호환 유지
+        List<XDasOpcUaNodeMapping> ns2Mappings =
                 XDasOpcUaNodeMappings.defaults(properties.includeLine01AliasBuffers());
-        mappingsByNodeId = mappings.stream()
+        mappingsByNodeId = ns2Mappings.stream()
                 .collect(Collectors.toUnmodifiableMap(XDasOpcUaNodeMapping::nodeId, Function.identity()));
+
+        // ns=3 (canonical) — 스냅샷 + 알람
+        List<XDasNs3NodeMapping> ns3Mappings = XDasNs3NodeMappings.defaults();
+        ns3MappingsByNodeId = ns3Mappings.stream()
+                .collect(Collectors.toUnmodifiableMap(XDasNs3NodeMapping::nodeId, Function.identity()));
 
         OpcUaClient currentClient = OpcUaClient.create(properties.endpointUrl());
         client = currentClient;
@@ -134,9 +164,9 @@ public class XDasOpcUaSubscriber implements SmartLifecycle {
                     .createSubscription(properties.publishingIntervalMs())
                     .get(10, TimeUnit.SECONDS);
 
-            List<MonitoredItemCreateRequest> requests = mappings.stream()
-                    .map(this::createRequest)
-                    .toList();
+            List<MonitoredItemCreateRequest> requests = new ArrayList<>();
+            ns2Mappings.forEach(mapping -> requests.add(createRequest(mapping.nodeId())));
+            ns3Mappings.forEach(mapping -> requests.add(createRequest(mapping.nodeId())));
 
             List<UaMonitoredItem> monitoredItems = subscription.createMonitoredItems(
                     TimestampsToReturn.Both,
@@ -151,6 +181,7 @@ public class XDasOpcUaSubscriber implements SmartLifecycle {
                 throw new IllegalStateException("No X_DAS OPC UA nodes were accepted by the server yet");
             }
             if (goodItems < monitoredItems.size()) {
+                // ns=3 노드가 서버에 아직 없으면 일부만 수락됨 — 전체 실패시키지 않고 진행 (fallback)
                 log.warn(
                         "X_DAS OPC UA accepted only some monitored items. accepted={}, requested={}",
                         goodItems,
@@ -159,10 +190,10 @@ public class XDasOpcUaSubscriber implements SmartLifecycle {
             }
 
             log.info(
-                    "Subscribed to X_DAS OPC UA endpoint. endpoint={}, nodes={}, buffers={}",
+                    "Subscribed to X_DAS OPC UA endpoint. endpoint={}, ns2Nodes={}, ns3Nodes={}",
                     properties.endpointUrl(),
-                    mappings.size(),
-                    mappings.stream().mapToInt(mapping -> mapping.bufferKeys().size()).sum()
+                    ns2Mappings.size(),
+                    ns3Mappings.size()
             );
 
             while (running.get()) {
@@ -175,11 +206,11 @@ public class XDasOpcUaSubscriber implements SmartLifecycle {
         }
     }
 
-    private MonitoredItemCreateRequest createRequest(XDasOpcUaNodeMapping mapping) {
+    private MonitoredItemCreateRequest createRequest(String nodeId) {
         int handle = (int) clientHandle.getAndIncrement();
 
         ReadValueId readValueId = new ReadValueId(
-                NodeId.parse(mapping.nodeId()),
+                NodeId.parse(nodeId),
                 AttributeId.Value.uid(),
                 null,
                 QualifiedName.NULL_VALUE
@@ -202,19 +233,42 @@ public class XDasOpcUaSubscriber implements SmartLifecycle {
         }
 
         Object rawValue = dataValue.getValue() == null ? null : dataValue.getValue().getValue();
-        Double numericValue = numericValue(rawValue);
-        if (numericValue == null) {
-            log.debug("Skipping non-numeric X_DAS OPC UA value. nodeId={}, value={}", item.getReadValueId().getNodeId(), rawValue);
+        if (rawValue == null) {
             return;
         }
 
         String nodeId = item.getReadValueId().getNodeId().toParseableString();
+
+        // ns=3 canonical: 스냅샷 갱신 + 상태 전환 알람
+        XDasNs3NodeMapping ns3Mapping = ns3MappingsByNodeId.get(nodeId);
+        if (ns3Mapping != null) {
+            recordNs3Value(ns3Mapping, rawValue);
+            return;
+        }
+
+        // ns=2 (deprecated): ring buffer push (numeric 만)
+        recordNs2Value(nodeId, rawValue);
+    }
+
+    private void recordNs3Value(XDasNs3NodeMapping mapping, Object rawValue) {
+        EquipmentSnapshot snapshot = snapshotStore.update(mapping.equipId(), mapping.field(), rawValue);
+        // 상태 신호(power/status_code) 변화 시에만 알람 평가
+        if ("power".equals(mapping.field()) || "status_code".equals(mapping.field())) {
+            stateAlarmService.evaluate(snapshot);
+        }
+    }
+
+    private void recordNs2Value(String nodeId, Object rawValue) {
+        Double numericValue = numericValue(rawValue);
+        if (numericValue == null) {
+            log.debug("Skipping non-numeric ns=2 X_DAS OPC UA value. nodeId={}, value={}", nodeId, rawValue);
+            return;
+        }
         XDasOpcUaNodeMapping mapping = mappingsByNodeId.get(nodeId);
         if (mapping == null) {
             log.debug("Skipping unmapped X_DAS OPC UA value. nodeId={}", nodeId);
             return;
         }
-
         SensorFrame frame = new SensorFrame(System.currentTimeMillis(), numericValue);
         mapping.bufferKeys().forEach(bufferKey -> registry.push(bufferKey, frame));
     }

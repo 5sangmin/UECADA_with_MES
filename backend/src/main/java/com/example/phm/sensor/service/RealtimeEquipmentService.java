@@ -1,91 +1,51 @@
 package com.example.phm.sensor.service;
 
-import com.example.phm.sensor.SensorBuffer;
-import com.example.phm.sensor.SensorBufferKeys;
-import com.example.phm.sensor.SensorBufferRegistry;
-import com.example.phm.sensor.SensorFrame;
+import com.example.phm.sensor.opcua.EquipmentSnapshot;
+import com.example.phm.sensor.opcua.EquipmentSnapshotStore;
 import org.springframework.stereotype.Service;
 
+/**
+ * X_DAS ns=3 canonical 스냅샷({@code power}, {@code status_code}) 기반으로 설비 표시상태를 override 한다.
+ *
+ * <p>기존의 "모든 센서값이 0이면 꺼짐"(isAllSensorsZero) 휴리스틱을 폐기하고, 실데이터 신호로 판정한다.
+ * 반환값은 기존 vocabulary({@code RUNNING}/{@code STANDBY}/{@code MAINTENANCE}/{@code ALARM})만 사용한다.
+ * 스냅샷이 없거나 stale(5초) 이면 {@code null} 을 반환해 호출부가 base status 로 폴백하게 한다.
+ */
 @Service
 public class RealtimeEquipmentService {
 
-    private static final long ACTIVE_MAX_AGE_MS = 30_000L;
-    private static final long STALE_MAX_AGE_MS = 120_000L;
+    private static final long HEARTBEAT_STALE_MS = EquipmentSnapshotStore.DEFAULT_STALE_THRESHOLD_MS;
 
-    // 장비 on/off와 무관하게 0이 아닌 값을 유지하는 센서 → 꺼짐 판단에서 제외
-    // sensor_*: das-simulator가 항상 전송
-    // cycle_time: 꺼져도 마지막 사이클 시간이 남아있음
-    private static final java.util.Set<String> DAS_COMMON_METRICS = java.util.Set.of(
-            "sensor_vibration", "sensor_current", "sensor_voltage", "sensor_temperature", "cycle_time"
-    );
+    private final EquipmentSnapshotStore snapshotStore;
 
-    private final SensorBufferRegistry registry;
-
-    public RealtimeEquipmentService(SensorBufferRegistry registry) {
-        this.registry = registry;
-    }
-
-    public String statusOverride(String equipmentCode) {
-        Long latestTimestamp = latestTimestamp(equipmentCode);
-        if (latestTimestamp == null) {
-            return null;
-        }
-
-        // 데이터가 들어오고 있지만 모든 센서값이 0.0 → 장비가 명시적으로 꺼진 상태
-        if (isAllSensorsZero(equipmentCode)) {
-            return "MAINTENANCE";
-        }
-
-        long ageMs = Math.max(0L, System.currentTimeMillis() - latestTimestamp);
-        if (ageMs <= ACTIVE_MAX_AGE_MS) {
-            return "RUNNING";
-        }
-        if (ageMs <= STALE_MAX_AGE_MS) {
-            return "STANDBY";
-        }
-        return "MAINTENANCE";
-    }
-
-    public Long latestTimestamp(String equipmentCode) {
-        Long latest = null;
-        for (String metric : SensorBufferKeys.MONITORING_METRICS) {
-            SensorFrame frame = latestFrame(equipmentCode, metric);
-            if (frame != null && (latest == null || frame.timestampMs() > latest)) {
-                latest = frame.timestampMs();
-            }
-        }
-        return latest;
+    public RealtimeEquipmentService(EquipmentSnapshotStore snapshotStore) {
+        this.snapshotStore = snapshotStore;
     }
 
     /**
-     * 모니터링 중인 센서 중 2개 이상 데이터가 있고 전부 0.0이면 장비가 꺼진 것으로 판단.
-     * nodered는 장비 off 시 통신을 끊지 않고 0.0 값을 전송하므로 이 방식으로 감지.
+     * @param equipId DB equip_id 형식 ({@code LINE-01_CAST-01})
+     * @return override 할 상태 문자열, 또는 override 하지 않을 경우 {@code null}
      */
-    private boolean isAllSensorsZero(String equipmentCode) {
-        int checked = 0;
-        int zeros = 0;
-        for (String metric : SensorBufferKeys.MONITORING_METRICS) {
-            if (DAS_COMMON_METRICS.contains(metric)) continue; // 공통 DAS 센서 제외
-            SensorFrame frame = latestFrame(equipmentCode, metric);
-            if (frame != null) {
-                checked++;
-                if (frame.value() == 0.0) zeros++;
-            }
+    public String statusOverride(String equipId) {
+        EquipmentSnapshot snapshot = snapshotStore.get(equipId);
+        if (snapshot == null || snapshotStore.isStale(equipId, HEARTBEAT_STALE_MS)) {
+            return null;
         }
-        return checked >= 2 && checked == zeros;
-    }
 
-    private SensorFrame latestFrame(String equipmentCode, String metric) {
-        SensorFrame latest = null;
-        for (String key : SensorBufferKeys.lookupKeys(equipmentCode, metric)) {
-            SensorBuffer buffer = registry.get(key);
-            if (buffer != null && buffer.latest() != null) {
-                SensorFrame frame = buffer.latest();
-                if (latest == null || frame.timestampMs() > latest.timestampMs()) {
-                    latest = frame;
-                }
-            }
+        // power=false 는 status_code 보다 우선
+        if (Boolean.FALSE.equals(snapshot.getPower())) {
+            return "MAINTENANCE";
         }
-        return latest;
+
+        Integer statusCode = snapshot.getStatusCode();
+        if (statusCode == null) {
+            return null;
+        }
+        return switch (statusCode) {
+            case 1 -> "RUNNING";       // RUNNING
+            case 2, 3 -> "ALARM";      // WARNING / ERROR
+            case 0, 4 -> "STANDBY";    // IDLE / COMPLETE
+            default -> null;
+        };
     }
 }
