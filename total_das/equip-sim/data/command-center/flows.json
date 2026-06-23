@@ -119,7 +119,7 @@
     "type": "OpcUa-Endpoint",
     "z": "tab_command_center",
     "name": "Loopback Command Center endpoint",
-    "endpoint": "opc.tcp://command-center:5160/UA/CommandCenter",
+    "endpoint": "opc.tcp://127.0.0.1:5160/UA/CommandCenter",
     "secpol": "None",
     "secmode": "None",
     "none": true,
