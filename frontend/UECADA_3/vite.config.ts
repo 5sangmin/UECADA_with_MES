@@ -14,6 +14,13 @@ export default defineConfig({
     host: process.env.VITE_DEV_HOST ?? '0.0.0.0',
     port: Number(process.env.VITE_DEV_PORT ?? 5173),
     strictPort: false,
+    // vite 5.4.12+ 부터 CVE-2025-30208 패치로 외부 Host 헤더 검증이 강화되어
+    // LAN IP(예: 192.168.5.10:5173)로 들어오는 요청이 기본적으로 403 으로
+    // 차단될 수 있다. dev/사내 LAN 용도라 모든 host 를 허용한다.
+    // 운영 환경에서는 구체적 host 목록을 주입하는 것을 권장.
+    allowedHosts: true,
+    // dev server 자체 CORS 를 열어 외부 origin 의 정적 리소스 fetch 도 허용
+    cors: true,
     proxy: {
       '/api': {
         target: process.env.VITE_DEV_API_PROXY ?? 'http://localhost:8080',
@@ -28,6 +35,8 @@ export default defineConfig({
   preview: {
     host: process.env.VITE_PREVIEW_HOST ?? '0.0.0.0',
     port: Number(process.env.VITE_PREVIEW_PORT ?? 4173),
+    allowedHosts: true,
+    cors: true,
   },
   resolve: {
     alias: {
