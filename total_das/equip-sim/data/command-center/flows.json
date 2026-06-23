@@ -620,5 +620,155 @@
     "x": 980,
     "y": 260,
     "wires": []
+  },
+  {
+    "id": "tab_ack_handler",
+    "type": "tab",
+    "label": "Ack Handler — Response sink → request status",
+    "disabled": false,
+    "info": "PR17: Poll command_latest_response (filled by total-das) and flip command_request.status from SENT to SUCCEEDED/FAILED.\n\n- Tick: 1 Hz\n- Idempotent (status='SENT' WHERE guard)\n- No schema changes (read latest_response, write request only)\n- Retry/timeout handled in PR18, not here.",
+    "env": []
+  },
+  {
+    "id": "ackh_poll_timer",
+    "type": "inject",
+    "z": "tab_ack_handler",
+    "name": "ack-poll @ 1 Hz",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "1",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "ack-poll-tick",
+    "payload": "",
+    "payloadType": "date",
+    "x": 170,
+    "y": 180,
+    "wires": [
+      [
+        "ackh_build_query"
+      ]
+    ]
+  },
+  {
+    "id": "ackh_build_query",
+    "type": "function",
+    "z": "tab_ack_handler",
+    "name": "Build ack-poll query",
+    "func": "// PR17 Ack Handler — Build ack-poll query (idempotent).\n//\n// Polls CommandDB once per tick. Joins command_request (status='SENT')\n// with command_latest_response on (line_id, equipment_id, command_id).\n// Picks rows whose cmd_status is terminal (2..7).\n//   2 = COMPLETED          → SUCCEEDED\n//   3 = BUSY,  4 = FAULT,  5 = TIMEOUT\n//   6 = REJECTED_INVALID,  7 = REJECTED_BUSY\n//   → all map to FAILED in command_request.status\n//\n// Idempotency: UPDATE WHERE re-guards t.status='SENT'. Running this\n// poll twice in parallel is safe — only one will flip a given row.\n//\n// Stability under unstable comms: every tick is self-recovering. A missed\n// tick or transient DB error simply replays on the next tick because\n// command_latest_response is upserted by total-das independently.\n//\n// retry/timeout 는 PR18 책임. 여기는 terminal ack 만 처리.\n\nmsg.query = `\nWITH terminal_responses AS (\n    SELECT r.id, r.command_id, r.line_id, r.equipment_id, r.worker_id,\n           lr.cmd_status, lr.accepted,\n           lr.updated_at AS responded_at,\n           lr.last_error AS resp_error\n    FROM public.command_request r\n    JOIN public.command_latest_response lr\n      ON lr.line_id = r.line_id\n     AND lr.equipment_id = r.equipment_id\n     AND lr.command_id = r.command_id\n    WHERE r.status = 'SENT'\n      AND lr.cmd_status IN (2, 3, 4, 5, 6, 7)\n)\nUPDATE public.command_request t\nSET status = CASE WHEN tr.cmd_status = 2 THEN 'SUCCEEDED' ELSE 'FAILED' END,\n    finished_at = COALESCE(tr.responded_at, now()),\n    last_error  = CASE WHEN tr.cmd_status = 2 THEN NULL\n                       ELSE COALESCE(tr.resp_error,\n                                     'cmd_status=' || tr.cmd_status::text)\n                  END\nFROM terminal_responses tr\nWHERE t.id = tr.id\n  AND t.status = 'SENT'\nRETURNING t.id, t.command_id, t.line_id, t.equipment_id,\n          t.status AS new_status, t.finished_at, t.last_error;\n`;\nmsg.params = [];\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 180,
+    "wires": [
+      [
+        "ackh_pg_poll"
+      ]
+    ]
+  },
+  {
+    "id": "ackh_pg_poll",
+    "type": "postgresql",
+    "z": "tab_ack_handler",
+    "name": "CommandDB ack-poll",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg_commanddb",
+    "split": false,
+    "rowsPerMsg": 0,
+    "outputs": 1,
+    "x": 660,
+    "y": 180,
+    "wires": [
+      [
+        "ackh_fanout_rows"
+      ]
+    ]
+  },
+  {
+    "id": "ackh_fanout_rows",
+    "type": "function",
+    "z": "tab_ack_handler",
+    "name": "Fan out ack'd rows",
+    "func": "// PR17 Ack Handler — Fan out ack'd rows.\n//\n// Receives postgresql node result as msg.payload (array of RETURNING rows).\n// Splits into per-row messages for console log. No downstream side-effects:\n// the UPDATE already terminated the request in the same SQL roundtrip.\n//\n// Empty array → returns null (silent tick).\n\nconst rows = Array.isArray(msg.payload) ? msg.payload : [];\nif (!rows.length) return null;\n\nconst out = rows.map(r => ({\n    payload: {\n        id: r.id,\n        command_id: r.command_id,\n        line_id: r.line_id,\n        equipment_id: r.equipment_id,\n        new_status: r.new_status,\n        finished_at: r.finished_at,\n        last_error: r.last_error\n    }\n}));\nreturn [out];\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 900,
+    "y": 180,
+    "wires": [
+      [
+        "ackh_console_log"
+      ]
+    ]
+  },
+  {
+    "id": "ackh_console_log",
+    "type": "function",
+    "z": "tab_ack_handler",
+    "name": "console.log(ACK/NACK)",
+    "func": "// PR17 Ack Handler — console.log for visibility.\n// Emits one line to `docker logs command-center` per ack/nack row.\nconst p = msg.payload || {};\nconst tag = p.new_status === 'SUCCEEDED' ? 'ACK' : 'NACK';\nconst err = p.last_error ? ` err=${p.last_error}` : '';\nconst line = `[${tag}] line=${p.line_id} eq=${p.equipment_id}`\n    + ` command_id=${p.command_id} row_id=${p.id}`\n    + ` status=${p.new_status}${err}`;\nconsole.log(line);\nreturn null;\n",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1140,
+    "y": 180,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "ackh_catch_errors",
+    "type": "catch",
+    "z": "tab_ack_handler",
+    "name": "Catch ack-poll errors",
+    "scope": [
+      "ackh_build_query",
+      "ackh_pg_poll",
+      "ackh_fanout_rows",
+      "ackh_console_log"
+    ],
+    "uncaught": false,
+    "x": 400,
+    "y": 280,
+    "wires": [
+      [
+        "ackh_error_debug"
+      ]
+    ]
+  },
+  {
+    "id": "ackh_error_debug",
+    "type": "debug",
+    "z": "tab_ack_handler",
+    "name": "ack-poll error",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 660,
+    "y": 280,
+    "wires": []
   }
 ]
