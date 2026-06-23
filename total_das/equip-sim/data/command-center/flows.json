@@ -6,7 +6,6 @@
     "disabled": false,
     "info": "Command Center OPC UA Server + loopback OPC UA Client (subscribe).\n\nNamespace ns=1\nVariables per line (LINE-01 / LINE-02 / LINE-03):\n  - <Line>.Request  (String, server-only convention — line-das only reads)\n  - <Line>.Ack      (String, writable — line-das writes back here)\n\nClients (line-das) connect via:\n  opc.tcp://command-center:5160/UA/CommandCenter\n\nThe loopback OPC UA Client subscribes to the three Ack variables so we can\nreceive client writes. (node-red-contrib-opcua's OpcUa-Server does not emit\nclient writes on its output wire in 0.2.351 — verified empirically.)\n\nDB integration is handled by Picker (PR13) and AckHandler (PR14)."
   },
-
   {
     "id": "opcua_server_main",
     "type": "OpcUa-Server",
@@ -50,7 +49,6 @@
       ]
     ]
   },
-
   {
     "id": "boot_inject_server",
     "type": "inject",
@@ -76,7 +74,6 @@
       ]
     ]
   },
-
   {
     "id": "register_variables",
     "type": "function",
@@ -96,7 +93,6 @@
       ]
     ]
   },
-
   {
     "id": "server_out_debug",
     "type": "debug",
@@ -113,7 +109,6 @@
     "y": 140,
     "wires": []
   },
-
   {
     "id": "ep_loopback",
     "type": "OpcUa-Endpoint",
@@ -128,7 +123,6 @@
     "usercertificate": "",
     "userprivatekey": ""
   },
-
   {
     "id": "opcua_client_loopback",
     "type": "OpcUa-Client",
@@ -162,7 +156,6 @@
       ]
     ]
   },
-
   {
     "id": "boot_inject_client",
     "type": "inject",
@@ -188,7 +181,6 @@
       ]
     ]
   },
-
   {
     "id": "build_subscriptions",
     "type": "function",
@@ -208,7 +200,6 @@
       ]
     ]
   },
-
   {
     "id": "ack_router",
     "type": "function",
@@ -229,7 +220,6 @@
       ]
     ]
   },
-
   {
     "id": "ack_debug",
     "type": "debug",
@@ -246,7 +236,6 @@
     "y": 320,
     "wires": []
   },
-
   {
     "id": "ack_console_log",
     "type": "function",
@@ -264,7 +253,6 @@
       []
     ]
   },
-
   {
     "id": "server_status_inject",
     "type": "inject",
@@ -290,7 +278,6 @@
       ]
     ]
   },
-
   {
     "id": "log_endpoint",
     "type": "function",
@@ -306,6 +293,166 @@
     "y": 520,
     "wires": [
       []
+    ]
+  },
+  {
+    "id": "tab_picker",
+    "type": "tab",
+    "label": "Picker — CommandDB poll → OPC UA write",
+    "disabled": false,
+    "info": "Picker flow (PR15).\n\nPolls public.command_request (CommandDB) at 1 Hz. Atomically picks at most one\nrow per line via DISTINCT ON + FOR UPDATE SKIP LOCKED, while skipping lines that\nalready have a PICKED/SENT command in flight. The single UPDATE...RETURNING in\nthe CTE writes:\n    status      = 'SENT'\n    worker_id   = $1   (env WORKER_ID, default 'command-center')\n    picked_at   = now()\n    started_at  = now()\nand returns the picked rows (id, command_id, line_id, request_json).\n\nFor each returned row, we write the (already wire-compatible) request_json to\nns=1;s=Line-0X.Request on the OPC UA Server. line-das clients subscribed to\nthat variable then process the command and write the Ack back.\n\nNote: FSM in CONTRACT.md lists REQUESTED → PICKED → SENT as separate steps.\nWe collapse PICKED → SENT into one UPDATE here because (a) the actual OPC UA\nwrite happens immediately after, (b) both timestamps are set anyway. If the\nOPC UA write fails the row stays SENT until the timeout sweeper (PR17)\nreclaims it. PICKED-without-SENT is not an observable state in this\nimplementation."
+  },
+  {
+    "id": "pg_cfg_commanddb",
+    "type": "postgreSQLConfig",
+    "name": "CommandDB",
+    "host": "COMMANDDB_HOST",
+    "hostFieldType": "env",
+    "port": "COMMANDDB_PORT",
+    "portFieldType": "env",
+    "database": "COMMANDDB_NAME",
+    "databaseFieldType": "env",
+    "ssl": "false",
+    "sslFieldType": "bool",
+    "applicationName": "command-center-node-red",
+    "applicationNameType": "str",
+    "max": "10",
+    "maxFieldType": "num",
+    "idle": "1000",
+    "idleFieldType": "num",
+    "connectionTimeout": "20000",
+    "connectionTimeoutFieldType": "num",
+    "user": "COMMANDDB_USER",
+    "userFieldType": "env",
+    "password": "COMMANDDB_PASSWORD",
+    "passwordFieldType": "env"
+  },
+  {
+    "id": "poll_timer",
+    "type": "inject",
+    "z": "tab_picker",
+    "name": "poll @ 1 Hz",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "1",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "8",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 180,
+    "y": 180,
+    "wires": [
+      [
+        "build_pick_query"
+      ]
+    ]
+  },
+  {
+    "id": "build_pick_query",
+    "type": "function",
+    "z": "tab_picker",
+    "name": "Build pick query",
+    "func": "// PR15 Picker — Build pick-and-claim query.\n//\n// PostgreSQL 제약: SELECT DISTINCT ... FOR UPDATE 는 금지.\n// → 2-CTE 로 분리: inner 가 REQUESTED 후보를 FOR UPDATE SKIP LOCKED 로 잠그고,\n//   outer 가 그 결과에서 DISTINCT ON (line_id) 로 라인당 1개 추출.\n// 라인 in-flight 제약: NOT EXISTS (해당 line_id 의 PICKED/SENT 행).\n// claim 은 UPDATE ... SET status='SENT', worker_id, picked_at, started_at = now().\n\nconst workerId = env.get('WORKER_ID') || 'command-center';\n\nmsg.query = `\nWITH locked AS (\n    SELECT cr.id, cr.command_id, cr.line_id, cr.request_json,\n           cr.priority, cr.created_at\n    FROM public.command_request cr\n    WHERE cr.status = 'REQUESTED'\n      AND NOT EXISTS (\n          SELECT 1 FROM public.command_request r2\n          WHERE r2.line_id = cr.line_id\n            AND r2.status IN ('PICKED', 'SENT')\n      )\n    ORDER BY cr.line_id, cr.priority ASC, cr.created_at ASC\n    FOR UPDATE SKIP LOCKED\n),\ncandidates AS (\n    SELECT DISTINCT ON (line_id) id, command_id, line_id, request_json\n    FROM locked\n    ORDER BY line_id, priority ASC, created_at ASC\n)\nUPDATE public.command_request t\nSET status='SENT', worker_id=$1, picked_at=now(), started_at=now()\nFROM candidates c\nWHERE t.id = c.id\nRETURNING t.id, t.command_id, t.line_id, c.request_json\n`;\nmsg.params = [workerId];\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 180,
+    "wires": [
+      [
+        "pg_pick"
+      ]
+    ]
+  },
+  {
+    "id": "pg_pick",
+    "type": "postgresql",
+    "z": "tab_picker",
+    "name": "CommandDB pick-and-claim",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg_commanddb",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 660,
+    "y": 180,
+    "wires": [
+      [
+        "fanout_picked_rows"
+      ]
+    ]
+  },
+  {
+    "id": "fanout_picked_rows",
+    "type": "function",
+    "z": "tab_picker",
+    "name": "Fan out picked rows (0..3)",
+    "func": "// Receives msg.payload = array of rows from RETURNING clause.\n//   row.id           bigint\n//   row.command_id   int\n//   row.line_id      int (1/2/3)\n//   row.request_json jsonb (BeApi wire-compatible 4-field object)\n//\n// Empties the polling result and emits one OPC UA Server write message per row.\n//\n// OpcUa-Server input message shape (variable write):\n//   topic   = 'ns=1;s=Line-0X.Request'\n//   payload = { messageType: 'Variable', namespace: 1, variableName: 'Line-0X.Request',\n//               variableValue: <stringified JSON>, datatype: 'String' }\n//   (see X_DAS publish pattern.)\n\nconst rows = Array.isArray(msg.payload) ? msg.payload : [];\n\nif (rows.length === 0) {\n    node.status({ fill: 'grey', shape: 'ring', text: 'idle' });\n    return null;\n}\n\nconst out = [];\nfor (const row of rows) {\n    const lineId = Number(row.line_id);\n    if (![1, 2, 3].includes(lineId)) {\n        node.warn(`unexpected line_id=${lineId} on picked row id=${row.id} cmd=${row.command_id}`);\n        continue;\n    }\n    const linePad = `Line-${String(lineId).padStart(2, '0')}`;\n    const variableName = `${linePad}.Request`;\n    const valueString = JSON.stringify(row.request_json);\n\n    out.push({\n        topic: `ns=1;s=${variableName}`,\n        payload: {\n            messageType: 'Variable',\n            namespace: 1,\n            variableName,\n            variableValue: valueString,\n            datatype: 'String'\n        },\n        _picker_meta: {\n            id: row.id,\n            command_id: row.command_id,\n            line_id: lineId\n        }\n    });\n}\n\nnode.status({ fill: 'blue', shape: 'dot', text: `${out.length} picked` });\nreturn [out];\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 920,
+    "y": 180,
+    "wires": [
+      [
+        "opcua_server_write_link",
+        "picker_console_log"
+      ]
+    ]
+  },
+  {
+    "id": "picker_console_log",
+    "type": "function",
+    "z": "tab_picker",
+    "name": "console.log(PICK)",
+    "func": "const meta = msg._picker_meta || {};\nconsole.log(`[PICK] line=${meta.line_id} command_id=${meta.command_id} row_id=${meta.id}`);\nreturn null;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1180,
+    "y": 240,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "opcua_server_write_link",
+    "type": "link out",
+    "z": "tab_picker",
+    "name": "→ OPC UA Server (write Line-0X.Request)",
+    "mode": "link",
+    "links": [
+      "opcua_server_write_link_in"
+    ],
+    "x": 1175,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "opcua_server_write_link_in",
+    "type": "link in",
+    "z": "tab_command_center",
+    "name": "← Picker write Line-0X.Request",
+    "links": [
+      "opcua_server_write_link"
+    ],
+    "x": 480,
+    "y": 140,
+    "wires": [
+      [
+        "opcua_server_main"
+      ]
     ]
   }
 ]
