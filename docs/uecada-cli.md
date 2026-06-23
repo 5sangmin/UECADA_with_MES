@@ -37,10 +37,15 @@ uecada help
 기본 기동 순서:
 
 ```
-infra → das → equip-sim → command-center → xdas → backend-api → frontend
+(Ensure total-das-net, factory-net) → das → infra → equip-sim → command-center → xdas → backend-api → frontend
 ```
 
-기본 종료 순서는 역순.
+기본 종료 순서는 역순 — 단 das 가 제일 마지막에 내려간다 (`das_das-internal` 을 infra 가 참조하기 때문).
+
+**외부 네트워크 의존성:**
+- `total-das-net` (external) — `uecada start` 가 미리 생성
+- `factory-net` (external) — `uecada start` 가 미리 생성
+- `das_das-internal` — `das` compose 가 첫 기동시 생성. `infra` 의 backend 가 이를 참조하므로 **das 가 infra 보다 먼저 떠야 한다**.
 
 ## 동작 메모
 

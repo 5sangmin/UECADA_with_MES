@@ -52,8 +52,20 @@ $Paths = @{
 }
 
 # default start order
-$StartOrder = @("infra", "das", "equip-sim", "command-center", "xdas", "backend-api", "frontend")
-$StopOrder  = @("frontend", "backend-api", "xdas", "command-center", "equip-sim", "das", "infra")
+#
+# 의존성 그래프 (외부 네트워크 관점):
+#   total-das-net    : external — Ensure-ExternalNetwork 가 미리 만들어줘야 함
+#   factory-net      : external — Ensure-ExternalNetwork 가 미리 만들어줘야 함
+#   das_das-internal : das compose 가 첫 기동 시 만들어준다 (infra 의 backend 가 참조)
+#
+# 따라서 das 가 infra 보다 먼저 떠야 한다.
+#   das         → das_das-internal 생성
+#   infra       → das_das-internal + total-das-net 참조
+#   equip-sim   → factory-net 참조
+#   command-center → factory-net 참조
+#   xdas        → total-das-net + factory-net 참조
+$StartOrder = @("das", "infra", "equip-sim", "command-center", "xdas", "backend-api", "frontend")
+$StopOrder  = @("frontend", "backend-api", "xdas", "command-center", "equip-sim", "infra", "das")
 
 # components which use docker compose
 $DockerComponents = @("infra", "das", "equip-sim", "command-center", "xdas")
@@ -122,6 +134,22 @@ function Remove-JobIdEntry {
 }
 
 # ---------- docker helpers ----------
+
+function Ensure-ExternalNetwork {
+    param([Parameter(Mandatory = $true)][string]$Name)
+
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'SilentlyContinue'
+    docker network inspect $Name *> $null
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+
+    if ($code -ne 0) {
+        Write-Host "==> creating docker network: $Name"
+        docker network create $Name | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "failed to create docker network '$Name' (is Docker Desktop running?)" }
+    }
+}
 
 function Invoke-DockerCompose {
     param(
@@ -443,6 +471,14 @@ switch ($Action) {
 
     "start" {
         $targets = Resolve-Targets -Component $Component -DefaultOrder $StartOrder
+
+        # 전체 기동(=Component 미지정) 일 때만, 외부 네트워크 두 개를 미리 보장한다.
+        # 단독 컴포넌트 기동 시에는 해당 컴포넌트가 직접 의존하는 네트워크 외에는 만들지 않는다.
+        if ([string]::IsNullOrWhiteSpace($Component)) {
+            Ensure-ExternalNetwork -Name "total-das-net"
+            Ensure-ExternalNetwork -Name "factory-net"
+        }
+
         foreach ($t in $targets) { Start-Component -Name $t }
         Write-Host ""
         Write-Host "==> done. Try: uecada status"
