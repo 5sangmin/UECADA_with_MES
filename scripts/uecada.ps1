@@ -320,6 +320,17 @@ function Start-LocalProcess {
     }
     New-Item -ItemType File -Path $errLogPath -Force | Out-Null
 
+    # 자식 프로세스가 UTF-8 로 출력하도록 환경 변수를 현재 세션에 추가한다.
+    # Start-Process 는 현 세션의 $env: 를 그대로 자식에게 상속시킨다.
+    # 일시적으로 설정한 값은 명시 해제하지 않음 — 어차피 이 세션은 cmd 안에서 뜨고
+    # 몇 초 뒤 끊어진다.
+    $env:DOTNET_SYSTEM_CONSOLE_ALLOWANSICOLORWHENREDIRECTED = "1"
+    $env:PYTHONIOENCODING                                     = "utf-8"
+    # .NET 은 OutputEncoding 을 기본적으로 조절하지만, 콘솔이 RedirectStandardOutput 로
+    # 닫혀 있으면 일부 로컬에서 cp949 로 떨어지는 일이 있다.
+    # appsettings 나 Program.cs 에 손대지 않으려면 읽는 쪽에서 -Encoding UTF8 하는 게
+    # 가장 안전한 해법이라, logs follow 에서는 그렇게 처리한다 (Show-Logs 참고).
+
     $spArgs = @{
         FilePath               = $FileName
         ArgumentList           = $Arguments
@@ -480,6 +491,76 @@ function Show-Status {
 
 # ---------- logs ----------
 
+function Invoke-FileTail {
+    <#
+    .SYNOPSIS
+        Tail a file (UTF-8) and stream new content until the user presses 'q' or ESC.
+
+    .DESCRIPTION
+        Mimics `tail -f` with two differences:
+        - UTF-8 decoding is forced (한글 깨짐 방지).
+        - Press 'q' or ESC to stop following — the underlying process keeps running.
+          Ctrl+C still works, but cmd.exe asks "Terminate batch job?" which is noisy.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [int]$TailLines = 50,
+        [int]$PollMs    = 200
+    )
+
+    # Step 1. 초기 tail 출력
+    if (Test-Path $Path) {
+        try {
+            Get-Content -Path $Path -Tail $TailLines -Encoding UTF8 | ForEach-Object {
+                Write-Host $_
+            }
+        } catch {
+            Write-Warning "initial tail failed: $_"
+        }
+    }
+
+    # Step 2. FileStream + StreamReader 로 끝부터 follow
+    $fs     = $null
+    $reader = $null
+    try {
+        $fs = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::ReadWrite
+        )
+        $reader = New-Object System.IO.StreamReader($fs, [System.Text.Encoding]::UTF8)
+        [void]$fs.Seek(0, [System.IO.SeekOrigin]::End)
+
+        while ($true) {
+            # 새 내용 읽기
+            $chunk = $reader.ReadToEnd()
+            if (-not [string]::IsNullOrEmpty($chunk)) {
+                # 줄바꿈 유지 위해 Write-Host -NoNewline
+                Write-Host -NoNewline $chunk
+            }
+
+            # 키 입력 감지 — q 또는 ESC 이면 종료
+            if ($Host.UI.RawUI.KeyAvailable) {
+                $key = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                # VirtualKeyCode 27 = ESC, Character 'q'/'Q'
+                if ($key.VirtualKeyCode -eq 27 -or $key.Character -eq 'q' -or $key.Character -eq 'Q') {
+                    Write-Host ""
+                    Write-Host "==> follow 종료 (프로세스는 계속 실행 중)"
+                    break
+                }
+            }
+
+            Start-Sleep -Milliseconds $PollMs
+        }
+    } catch {
+        Write-Warning "file tail aborted: $_"
+    } finally {
+        if ($null -ne $reader) { $reader.Dispose() }
+        if ($null -ne $fs)     { $fs.Dispose() }
+    }
+}
+
 function Show-Logs {
     param([string]$Name)
 
@@ -513,13 +594,14 @@ function Show-Logs {
         }
         $alive = Test-PidAlive -ProcessId $procId
         $tag   = if ($alive) { "running" } else { "DEAD" }
-        Write-Host "==> follow [$Name] PID $procId ($tag)  (Ctrl+C to detach)"
-        Write-Host "    stdout: $logFile"
+        Write-Host "==> follow [$Name] PID $procId ($tag)"
+        Write-Host "    q / ESC : follow 종료 (대상 프로세스는 그대로 살아있음)"
+        Write-Host "    stdout  : $logFile"
         $errLog = $logFile -replace '\.log$', '.err.log'
-        if (Test-Path $errLog) { Write-Host "    stderr: $errLog" }
-        # 명시적으로 stdout 만 tail. stderr 가 궁금하면 별도 창에서
-        # Get-Content -Wait $errLog 으로 볼 것.
-        Get-Content -Path $logFile -Wait -Tail 50
+        if (Test-Path $errLog) { Write-Host "    stderr  : $errLog" }
+        Write-Host ("-" * 70)
+
+        Invoke-FileTail -Path $logFile -TailLines 50
     }
 }
 

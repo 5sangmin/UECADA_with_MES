@@ -35,8 +35,8 @@ uecada stop                 # 전체 종료 (역순)
 uecada stop frontend
 uecada restart              # 전체 재기동
 uecada status               # docker compose ps + Job state
-uecada logs frontend        # Receive-Job -Wait
-uecada logs das             # docker compose logs -f
+uecada logs frontend        # UTF-8 file tail (q / ESC 로 종료)
+uecada logs das             # docker compose logs -f (Ctrl+C 로 종료)
 uecada help
 ```
 
@@ -59,7 +59,7 @@ uecada help
 - `stop <component>` 는 docker 컴포넌트는 `docker compose down`, 로컬 프로세스 컴포넌트는 `taskkill /PID <pid> /T /F` (자식 트리 종료) 로 정리한 뒤 state.json 에서 해당 키를 삭제한다.
 - `status` 는 컴포넌트별로 한 줄씩 컨테이너 / PID 상태를 출력한다. 로컬 프로세스는 `Get-Process -Id <pid>` 로 존재 여부만 확인한다.
 - `logs <docker-component>` 는 `docker compose logs -f`. Ctrl+C 로 빠져나와도 컨테이너는 그대로 동작한다.
-- `logs backend-api` / `logs frontend` 는 `Get-Content -Wait -Tail 50` 으로 stdout 파일을 follow 한다. stderr 가 궁금하면 별도 창에서 `Get-Content -Wait logs\<name>.err.log` 로 볼 것.
+- `logs backend-api` / `logs frontend` 는 자체 `Invoke-FileTail` 헬퍼로 stdout 파일을 follow 한다 (UTF-8 강제, 한글 깨짐 없음). **`q` 또는 `ESC` 키를 누르면 follow 만 종료되고 대상 프로세스는 그대로 살아있다.** stderr 가 궁금하면 별도 창에서 `Get-Content -Wait -Encoding UTF8 logs\<name>.err.log` 로 볼 것.
 
 ## 빠른 점검
 
@@ -73,6 +73,30 @@ uecada restart equip-sim
 # BeApi 로그 follow
 uecada logs backend-api
 ```
+
+## `uecada logs` 를 종료하는 방법
+
+`uecada logs <c>` 는 long-running tail 이다.
+
+### `backend-api` / `frontend` (로컬 프로세스 로그)
+
+**`q` 또는 `ESC` 키를 한 번 누르면 즉시 빠져나온다.** cmd 의 `"Terminate batch job (Y/N)?"` 프롬프트 없이 깔끔하게 프롬프트로 돌아오며, 대상 프로세스는 계속 실행 중이다 (`uecada status` 로 확인 가능).
+
+```text
+==> follow [backend-api] PID 12345 (running)
+    q / ESC : follow 종료 (대상 프로세스는 그대로 살아있음)
+    stdout  : C:\smart factory\UECADA\with_MES\logs\backend-api.log
+    stderr  : C:\smart factory\UECADA\with_MES\logs\backend-api.err.log
+----------------------------------------------------------------------
+[info] BeApi listening on http://0.0.0.0:5082
+...
+```
+
+Ctrl+C 도 동작은 하지만 `uecada.cmd` 경유 시 cmd 가 종료 확인을 묻기 때문에, `q` / `ESC` 사용을 권장한다.
+
+### docker 컴포넌트 로그 (`das`, `infra`, `xdas`, `equip-sim`, `command-center`)
+
+`docker compose logs -f` 이므로 Ctrl+C 로 빠져나온다. 컨테이너는 그대로 살아있다. (docker 자체가 키 입력을 받지 않아 `q` 단축키는 지원되지 않는다.)
 
 ## 주의 사항
 
