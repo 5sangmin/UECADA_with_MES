@@ -36,35 +36,29 @@ Namespace `ns=1`. 각 라인에 대해 2 개 변수 (총 3 라인 × 2 = 6 변�
 
 Command Center 가 `Line-0X.Request` 에 write 하는 JSON 문자열.
 
+**실제 형식은 BeApi (`unreal-backend/BeApi`) 가 `command_request.request_json` 컴럼에 적재한 객체를 그대로 전달한다.** Picker 는 DB 컴럼들을 재조합하지 않고 `request_json` jsonb 를 문자열로 stringify 하여 OPC UA 에 write.
+
 ```json
 {
-  "cmd_id": 12345,
-  "line_id": 1,
-  "equipment_id": 101,
-  "equipment_code": "CAST-01",
+  "command_id": 12345,
+  "equipment_id": "CAST-01",
   "command_type": "injection_pressure_sp",
-  "command_value": {
-    "value": 850,
-    "unit": "bar"
-  },
-  "issued_at_ms": 1745478123456
+  "value": 120.0
 }
 ```
 
-### Field 정의
+### Field 정의 (wire 계약 — BeApi `CommandService.cs` 과 일치)
 
-| Field            | Type      | 필수 | 설명                                                              |
-| ---------------- | --------- | ---- | ----------------------------------------------------------------- |
-| `cmd_id`         | int64     | ✅   | `command_id_seq` nextval. CommandDB `command_request.cmd_id` 와 동일. |
-| `line_id`        | int16     | ✅   | 1 / 2 / 3.                                                         |
-| `equipment_id`   | int32     | ✅   | 101..502. CommandDB `command_request.equipment_id`.                 |
-| `equipment_code` | string    | ✅   | `CAST-01` 등. 사람용 라벨 (로그/디버그).                              |
-| `command_type`   | string    | ✅   | 명령 종류 식별자. Equipment-type 별로 enum 정의됨 (별도 문서).         |
-| `command_value`  | any JSON  | ✅   | 자유 JSON. `command_type` 에 따라 schema 가 결정됨.                  |
-| `issued_at_ms`   | int64     | ✅   | Unix epoch ms. Server 가 DB `now()` 를 ms 로 변환한 값.              |
+| Field          | Type                            | 필수 | 설명                                                                         |
+| -------------- | ------------------------------- | ---- | ---------------------------------------------------------------------------- |
+| `command_id`   | int32                           | ✅   | `command_id_seq` nextval. CommandDB `command_request.command_id` 와 동일. |
+| `equipment_id` | string                          | ✅   | 설비 코드 문자열 (`"CAST-01"`, `"CNC-02"` 등). DB 컴럼 `equipment_id` 에는 LUT 변환된 int 로 저장되지만, `request_json` 에는 원본 코드 문자열을 그대로 유지해 line-das 가 설비 식별에 사용한다. |
+| `command_type` | string                          | ✅   | 최대 64자. Equipment prefix 와 조합 검증 됨 (`CommandTypeCatalog`).         |
+| `value`        | primitive 또는 any JSON         | ✅   | bool/number/string 또는 임의 JSON. 설비/`command_type` 별 스키마가 결정.  |
 
-> **시각은 DB `now()` 기준으로 통일** (사용자 결정). Worker 는 client 시각을
-> 보내지 않으며, 모든 timestamp 는 CommandDB 서버의 `now()` 를 ms 로 변환한다.
+> Wire 는 4 필드만 고정, 순서도 고정 이다 (BeApi `JsonObject` 에서 이 순서대로 직렬화). 추가 필드가 필요해지면 BeApi 측과 함께 contract bump 한다 (아래 6 Versioning 참고).
+
+> **시각은 DB `now()` 기준으로 통일** (사용자 결정). Picker 가 OPC UA 에 issue 하는 시점은 `command_request.started_at` 컬럼 에 `now()` 로 명시 기록되며 wire payload 엔 timestamp 필드 자체가 없다. 수신측(line-das) 시계 논란을 소거해 일관성 확보.
 
 ## 4. Ack Payload (Client → Server)
 
