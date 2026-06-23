@@ -125,8 +125,14 @@ function Remove-JobIdEntry {
 
 function Invoke-DockerCompose {
     param(
+        [Parameter(Mandatory = $true)]
         [string]$Component,
-        [string[]]$Args
+
+        # NOTE: PowerShell 의 자동변수 $Args 와 이름이 겹치면 함수 파라미터로 들어온
+        # 배열이 splatting 시 빈 인자로 전개되어 docker 가 help 만 출력하는 버그가 있다.
+        # 그래서 명시적으로 $ComposeArgs 라는 이름을 쓴다.
+        [Parameter(Mandatory = $true)]
+        [string[]]$ComposeArgs
     )
     $dir = $Paths[$Component]
     if (-not (Test-Path $dir)) {
@@ -143,16 +149,16 @@ function Invoke-DockerCompose {
                 "ps"     = "ps"
                 "logs"   = "logs"
             }
-            $sub = $Args[0]
+            $sub = $ComposeArgs[0]
             if (-not $cmdMap.ContainsKey($sub)) {
                 throw "[command-center] unsupported docker action: $sub"
             }
             & .\scripts\up-command-center.ps1 $cmdMap[$sub]
         } else {
-            & docker compose @Args
+            & docker compose @ComposeArgs
         }
         if ($LASTEXITCODE -ne 0) {
-            throw "[$Component] docker compose $($Args -join ' ') failed (exit $LASTEXITCODE)"
+            throw "[$Component] docker compose $($ComposeArgs -join ' ') failed (exit $LASTEXITCODE)"
         }
     } finally {
         Pop-Location
@@ -172,8 +178,8 @@ function Start-Component {
     Write-Host "==> [$Name] start"
 
     switch ($Name) {
-        "infra"          { Invoke-DockerCompose -Component $Name -Args @("up","-d") }
-        "das"            { Invoke-DockerCompose -Component $Name -Args @("up","-d","--build") }
+        "infra"          { Invoke-DockerCompose -Component $Name -ComposeArgs @("up","-d") }
+        "das"            { Invoke-DockerCompose -Component $Name -ComposeArgs @("up","-d","--build") }
         "equip-sim"      {
             Push-Location $Paths[$Name]
             try {
@@ -181,8 +187,8 @@ function Start-Component {
                 if ($LASTEXITCODE -ne 0) { throw "[equip-sim] up-all.ps1 failed" }
             } finally { Pop-Location }
         }
-        "command-center" { Invoke-DockerCompose -Component $Name -Args @("up") }
-        "xdas"           { Invoke-DockerCompose -Component $Name -Args @("up","-d","--build") }
+        "command-center" { Invoke-DockerCompose -Component $Name -ComposeArgs @("up") }
+        "xdas"           { Invoke-DockerCompose -Component $Name -ComposeArgs @("up","-d","--build") }
         "backend-api"    { Start-BackendApiJob }
         "frontend"       { Start-FrontendJob }
     }
@@ -199,16 +205,16 @@ function Stop-Component {
     Write-Host "==> [$Name] stop"
 
     switch ($Name) {
-        "infra"          { Invoke-DockerCompose -Component $Name -Args @("down") }
-        "das"            { Invoke-DockerCompose -Component $Name -Args @("down") }
+        "infra"          { Invoke-DockerCompose -Component $Name -ComposeArgs @("down") }
+        "das"            { Invoke-DockerCompose -Component $Name -ComposeArgs @("down") }
         "equip-sim"      {
             Push-Location $Paths[$Name]
             try {
                 & .\scripts\up-all.ps1 down
             } finally { Pop-Location }
         }
-        "command-center" { Invoke-DockerCompose -Component $Name -Args @("down") }
-        "xdas"           { Invoke-DockerCompose -Component $Name -Args @("down") }
+        "command-center" { Invoke-DockerCompose -Component $Name -ComposeArgs @("down") }
+        "xdas"           { Invoke-DockerCompose -Component $Name -ComposeArgs @("down") }
         "backend-api"    { Stop-LocalJob -Name "backend-api" }
         "frontend"       { Stop-LocalJob -Name "frontend" }
     }
@@ -359,7 +365,7 @@ function Show-Logs {
 
     if ($DockerComponents -contains $Name) {
         if ($Name -eq "command-center") {
-            Invoke-DockerCompose -Component $Name -Args @("logs")
+            Invoke-DockerCompose -Component $Name -ComposeArgs @("logs")
         } else {
             Push-Location $Paths[$Name]
             try {
