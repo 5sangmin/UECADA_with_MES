@@ -1,0 +1,13 @@
+# Command Center 이미지 빌드 시 불필요한 파일 제외.
+# 라인용 데이터는 절대 포함되면 안 됨.
+data/
+configs/
+sim/
+das_simulator/
+main.py
+requirements.txt
+scripts/
+docs/
+*.md
+.env*
+!Dockerfile.command-center

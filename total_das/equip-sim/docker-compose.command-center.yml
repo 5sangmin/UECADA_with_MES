@@ -1,0 +1,67 @@
+name: ${COMPOSE_PROJECT_NAME:-command-center}
+
+# ---------------------------------------------------------------------------
+# Command Center (Node-RED) compose.
+#
+# 단독 기동 가능 (라인 DAS 가 떠있지 않아도 자체적으로 OPC UA Server 만 떠있음).
+# factory-net 위에서 line-das 들과 같은 계층:
+#     nodered-line01, nodered-line02, nodered-line03   (라인 DAS)
+#     command-center                                    (이 컨테이너)
+#
+# host.docker.internal 로 호스트의 CommandDB(localhost:55433) 접근.
+# Windows Docker Desktop 은 기본 제공, Linux 는 extra_hosts 로 host-gateway 매핑.
+#
+# 기동:
+#   docker network inspect factory-net   (없으면 docker network create factory-net)
+#   docker compose --env-file .env.command-center -f docker-compose.command-center.yml up -d --build
+#
+# 중지:
+#   docker compose --env-file .env.command-center -f docker-compose.command-center.yml down
+# ---------------------------------------------------------------------------
+
+services:
+  command-center:
+    build:
+      context: .
+      dockerfile: Dockerfile.command-center
+    image: command-center-nodered:4.1.10-22
+    container_name: command-center
+    hostname: command-center
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+      FLOWS: ${FLOWS:-flows.json}
+      # CommandDB 접속 정보 — Node-RED PostgreSQL 노드가 직접 사용.
+      # 값은 .env.command-center 에서 주입.
+      COMMANDDB_HOST: ${COMMANDDB_HOST:-host.docker.internal}
+      COMMANDDB_PORT: ${COMMANDDB_PORT:-55433}
+      COMMANDDB_NAME: ${COMMANDDB_NAME:-total_das_command}
+      COMMANDDB_USER: ${COMMANDDB_USER:-total_das_cmd_user}
+      COMMANDDB_PASSWORD: ${COMMANDDB_PASSWORD}
+      # OPC UA Server 포트 (.env.command-center 와 ports: 의 컨테이너 측이 같아야 함)
+      OPCUA_SERVER_PORT: ${OPCUA_SERVER_PORT:-5160}
+      # Worker 식별자 (graceful recovery / 동시 인스턴스 구분용 — 기본은 hostname)
+      WORKER_ID: ${WORKER_ID:-command-center}
+    ports:
+      # Node-RED 운영 UI
+      - "${PORT_NODERED_UI:-5888}:1880"
+      # OPC UA Server — Request/Ack 노드 노출. 호스트 / 컨테이너 포트 동일하게 유지
+      # (endpoint advertise 시 포트 매핑 mismatch 회피).
+      - "${OPCUA_SERVER_PORT:-5160}:${OPCUA_SERVER_PORT:-5160}"
+    volumes:
+      - ./data/command-center:/data
+    extra_hosts:
+      # Linux Docker 에서도 host.docker.internal 사용 가능하도록.
+      # Windows Docker Desktop 에선 무시되지만 호환 위해 명시.
+      - "host.docker.internal:host-gateway"
+    networks:
+      # 라인 DAS 들과 동일 네트워크 → 컨테이너 이름으로 상호 접근 가능
+      # (지금은 OPC UA 만 쓰므로 Command Center 는 Server 만 띄움. 향후 클라이언트 추가 시 대비)
+      factory-net:
+        aliases:
+          - command-center
+
+networks:
+  factory-net:
+    external: true
+    name: factory-net
