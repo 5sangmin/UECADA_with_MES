@@ -1,3 +1,21 @@
+# ---------------------------------------------------------------------------
+# UECADA — root infrastructure compose.
+#
+# 기동 (default — 운영 입장에서 사용하는 5개 서비스):
+#   docker compose up -d
+#     → mysql, timescaledb, commanddb, ai-api, backend
+#
+# legacy 서비스 (이제는 사용처 없음 — 예전 flows 검토 등):
+#   docker compose --profile legacy up -d
+#     → 위 5개 + mosquitto + node-red
+#
+# 관련 외부 compose 파일 (별도 기동):
+#   total_das/DAS/docker-compose.yml              — das-mosquitto, das-node-red, simulator
+#   total_das/equip-sim/docker-compose.yml        — nodered-line01/02/03
+#   total_das/equip-sim/docker-compose.command-center.yml — command-center
+#   total_das/X_DAS/docker-compose.yml            — x-das-node-red
+# ---------------------------------------------------------------------------
+
 services:
   mysql:
     image: mysql:8.0
@@ -87,9 +105,13 @@ services:
       - default       # 있으면
       - total-das-net # 추가
 
+  # NOTE: 'legacy' profile — 평소 (`docker compose up -d`) 에서는 기동되지 않는다.
+  # MQTT 는 사용 중단됨 (DAS 쪽 das-mosquitto 와 분리됨). 옛 구성 필요 시:
+  #   docker compose --profile legacy up -d
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: smart-factory-mosquitto
+    profiles: ["legacy"]
     ports:
       - "${MQTT_PORT:-1883}:1883"
     volumes:
@@ -172,9 +194,13 @@ services:
       timeout: 5s
       retries: 10
 
+  # NOTE: 'legacy' profile — total_das/DAS, equip-sim, X_DAS, command-center 가
+  # 도입된 이후로 사용처 없음. 평소 (`docker compose up -d`) 에서는 기동되지 않는다.
+  # 옛 flows 검토 등 필요 시: docker compose --profile legacy up -d
   node-red:
     image: nodered/node-red:latest
     container_name: smart-factory-node-red
+    profiles: ["legacy"]
     ports:
       - "${NODE_RED_PORT:-1880}:1880"
     volumes:
