@@ -2,18 +2,18 @@
 # Base: pinned 4.1.10-22.
 FROM nodered/node-red:4.1.10-22
 
-# Required contrib nodes
-#  - node-red-contrib-modbus    : CAST-01 ... no, actually for WASH/CNC
-#  - node-red-contrib-opcua     : ASSY/TEST + DAS Server
+# Required contrib nodes (versions pinned for reproducibility)
+#  - node-red-contrib-modbus    : WASH/CNC Modbus TCP
+#  - node-red-contrib-opcua     : ASSY/TEST + DAS Server (0.2.351 required for patch-opcua-server.js)
 #  - node-red-contrib-mcprotocol: CAST-01 (Mitsubishi MC)
 #
 # On Node 24+ util.log was removed which breaks mcprotocol -> sed-replace.
 USER root
 RUN cd /usr/src/node-red \
  && npm install --no-fund --no-audit --omit=dev \
-      node-red-contrib-modbus \
-      node-red-contrib-opcua \
-      node-red-contrib-mcprotocol \
+      node-red-contrib-modbus@5.45.2 \
+      node-red-contrib-opcua@0.2.351 \
+      node-red-contrib-mcprotocol@1.2.1 \
  && find node_modules/node-red-contrib-mcprotocol -name "*.js" \
       -exec sed -i 's/util\.log(/console.log(/g' {} +
 
