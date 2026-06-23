@@ -1,0 +1,6 @@
+{
+  "name": "command-center-node-red-data",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Command Center Node-RED user directory. OPC UA Server (Line-01/02/03 Request/Ack) + PostgreSQL worker against CommandDB."
+}

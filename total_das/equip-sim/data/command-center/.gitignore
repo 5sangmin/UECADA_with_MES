@@ -1,0 +1,12 @@
+# Node-RED runtime 부산물 — X_DAS 와 동일 정책.
+.config.nodes.json
+.config.runtime.json
+.config.users.json
+.sessions.json
+flows_cred.json
+node_modules/
+package-lock.json
+context/
+lib/
+projects/
+settings.js.backup
