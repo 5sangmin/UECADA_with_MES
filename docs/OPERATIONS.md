@@ -174,7 +174,24 @@ command-center 인스턴스 (혹은 재기동된 같은 인스턴스) 가 timeou
 | `COMMANDDB_USER`      | `total_das_cmd_user`|                                                          |
 | `COMMANDDB_PASSWORD`  | `total_das_cmd_1234`|                                                          |
 
-### 3.2 컨테이너 의존성
+### 3.2 Root compose profile
+
+`docker-compose.yml` (repo 루트) 은 운영 입장에서 평소 띄우는 5개 서비스만
+기본 활성화한다. 옛 `mosquitto` / `node-red` 는 `legacy` profile 로 분리되어
+명시적으로 요청하지 않으면 기동되지 않는다.
+
+```powershell
+# 평소 운영용 — mysql, timescaledb, commanddb, ai-api, backend 만 기동
+docker compose up -d
+
+# 예전 flows 검토 등 — 위 5개 + mosquitto + node-red
+docker compose --profile legacy up -d
+```
+
+`docker compose up -d` 한 줄로 5개 서비스가 정확히 떠야 정상. 추가/누락이
+있으면 root `docker-compose.yml` 의 `profiles:` 설정을 다시 확인할 것.
+
+### 3.3 컨테이너 의존성
 
 ```
 commanddb ── timescaledb ── command-center ── nodered-line01/02/03
@@ -411,3 +428,4 @@ PR 에서 다룰 예정 — 본 가이드 범위 밖.
 | 17  | Ack Handler                                                             |
 | 19  | Line-0X.Ack channel → command-center sink (Response Sink)               |
 | 18  | **Timeout Sweeper + BeApi Kestrel binding + OPERATIONS.md (이 문서)**    |
+| —   | chore: root compose 의 mosquitto / node-red 를 `legacy` profile 로 이동      |
