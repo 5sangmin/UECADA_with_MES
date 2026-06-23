@@ -8,6 +8,12 @@ import { fileURLToPath, URL } from 'node:url'
 export default defineConfig({
   plugins: [vue()],
   server: {
+    // LAN 의 다른 PC / Unreal client / 태블릿에서 접근 가능하도록
+    // 모든 인터페이스에 바인딩한다. host 만 잠그고 싶다면
+    // VITE_DEV_HOST=127.0.0.1 같은 식으로 override 가능.
+    host: process.env.VITE_DEV_HOST ?? '0.0.0.0',
+    port: Number(process.env.VITE_DEV_PORT ?? 5173),
+    strictPort: false,
     proxy: {
       '/api': {
         target: process.env.VITE_DEV_API_PROXY ?? 'http://localhost:8080',
@@ -18,6 +24,10 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    host: process.env.VITE_PREVIEW_HOST ?? '0.0.0.0',
+    port: Number(process.env.VITE_PREVIEW_PORT ?? 4173),
   },
   resolve: {
     alias: {
