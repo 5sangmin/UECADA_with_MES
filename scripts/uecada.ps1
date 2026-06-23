@@ -11,12 +11,15 @@
 #   frontend       : frontend/UECADA_3          (npm run dev, Windows local — NOT docker)
 #
 # start order (all):
-#   infra → das → equip-sim → command-center → xdas → backend-api → frontend
+#   das → infra → equip-sim → command-center → xdas → backend-api → frontend
+# (das 가 먼저 떠야 das_das-internal 을 만들어 infra 가 attach 가능)
 #
-# backend-api / frontend 는 Windows 로컬 프로세스이므로 PowerShell Start-Job 으로
-# 백그라운드 기동하고, Job-Id 는 ~/.uecada/jobs.json 에 저장한다.
-# stop 시 저장된 Job-Id 로 Stop-Job + Remove-Job 한다.
-# logs 시 Receive-Job -Keep -Wait 로 follow 한다.
+# backend-api / frontend 는 Windows 로컬 프로세스이므로 Start-Process 로
+# 백그라운드 기동하고 (terminal 을 닫아도 살아있음), PID 는
+# ~/.uecada/state.json 에 저장한다. stdout/stderr 는 logs/<name>.log /
+# logs/<name>.err.log 파일로 리다이렉트.
+# stop  : taskkill /T /F 로 트리 종료 (npm 의 node 자식까지)
+# logs  : Get-Content -Wait 로 파일 tail (Ctrl+C 로 detach)
 # ---------------------------------------------------------------------------
 
 [CmdletBinding()]
@@ -70,67 +73,93 @@ $StopOrder  = @("frontend", "backend-api", "xdas", "command-center", "equip-sim"
 # components which use docker compose
 $DockerComponents = @("infra", "das", "equip-sim", "command-center", "xdas")
 
-# components which run as Start-Job (Windows native processes)
+# components which run as Windows native processes (Start-Process, NOT docker, NOT Start-Job)
 $JobComponents = @("backend-api", "frontend")
 
-# ---------- job-id store ----------
-$JobsDir  = Join-Path $HOME ".uecada"
-$JobsFile = Join-Path $JobsDir "jobs.json"
+# ---------- pid store ----------
+#
+# uecada 는 backend-api / frontend 를 PowerShell Start-Job 이 아니라
+# Start-Process 로 띄운다. 이유:
+#   - uecada.cmd 는 powershell.exe -File ... 를 매번 새로 띄우므로,
+#     Start-Job 으로 만든 Job 은 그 PowerShell 프로세스가 끝날 때 같이 소멸된다.
+#   - Start-Process 는 부모와 무관한 새 OS 프로세스라 터미널을 닫아도 살아있다.
+#
+# state file: ~/.uecada/state.json
+#   {
+#     "backend-api": { "pid": 1234, "started_at": "...", "log": "..." },
+#     "frontend":    { "pid": 5678, "started_at": "...", "log": "..." }
+#   }
+$StateDir  = Join-Path $HOME ".uecada"
+$StateFile = Join-Path $StateDir "state.json"
+$LogDir    = Join-Path $RepoRoot "logs"
 
-function Ensure-JobsDir {
-    if (-not (Test-Path $JobsDir)) {
-        New-Item -ItemType Directory -Path $JobsDir | Out-Null
-    }
+function Ensure-StateDir {
+    if (-not (Test-Path $StateDir)) { New-Item -ItemType Directory -Path $StateDir | Out-Null }
+}
+function Ensure-LogDir {
+    if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir | Out-Null }
 }
 
-function Read-JobsFile {
-    Ensure-JobsDir
-    if (-not (Test-Path $JobsFile)) {
-        return @{}
-    }
+function Read-State {
+    Ensure-StateDir
+    if (-not (Test-Path $StateFile)) { return @{} }
     try {
-        $raw = Get-Content $JobsFile -Raw -ErrorAction Stop
+        $raw = Get-Content $StateFile -Raw -ErrorAction Stop
         if ([string]::IsNullOrWhiteSpace($raw)) { return @{} }
         $obj = $raw | ConvertFrom-Json -ErrorAction Stop
-        # convert PSCustomObject → hashtable
         $h = @{}
         foreach ($p in $obj.PSObject.Properties) {
-            $h[$p.Name] = [int]$p.Value
+            $entry = @{}
+            foreach ($pp in $p.Value.PSObject.Properties) {
+                $entry[$pp.Name] = $pp.Value
+            }
+            $h[$p.Name] = $entry
         }
         return $h
     } catch {
-        Write-Warning "jobs.json 파싱 실패 — 빈 값으로 reset 합니다. ($_)"
+        Write-Warning "state.json 파싱 실패 — 빈 값으로 reset 합니다. ($_)"
         return @{}
     }
 }
 
-function Write-JobsFile {
+function Write-State {
     param([hashtable]$Map)
-    Ensure-JobsDir
-    ($Map | ConvertTo-Json -Compress) | Set-Content -Path $JobsFile -Encoding UTF8
+    Ensure-StateDir
+    ($Map | ConvertTo-Json -Depth 4) | Set-Content -Path $StateFile -Encoding UTF8
 }
 
-function Set-JobId {
-    param([string]$Name, [int]$JobId)
-    $m = Read-JobsFile
-    $m[$Name] = $JobId
-    Write-JobsFile -Map $m
+function Set-ProcessEntry {
+    param([string]$Name, [int]$ProcessId, [string]$LogPath)
+    $m = Read-State
+    $m[$Name] = @{
+        pid        = $ProcessId
+        started_at = (Get-Date).ToString("o")
+        log        = $LogPath
+    }
+    Write-State -Map $m
 }
 
-function Get-JobId {
+function Get-ProcessEntry {
     param([string]$Name)
-    $m = Read-JobsFile
-    if ($m.ContainsKey($Name)) { return [int]$m[$Name] }
+    $m = Read-State
+    if ($m.ContainsKey($Name)) { return $m[$Name] }
     return $null
 }
 
-function Remove-JobIdEntry {
+function Remove-ProcessEntry {
     param([string]$Name)
-    $m = Read-JobsFile
+    $m = Read-State
     if ($m.ContainsKey($Name)) {
-        $m.Remove($Name)
-        Write-JobsFile -Map $m
+        $m.Remove($Name) | Out-Null
+        Write-State -Map $m
     }
+}
+
+function Test-PidAlive {
+    param([int]$ProcessId)
+    if ($ProcessId -le 0) { return $false }
+    $p = Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+    return ($null -ne $p)
 }
 
 # ---------- docker helpers ----------
@@ -248,85 +277,112 @@ function Stop-Component {
     }
 }
 
-# ---------- backend-api / frontend (Start-Job) ----------
+# ---------- backend-api / frontend (Start-Process 기반) ----------
+
+function Start-LocalProcess {
+    <#
+      공통 기동 헬퍼.
+        - $WorkDir 에서
+        - $FileName ($Arguments 와 함께) 를 WindowStyle Hidden 으로 띄우고
+        - stdout/stderr 를 $LogPath / $LogPath.err.log 로 리다이렉트
+        - PID 를 ~/.uecada/state.json 에 저장
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$WorkDir,
+        [Parameter(Mandatory)][string]$FileName,
+        [string[]]$Arguments = @(),
+        [Parameter(Mandatory)][string]$LogPath
+    )
+
+    $existing = Get-ProcessEntry -Name $Name
+    if ($null -ne $existing -and (Test-PidAlive -ProcessId ([int]$existing.pid))) {
+        Write-Host "  $Name already running (PID $($existing.pid))"
+        return
+    }
+    if ($null -ne $existing) { Remove-ProcessEntry -Name $Name }
+
+    if (-not (Test-Path $WorkDir)) {
+        throw "[$Name] working dir not found: $WorkDir"
+    }
+
+    Ensure-LogDir
+    # 기존 로그는 .1 로 아카이브 (재기동 더 해도 .1 만 유지됨)
+    if (Test-Path $LogPath) {
+        Move-Item -Force -Path $LogPath -Destination "$LogPath.1" -ErrorAction SilentlyContinue
+    }
+    New-Item -ItemType File -Path $LogPath -Force | Out-Null
+
+    # stderr 는 별도 .err.log 로 (Start-Process 는 stdout/stderr 같은 파일을 금지)
+    $errLogPath = $LogPath -replace '\.log$', '.err.log'
+    if (Test-Path $errLogPath) {
+        Move-Item -Force -Path $errLogPath -Destination "$errLogPath.1" -ErrorAction SilentlyContinue
+    }
+    New-Item -ItemType File -Path $errLogPath -Force | Out-Null
+
+    $spArgs = @{
+        FilePath               = $FileName
+        ArgumentList           = $Arguments
+        WorkingDirectory       = $WorkDir
+        WindowStyle            = "Hidden"
+        RedirectStandardOutput = $LogPath
+        RedirectStandardError  = $errLogPath
+        PassThru               = $true
+    }
+    $proc = Start-Process @spArgs
+    if ($null -eq $proc) { throw "[$Name] Start-Process returned null" }
+
+    Set-ProcessEntry -Name $Name -ProcessId $proc.Id -LogPath $LogPath
+    Write-Host "  started $Name (PID $($proc.Id))"
+    Write-Host "  logs: $LogPath"
+}
 
 function Start-BackendApiJob {
-    $existing = Get-JobId -Name "backend-api"
-    if ($null -ne $existing) {
-        $j = Get-Job -Id $existing -ErrorAction SilentlyContinue
-        if ($null -ne $j -and $j.State -eq "Running") {
-            Write-Host "  backend-api already running (Job $existing)"
-            return
-        }
-        # stale entry
-        Remove-JobIdEntry -Name "backend-api"
-    }
-
-    $dir = $Paths["backend-api"]
-    if (-not (Test-Path $dir)) {
-        throw "[backend-api] not found: $dir"
-    }
-
-    $job = Start-Job -Name "uecada-backend-api" -ScriptBlock {
-        param($d)
-        Set-Location $d
-        dotnet run
-    } -ArgumentList $dir
-
-    Set-JobId -Name "backend-api" -JobId $job.Id
-    Write-Host "  started backend-api as Job $($job.Id)"
+    Start-LocalProcess `
+        -Name "backend-api" `
+        -WorkDir $Paths["backend-api"] `
+        -FileName "dotnet" `
+        -Arguments @("run") `
+        -LogPath (Join-Path $LogDir "backend-api.log")
     Write-Host "  BeApi:   http://localhost:5082"
     Write-Host "  logs:    uecada logs backend-api"
 }
 
 function Start-FrontendJob {
-    $existing = Get-JobId -Name "frontend"
-    if ($null -ne $existing) {
-        $j = Get-Job -Id $existing -ErrorAction SilentlyContinue
-        if ($null -ne $j -and $j.State -eq "Running") {
-            Write-Host "  frontend already running (Job $existing)"
-            return
-        }
-        Remove-JobIdEntry -Name "frontend"
-    }
-
-    $dir = $Paths["frontend"]
-    if (-not (Test-Path $dir)) {
-        throw "[frontend] not found: $dir"
-    }
-
-    $job = Start-Job -Name "uecada-frontend" -ScriptBlock {
-        param($d)
-        Set-Location $d
-        npm run dev
-    } -ArgumentList $dir
-
-    Set-JobId -Name "frontend" -JobId $job.Id
-    Write-Host "  started frontend as Job $($job.Id)"
-    Write-Host "  Vite:   http://127.0.0.1:5173"
-    Write-Host "  logs:   uecada logs frontend"
+    # npm 은 Windows 에서 npm.cmd 이다. Start-Process FilePath 에 .cmd 를 직접
+    # 넘기면 일부 PowerShell 버전에서 자식만 띄우고 부모 cmd 가 바로 죽어버려서
+    # tree kill 이 동작 안한다. 그래서 cmd /c 로 명시적으로 감싼다.
+    Start-LocalProcess `
+        -Name "frontend" `
+        -WorkDir $Paths["frontend"] `
+        -FileName "cmd.exe" `
+        -Arguments @("/c", "npm", "run", "dev") `
+        -LogPath (Join-Path $LogDir "frontend.log")
+    Write-Host "  Vite:    http://127.0.0.1:5173"
+    Write-Host "  logs:    uecada logs frontend"
 }
 
 function Stop-LocalJob {
     param([string]$Name)
 
-    $id = Get-JobId -Name $Name
-    if ($null -eq $id) {
-        Write-Host "  [$Name] no recorded Job — nothing to stop"
+    $entry = Get-ProcessEntry -Name $Name
+    if ($null -eq $entry) {
+        Write-Host "  [$Name] no recorded process — nothing to stop"
         return
     }
 
-    $j = Get-Job -Id $id -ErrorAction SilentlyContinue
-    if ($null -eq $j) {
-        Write-Host "  [$Name] Job $id no longer exists — clearing record"
-        Remove-JobIdEntry -Name $Name
+    $procId = [int]$entry.pid
+    if (-not (Test-PidAlive -ProcessId $procId)) {
+        Write-Host "  [$Name] PID $procId no longer alive — clearing record"
+        Remove-ProcessEntry -Name $Name
         return
     }
 
-    Write-Host "  stopping [$Name] Job $id ($($j.State))"
-    Stop-Job -Id $id -ErrorAction SilentlyContinue | Out-Null
-    Remove-Job  -Id $id -Force -ErrorAction SilentlyContinue | Out-Null
-    Remove-JobIdEntry -Name $Name
+    Write-Host "  stopping [$Name] PID $procId (tree kill)"
+    # taskkill /T /F 는 자식 프로세스도 함께 종료 — npm 의 경우 node 손자와
+    # cmd 부모를 모두 정리하려면 필수.
+    & taskkill /PID $procId /T /F 2>$null | Out-Null
+    Remove-ProcessEntry -Name $Name
 }
 
 # ---------- status ----------
@@ -403,15 +459,15 @@ function Show-Status {
                     Pop-Location
                 }
             } elseif ($JobComponents -contains $name) {
-                $id = Get-JobId -Name $name
-                if ($null -eq $id) {
-                    Write-Host ("  {0,-22} : (no job recorded)" -f $name)
+                $entry = Get-ProcessEntry -Name $name
+                if ($null -eq $entry) {
+                    Write-Host ("  {0,-22} : (not started)" -f $name)
                 } else {
-                    $j = Get-Job -Id $id -ErrorAction SilentlyContinue
-                    if ($null -eq $j) {
-                        Write-Host ("  {0,-22} : Job $id (missing)" -f $name)
+                    $procId = [int]$entry.pid
+                    if (Test-PidAlive -ProcessId $procId) {
+                        Write-Host ("  {0,-22} : PID $procId (running)" -f $name)
                     } else {
-                        Write-Host ("  {0,-22} : Job $id ({1})" -f $name, $j.State)
+                        Write-Host ("  {0,-22} : PID $procId (dead) — 'uecada stop $name' 이나 재기동 시 기록 정리됨" -f $name)
                     }
                 }
             }
@@ -446,16 +502,24 @@ function Show-Logs {
             }
         }
     } elseif ($JobComponents -contains $Name) {
-        $id = Get-JobId -Name $Name
-        if ($null -eq $id) {
-            throw "[$Name] no recorded Job — start it first with: uecada start $Name"
+        $entry = Get-ProcessEntry -Name $Name
+        if ($null -eq $entry) {
+            throw "[$Name] not started — run: uecada start $Name"
         }
-        $j = Get-Job -Id $id -ErrorAction SilentlyContinue
-        if ($null -eq $j) {
-            throw "[$Name] Job $id no longer exists"
+        $procId  = [int]$entry.pid
+        $logFile = [string]$entry.log
+        if (-not (Test-Path $logFile)) {
+            throw "[$Name] log file not found: $logFile"
         }
-        Write-Host "==> follow Job $id ($Name)  (Ctrl+C to detach)"
-        Receive-Job -Id $id -Keep -Wait
+        $alive = Test-PidAlive -ProcessId $procId
+        $tag   = if ($alive) { "running" } else { "DEAD" }
+        Write-Host "==> follow [$Name] PID $procId ($tag)  (Ctrl+C to detach)"
+        Write-Host "    stdout: $logFile"
+        $errLog = $logFile -replace '\.log$', '.err.log'
+        if (Test-Path $errLog) { Write-Host "    stderr: $errLog" }
+        # 명시적으로 stdout 만 tail. stderr 가 궁금하면 별도 창에서
+        # Get-Content -Wait $errLog 으로 볼 것.
+        Get-Content -Path $logFile -Wait -Tail 50
     }
 }
 
@@ -473,7 +537,7 @@ ACTIONS
   stop  [<component>]     stop  all (default) or a single component
   restart [<component>]   stop + start
   status                  show docker compose ps + Job states
-  logs <component>        follow logs (docker logs -f / Receive-Job -Wait)
+  logs <component>        follow logs (docker logs -f / Get-Content -Wait)
   help                    show this help
 
 COMPONENTS  (start order)
@@ -487,7 +551,7 @@ COMPONENTS  (start order)
 
 EXAMPLES
   uecada start                    # start everything
-  uecada start backend-api        # start only BeApi (dotnet run as Start-Job)
+  uecada start backend-api        # start only BeApi (dotnet run as background process)
   uecada logs frontend            # follow Vite logs
   uecada status                   # full status board
   uecada stop                     # stop everything

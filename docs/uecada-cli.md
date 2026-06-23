@@ -15,10 +15,16 @@ UECADA 스택 전체를 한 번에 켜고 끄기 위한 PowerShell wrapper.
 | `equip-sim`      | `total_das/equip-sim`                | `scripts/up-all.ps1 up` (line-01/02/03)    |
 | `command-center` | `total_das/equip-sim`                | `scripts/up-command-center.ps1`            |
 | `xdas`           | `total_das/X_DAS`                    | `docker compose up -d --build`             |
-| `backend-api`    | `unreal-backend/BeApi`               | `dotnet run` — **Start-Job (Windows local)** |
-| `frontend`       | `frontend/UECADA_3`                  | `npm run dev` — **Start-Job (Windows local)** |
+| `backend-api`    | `unreal-backend/BeApi`               | `dotnet run` — **Start-Process (Windows local)** |
+| `frontend`       | `frontend/UECADA_3`                  | `npm run dev` — **Start-Process (Windows local)** |
 
-`backend-api` 와 `frontend` 는 UDP 통신 / 핫리로드 편의를 위해 docker 가 아닌 Windows 로컬 프로세스로 동작한다. `Start-Job` 으로 백그라운드 기동하고, Job-Id 는 `~/.uecada/jobs.json` (즉 `%USERPROFILE%\.uecada\jobs.json`) 에 저장된다.
+`backend-api` 와 `frontend` 는 UDP 통신 / 핫리로드 편의를 위해 docker 가 아닌 Windows 로컬 프로세스로 동작한다. `Start-Process -WindowStyle Hidden` 으로 백그라운드 기동하고 (터미널을 닫아도 살아있음), PID 는 `~/.uecada/state.json` (즉 `%USERPROFILE%\.uecada\state.json`) 에 저장된다.
+
+stdout / stderr 는 repo 아래 `logs/` 폴더의 파일로 저장된다:
+
+- `logs/backend-api.log` (stdout) / `logs/backend-api.err.log` (stderr)
+- `logs/frontend.log` / `logs/frontend.err.log`
+- 재기동 시 기존 파일은 `.1` 서픽스로 아카이브된다 (이전 세션 1회분만 보존).
 
 ## 사용법
 
@@ -49,11 +55,11 @@ uecada help
 
 ## 동작 메모
 
-- `start <component>` 호출 시 이미 같은 Job-Id 가 살아있으면 (Running) 중복 기동하지 않고 안내만 출력한다.
-- `stop <component>` 는 docker 컴포넌트는 `docker compose down`, Job 컴포넌트는 `Stop-Job` + `Remove-Job` 으로 정리한 뒤 jobs.json 에서도 해당 키를 삭제한다.
-- `status` 는 컴포넌트별로 한 줄씩 컨테이너 / Job 상태를 출력한다 (`docker compose ps --format "{{.Service}}|{{.State}}"`).
-- `logs <docker-component>` 는 `docker compose logs -f`. Ctrl+C 로 빠져나오면 컨테이너는 그대로 동작한다.
-- `logs backend-api` / `logs frontend` 는 `Receive-Job -Id N -Keep -Wait`. `-Keep` 이라 follow 종료 후에도 Job 출력은 보존된다.
+- `start <component>` 호출 시 이미 같은 PID 가 살아있으면 중복 기동하지 않고 안내만 출력한다.
+- `stop <component>` 는 docker 컴포넌트는 `docker compose down`, 로컬 프로세스 컴포넌트는 `taskkill /PID <pid> /T /F` (자식 트리 종료) 로 정리한 뒤 state.json 에서 해당 키를 삭제한다.
+- `status` 는 컴포넌트별로 한 줄씩 컨테이너 / PID 상태를 출력한다. 로컬 프로세스는 `Get-Process -Id <pid>` 로 존재 여부만 확인한다.
+- `logs <docker-component>` 는 `docker compose logs -f`. Ctrl+C 로 빠져나와도 컨테이너는 그대로 동작한다.
+- `logs backend-api` / `logs frontend` 는 `Get-Content -Wait -Tail 50` 으로 stdout 파일을 follow 한다. stderr 가 궁금하면 별도 창에서 `Get-Content -Wait logs\<name>.err.log` 로 볼 것.
 
 ## 빠른 점검
 
