@@ -9,6 +9,14 @@ services:
       - "1883:1883"
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    # eclipse-mosquitto:2 이미지는 Dockerfile 에서
+    #   VOLUME ["/mosquitto/data", "/mosquitto/log"]
+    # 을 선언한다. 명시적 mount 가 없으면 재기동마다 anonymous
+    # volume 이 2개씩 쌓이므로, persistence 가 필요없는 broker 용도에
+    # 맞게 tmpfs 로 자동 정리되도록 한다.
+    tmpfs:
+      - /mosquitto/data
+      - /mosquitto/log
 
   node-red:
     build:

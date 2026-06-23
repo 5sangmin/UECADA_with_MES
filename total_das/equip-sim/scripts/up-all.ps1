@@ -1,4 +1,4 @@
-# scripts/up-all.ps1
+﻿# scripts/up-all.ps1
 # ----------------------------------------------------------------------
 # Bring up 3 lines (LINE-01/02/03) in one shot.
 #

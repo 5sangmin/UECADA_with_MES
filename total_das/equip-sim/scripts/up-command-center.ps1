@@ -1,4 +1,4 @@
-# scripts/up-command-center.ps1
+﻿# scripts/up-command-center.ps1
 # ----------------------------------------------------------------------
 # Command Center (Node-RED) bring-up.
 #
@@ -27,9 +27,11 @@ try {
     $env:PYTHONIOENCODING = "utf-8"
 } catch { }
 
-# cd to equip-sim (스크립트 부모 디렉터리)
+# 스크립트는 equip-sim/ 안에서 docker compose 를 실행해야 한다.
+# Set-Location 을 그대로 쓰면 종료 후 호출자의 cwd 가 바뀌어 남는 문제가 있어,
+# Push-Location + try/finally Pop-Location 패턴으로 격리한다.
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location (Join-Path $ScriptDir "..")
+$EquipSimDir = Join-Path $ScriptDir ".."
 
 $EnvFile     = ".env.command-center"
 $ComposeFile = "docker-compose.command-center.yml"
@@ -60,32 +62,38 @@ function Check-EnvFile {
     }
 }
 
-switch ($Command) {
-    "up" {
-        Ensure-Network
-        Check-EnvFile
-        Write-Host "==> docker compose --env-file $EnvFile -f $ComposeFile up -d --build"
-        docker compose --env-file $EnvFile -f $ComposeFile up -d --build
-        if ($LASTEXITCODE -ne 0) { throw "compose up failed" }
-        Write-Host ""
-        Write-Host "==================================================================="
-        Write-Host " Command Center UP"
-        Write-Host "   Node-RED UI       : http://localhost:5888"
-        Write-Host "   OPC UA Server     : opc.tcp://localhost:5160"
-        Write-Host ""
-        Write-Host "   네트워크          : factory-net (line-das 와 공유)"
-        Write-Host "   컨테이너 이름     : command-center"
-        Write-Host "==================================================================="
+Push-Location $EquipSimDir
+try {
+    switch ($Command) {
+        "up" {
+            Ensure-Network
+            Check-EnvFile
+            Write-Host "==> docker compose --env-file $EnvFile -f $ComposeFile up -d --build"
+            docker compose --env-file $EnvFile -f $ComposeFile up -d --build
+            if ($LASTEXITCODE -ne 0) { throw "compose up failed" }
+            Write-Host ""
+            Write-Host "==================================================================="
+            Write-Host " Command Center UP"
+            Write-Host "   Node-RED UI       : http://localhost:5888"
+            Write-Host "   OPC UA Server     : opc.tcp://localhost:5160"
+            Write-Host ""
+            Write-Host "   네트워크          : factory-net (line-das 와 공유)"
+            Write-Host "   컨테이너 이름     : command-center"
+            Write-Host "==================================================================="
+        }
+        "down" {
+            Write-Host "==> docker compose --env-file $EnvFile -f $ComposeFile down"
+            docker compose --env-file $EnvFile -f $ComposeFile down
+            Write-Host "==> NOTE: factory-net 은 유지됨. 제거하려면: docker network rm factory-net"
+        }
+        "logs" {
+            docker compose --env-file $EnvFile -f $ComposeFile logs -f
+        }
+        { @("ps", "status") -contains $_ } {
+            docker compose --env-file $EnvFile -f $ComposeFile ps
+        }
     }
-    "down" {
-        Write-Host "==> docker compose --env-file $EnvFile -f $ComposeFile down"
-        docker compose --env-file $EnvFile -f $ComposeFile down
-        Write-Host "==> NOTE: factory-net 은 유지됨. 제거하려면: docker network rm factory-net"
-    }
-    "logs" {
-        docker compose --env-file $EnvFile -f $ComposeFile logs -f
-    }
-    { @("ps", "status") -contains $_ } {
-        docker compose --env-file $EnvFile -f $ComposeFile ps
-    }
+}
+finally {
+    Pop-Location
 }

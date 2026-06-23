@@ -1,4 +1,4 @@
-$ErrorActionPreference = "Stop"
+﻿$ErrorActionPreference = "Stop"
 
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
@@ -127,6 +127,15 @@ finally {
   Pop-Location
 }
 
+# Command Center (Node-RED + OPC UA server) — line-das 들과 같은 factory-net 위에서 동작
+Push-Location (Join-Path $ScriptRoot "equip-sim")
+try {
+  .\scripts\up-command-center.ps1 up
+}
+finally {
+  Pop-Location
+}
+
 Push-Location (Join-Path $ScriptRoot "X_DAS")
 try {
   docker compose up -d --build
@@ -139,8 +148,9 @@ finally {
 }
 
 Write-Host ""
-Write-Host "DAS UI:       http://localhost:1888"
-Write-Host "LINE-01 UI:   http://localhost:2880"
-Write-Host "LINE-02 UI:   http://localhost:3880"
-Write-Host "LINE-03 UI:   http://localhost:4880"
-Write-Host "X_DAS UI:     http://localhost:1890"
+Write-Host "DAS UI:           http://localhost:1888"
+Write-Host "LINE-01 UI:       http://localhost:2880"
+Write-Host "LINE-02 UI:       http://localhost:3880"
+Write-Host "LINE-03 UI:       http://localhost:4880"
+Write-Host "Command Center:   http://localhost:5888"
+Write-Host "X_DAS UI:         http://localhost:1890"

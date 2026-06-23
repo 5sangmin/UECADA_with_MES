@@ -52,3 +52,6 @@ Thumbs.db
 **/bin/
 **/obj/
 .patches/
+
+# uecada CLI 가 Start-Process 로 띄우는 backend-api / frontend 의 로그
+logs/
