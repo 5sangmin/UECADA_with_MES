@@ -9,7 +9,7 @@
 //   CAST: injection_pressure_sp, mold_temperature_sp, cooling_flow_sp
 //   CNC : spindle_speed_sp, tool_usage_sp, coolant_flow_sp
 //   WASH: cleaning_concentration_sp, cleaning_temperature_sp, cleaning_pressure_sp
-//   ASSY: tightening_torque_sp, tightening_angles_sp, press_force_sp
+//   ASSY: tightening_torque_sp, tightening_angle_sp, press_force_sp
 //   TEST: bore_dimension_sp, hole_dimension_sp
 
 namespace BeApi.Features.Commands;
@@ -52,7 +52,7 @@ public static class CommandTypeCatalog
             ["ASSY"] = new HashSet<string>(StringComparer.Ordinal)
             {
                 "tightening_torque_sp",
-                "tightening_angles_sp",
+                "tightening_angle_sp",
                 "press_force_sp",
             },
             ["TEST"] = new HashSet<string>(StringComparer.Ordinal)
