@@ -45,8 +45,9 @@ services:
     ports:
       # Node-RED 운영 UI
       - "${PORT_NODERED_UI:-5888}:1880"
-      # OPC UA Server — Request/Ack 노드 노출. 호스트 / 컨테이너 포트 동일하게 유지
-      # (endpoint advertise 시 포트 매핑 mismatch 회피).
+      # OPC UA Server — 호스트에서도 127.0.0.1:5160 으로 검증 가능하도록 노출.
+      # 운영 접근은 factory-net 아래 'command-center:5160' (line-das endpoint advertise 와 동일한 호스트명)
+      # 으로 하도록 설계. 호스트 포트와 컨테이너 포트는 endpoint advertise 불일치 방지 위해 동일하게 유지.
       - "${OPCUA_SERVER_PORT:-5160}:${OPCUA_SERVER_PORT:-5160}"
     volumes:
       - ./data/command-center:/data

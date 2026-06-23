@@ -149,7 +149,22 @@ cd C:\smart factory\UECADA\with_MES\total_das\equip-sim
    ```
    `succeeded` 가 나오면 OK. (PR13 의 PostgreSQL 노드 동작 사전 확인)
 
-> ⚠️ OPC UA Server 자체는 PR12 의 flow 가 추가되기 전까지는 listen 안 함. PR11 시점에선 컨테이너만 살아있고 포트는 점유되지 않은 상태가 정상.
+5. **OPC UA Server endpoint listening (PR12 이후)**
+   ```powershell
+   # 호스트 검증 (TCP listen 여부)
+   Test-NetConnection -ComputerName 127.0.0.1 -Port 5160
+   # 컨테이너 내부 검증 (factory-net hostname resolve)
+   docker exec -it command-center sh -c "nc -zv command-center 5160"
+   ```
+   운영 경로는 `opc.tcp://command-center:5160/UA/CommandCenter` (line-das 용), 검증 경로는
+   `opc.tcp://127.0.0.1:5160/UA/CommandCenter` (UaExpert 등 호스트 도구용).
+
+6. **Ack 수신 검증 (PR12 flow)** — 외부 OPC UA 클라이언트(UaExpert / opcua-commander)로
+   `ns=1;s=Line-01.Ack` 에 임의 JSON 문자열을 write 해 본다:
+   ```powershell
+   docker logs --tail 20 command-center
+   ```
+   에 `[ACK] line=Line-01 ...` 이 찍히면 OK. Node-RED UI 의 debug sidebar 에도 파싱된 payload 가 보임.
 
 ---
 
