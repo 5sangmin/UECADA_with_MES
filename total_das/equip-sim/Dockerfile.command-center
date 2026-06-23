@@ -6,9 +6,10 @@
 #   - CommandDB (PostgreSQL) 를 폴링하여 REQUESTED 명령 픽업 → Request 노드에 write
 #   - line-das 가 Ack 노드에 write 하면 onWrite 이벤트로 받아 DB 갱신
 #
-# 설치 contrib 노드:
-#   - node-red-contrib-opcua       : OPC UA Server + Client (line-das 패치와 동일하게 필요)
-#   - node-red-contrib-postgresql  : CommandDB 접근 (X_DAS 에서 검증된 0.15.x 사용)
+# 설치 contrib 노드 (버전 핀 — X_DAS/DAS 와 동일):
+#   - node-red-contrib-opcua@0.2.351       : OPC UA Server + Client
+#       (patch-opcua-server.js 의 marker 가 정확히 이 버전의 104-opcuaserver.js 와 매칭)
+#   - node-red-contrib-postgresql@~0.15.4  : CommandDB 접근 (X_DAS 검증 버전)
 #
 # Modbus / MC Protocol 은 Command Center 에 필요 없음 (라인 DAS 전용) → 생략.
 FROM nodered/node-red:4.1.10-22
@@ -16,8 +17,8 @@ FROM nodered/node-red:4.1.10-22
 USER root
 RUN cd /usr/src/node-red \
  && npm install --no-fund --no-audit --omit=dev \
-      node-red-contrib-opcua \
-      node-red-contrib-postgresql
+      node-red-contrib-opcua@0.2.351 \
+      node-red-contrib-postgresql@~0.15.4
 
 # OPC UA Server 의 timestamped_get 패치 — line-das 와 동일.
 #   서버 변수 읽기 시 라이브 값 + sourceTimestamp 가 정상 반영되도록.
