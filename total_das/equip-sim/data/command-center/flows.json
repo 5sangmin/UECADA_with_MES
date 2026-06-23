@@ -770,5 +770,147 @@
     "x": 660,
     "y": 280,
     "wires": []
+  },
+  {
+    "id": "tab_timeout_sweeper",
+    "type": "tab",
+    "label": "Timeout Sweeper — SENT → FAILED (no-ack)",
+    "disabled": false,
+    "info": "PR18 — Sweeps SENT rows that have not received a terminal ack within\nTIMEOUT_MS (default 10000). Coexists safely with Ack Handler via\nAND t.status='SENT' re-guard. No DB schema changes.",
+    "env": []
+  },
+  {
+    "id": "sweep_timer",
+    "type": "inject",
+    "z": "tab_timeout_sweeper",
+    "name": "sweep @ 0.2 Hz (5s)",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "5",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 160,
+    "y": 120,
+    "wires": [
+      [
+        "sweep_build_query"
+      ]
+    ]
+  },
+  {
+    "id": "sweep_build_query",
+    "type": "function",
+    "z": "tab_timeout_sweeper",
+    "name": "Build sweep query",
+    "func": "// PR18 Timeout Sweeper — Build sweep query (idempotent).\n//\n// Marks SENT rows as FAILED('timeout: ...') when:\n//   - started_at older than TIMEOUT_MS (default 10000 ms), AND\n//   - no terminal response exists in command_latest_response.\n//\n// The WHERE re-guards t.status='SENT' so concurrent Ack Handler runs win.\n//\n// worker_id graceful recovery: we do NOT filter by worker_id. A crashed\n// command-center leaves SENT rows; on restart the new WORKER_ID will not\n// re-claim them (Picker excludes SENT via NOT EXISTS). This sweep, running\n// on any live command-center instance, recovers them as FAILED. Safe.\n//\n// DB schema is unchanged — `started_at` and `last_error` columns already exist\n// on command_request; no migrations.\n\nconst timeoutMs = Number(env.get('TIMEOUT_MS') || 10000);\n\nmsg.query = `\nUPDATE public.command_request t\nSET status      = 'FAILED',\n    finished_at = now(),\n    last_error  = 'timeout: no ack within ' || $1::text || ' ms'\nWHERE t.status = 'SENT'\n  AND t.started_at IS NOT NULL\n  AND t.started_at < (now() - ($1::int || ' milliseconds')::interval)\n  AND NOT EXISTS (\n      SELECT 1\n      FROM public.command_latest_response lr\n      WHERE lr.line_id = t.line_id\n        AND lr.equipment_id = t.equipment_id\n        AND lr.command_id = t.command_id\n        AND lr.cmd_status IN (2, 3, 4, 5, 6, 7)\n  )\nRETURNING t.id, t.command_id, t.line_id, t.equipment_id, t.worker_id,\n          t.started_at, t.finished_at, t.last_error;\n`;\nmsg.params = [timeoutMs];\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 120,
+    "wires": [
+      [
+        "sweep_pg"
+      ]
+    ]
+  },
+  {
+    "id": "sweep_pg",
+    "type": "postgresql",
+    "z": "tab_timeout_sweeper",
+    "name": "CommandDB sweep",
+    "query": "",
+    "postgreSQLConfig": "pg_cfg_commanddb",
+    "split": false,
+    "rowsPerMsg": 1,
+    "outputs": 1,
+    "x": 620,
+    "y": 120,
+    "wires": [
+      [
+        "sweep_fanout"
+      ]
+    ]
+  },
+  {
+    "id": "sweep_fanout",
+    "type": "function",
+    "z": "tab_timeout_sweeper",
+    "name": "Fan out swept rows",
+    "func": "// PR18 Timeout Sweeper — Fan out swept rows.\n//\n// Receives postgres RETURNING array. Each row was just transitioned\n// SENT → FAILED('timeout: ...') by this same SQL roundtrip; no further\n// side effects required. We split into per-row messages for the console\n// log and node status. Empty array → null (silent tick).\n\nconst rows = Array.isArray(msg.payload) ? msg.payload : [];\nif (!rows.length) {\n    node.status({ fill: 'grey', shape: 'ring', text: 'idle' });\n    return null;\n}\n\nnode.status({ fill: 'yellow', shape: 'dot', text: `${rows.length} timed out` });\n\nconst out = rows.map(r => ({\n    payload: {\n        id: r.id,\n        command_id: r.command_id,\n        line_id: r.line_id,\n        equipment_id: r.equipment_id,\n        worker_id: r.worker_id,\n        started_at: r.started_at,\n        finished_at: r.finished_at,\n        last_error: r.last_error\n    }\n}));\nreturn [out];\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 840,
+    "y": 120,
+    "wires": [
+      [
+        "sweep_console_log"
+      ]
+    ]
+  },
+  {
+    "id": "sweep_console_log",
+    "type": "function",
+    "z": "tab_timeout_sweeper",
+    "name": "console.log(SWEEP)",
+    "func": "node.warn({ SWEEP_TIMEOUT: msg.payload });\nreturn msg;\n",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1080,
+    "y": 120,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "sweep_catch",
+    "type": "catch",
+    "z": "tab_timeout_sweeper",
+    "name": "Catch sweep errors",
+    "scope": [
+      "sweep_build_query",
+      "sweep_pg",
+      "sweep_fanout"
+    ],
+    "uncaught": false,
+    "x": 400,
+    "y": 220,
+    "wires": [
+      [
+        "sweep_error_log"
+      ]
+    ]
+  },
+  {
+    "id": "sweep_error_log",
+    "type": "debug",
+    "z": "tab_timeout_sweeper",
+    "name": "sweep error",
+    "active": true,
+    "tosidebar": true,
+    "console": true,
+    "tostatus": true,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 660,
+    "y": 220,
+    "wires": []
   }
 ]
