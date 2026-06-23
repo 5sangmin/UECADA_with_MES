@@ -235,7 +235,10 @@ function Start-Component {
     Write-Host "==> [$Name] start"
 
     switch ($Name) {
-        "infra"          { Invoke-DockerCompose -Component $Name -ComposeArgs @("up","-d") }
+        # infra 에도 --build 를 포함시켜서, backend/ 소스 변경 후 uecada start 만으로도
+        # CorsConfig 등 코드 변경이 이미지에 반영되도록 한다. (이전에는 --build 가
+        # 없어서 머지된 PR 이 돌고 있는 이미지에 반영 안 되는 함정이 있었음)
+        "infra"          { Invoke-DockerCompose -Component $Name -ComposeArgs @("up","-d","--build") }
         "das"            { Invoke-DockerCompose -Component $Name -ComposeArgs @("up","-d","--build") }
         "equip-sim"      {
             Push-Location $Paths[$Name]
@@ -331,11 +334,29 @@ function Start-LocalProcess {
     # appsettings 나 Program.cs 에 손대지 않으려면 읽는 쪽에서 -Encoding UTF8 하는 게
     # 가장 안전한 해법이라, logs follow 에서는 그렇게 처리한다 (Show-Logs 참고).
 
+    # stdin redirect 용 NUL 파일 준비.
+    #
+    # 이유: Start-Process 는 RedirectStandardInput 을 명시하지 않으면 자식이
+    # 부모 PowerShell 의 stdin 을 상속받는다. dotnet run / cmd /c npm run dev 등이
+    # stdin 을 계속 점유하면, VS Code PowerShell 터미널이 그 stdin 에 cascading
+    # lock 이 걸려 uecada.cmd start 완료 후에도 키 입력이 보이지 않는 "먹통"
+    # 증상이 발생한다. stop 하면 자식이 죽으면서 handle 이 풀려 복구됨.
+    #
+    # 해결: 자식의 stdin 을 NUL 디바이스(빈 파일)로 리다이렉트 → 자식이
+    # 부모 stdin 을 점유하지 않아 터미널이 추가 입력을 정상 처리한다.
+    # Windows 의 NUL 은 PowerShell 에서는 직접 리다이렉트할 수 없으므로 임시
+    # 빈 파일을 한 번만 생성해 재사용.
+    $nulInputPath = Join-Path $LogDir ".uecada-nul-stdin"
+    if (-not (Test-Path $nulInputPath)) {
+        New-Item -ItemType File -Path $nulInputPath -Force | Out-Null
+    }
+
     $spArgs = @{
         FilePath               = $FileName
         ArgumentList           = $Arguments
         WorkingDirectory       = $WorkDir
         WindowStyle            = "Hidden"
+        RedirectStandardInput  = $nulInputPath
         RedirectStandardOutput = $LogPath
         RedirectStandardError  = $errLogPath
         PassThru               = $true
