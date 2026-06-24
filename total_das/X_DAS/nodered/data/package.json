@@ -4,7 +4,7 @@
   "private": true,
   "description": "Node-RED user directory for the X_DAS OPC UA bridge.",
   "dependencies": {
-    "node-red-contrib-opcua": "0.2.351",
+    "node-red-contrib-opcua": "~0.2.352",
     "node-red-contrib-postgresql": "~0.15.4"
   }
 }

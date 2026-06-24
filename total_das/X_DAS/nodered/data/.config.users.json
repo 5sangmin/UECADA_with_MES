@@ -27,7 +27,7 @@
                     "v": 4,
                     "tabs": [],
                     "primary": {
-                        "width": 368,
+                        "width": 343.993,
                         "top": {
                             "tabs": [
                                 "info",
@@ -35,8 +35,9 @@
                                 "config",
                                 "context"
                             ],
-                            "hidden": true,
-                            "height": 290
+                            "hidden": false,
+                            "height": 292.22222,
+                            "active": "config"
                         },
                         "bottom": {
                             "tabs": [
@@ -47,12 +48,12 @@
                         }
                     },
                     "secondary": {
-                        "width": 279,
+                        "width": 278.993,
                         "top": {
                             "tabs": [
                                 "explorer"
                             ],
-                            "height": 311.391,
+                            "height": 314.93022,
                             "hidden": false,
                             "active": "explorer"
                         },
@@ -68,7 +69,7 @@
             }
         },
         "debug": {
-            "filter": "filterAll",
+            "filter": "filterCurrent",
             "filteredNodes": [
                 "debug_backend_write",
                 "debug_flow_errors",
@@ -76,6 +77,6 @@
                 "debug_xdas_live_sample"
             ]
         },
-        "menu-menu-item-sidebar": false
+        "menu-menu-item-sidebar": true
     }
 }
