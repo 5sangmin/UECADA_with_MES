@@ -112,6 +112,141 @@ class LineAggregationServiceTest {
         assertThat(result.get(0).lineStatus()).isEqualTo("RUNNING");
     }
 
+    // ── 신규 5-상태 집계 검증 ────────────────────────────────────────────────
+
+    @Test
+    void getLines_COMPLETEStatusCountsAsStandby() throws Exception {
+        ProductionLine line = lineOf("LINE-01", "FACTORY-01", "1라인", "RUNNING");
+
+        Equipment equipment = new Equipment();
+        equipment.setEquipmentCode("LINE-01_CNC-01");
+        equipment.setLocation("LINE-01");
+
+        ProductionLineRepository lineRepo = mock(ProductionLineRepository.class);
+        EquipmentRepository equipmentRepo = mock(EquipmentRepository.class);
+        EquipmentStatusRepository statusRepo = mock(EquipmentStatusRepository.class);
+        AnalysisResultRepository analysisRepo = mock(AnalysisResultRepository.class);
+        VibrationWindowMonitorService monitor = mock(VibrationWindowMonitorService.class);
+        RealtimeEquipmentService realtimeEquipmentService = mock(RealtimeEquipmentService.class);
+
+        when(lineRepo.findByFactoryId("FACTORY-01")).thenReturn(List.of(line));
+        when(equipmentRepo.findAll()).thenReturn(List.of(equipment));
+        when(statusRepo.findAll()).thenReturn(List.of());
+        when(analysisRepo.findLatestForEquipmentCodes(any())).thenReturn(List.of());
+        when(monitor.latestRealtime(anyString())).thenReturn(VibrationRealtimeResponse.empty("any"));
+        when(realtimeEquipmentService.statusOverride("LINE-01_CNC-01")).thenReturn("COMPLETE");
+
+        LineAggregationService service = new LineAggregationService(
+                lineRepo, equipmentRepo, statusRepo, analysisRepo, monitor, realtimeEquipmentService
+        );
+
+        var result = service.getLines("FACTORY-01");
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).equipmentStandby()).isEqualTo(1);  // COMPLETE → standby 버킷
+        assertThat(result.get(0).equipmentAlarm()).isZero();
+        assertThat(result.get(0).equipmentRunning()).isZero();
+    }
+
+    @Test
+    void getLines_WARNINGStatusCountsAsAlarm() throws Exception {
+        ProductionLine line = lineOf("LINE-01", "FACTORY-01", "1라인", "RUNNING");
+
+        Equipment equipment = new Equipment();
+        equipment.setEquipmentCode("LINE-01_CNC-01");
+        equipment.setLocation("LINE-01");
+
+        ProductionLineRepository lineRepo = mock(ProductionLineRepository.class);
+        EquipmentRepository equipmentRepo = mock(EquipmentRepository.class);
+        EquipmentStatusRepository statusRepo = mock(EquipmentStatusRepository.class);
+        AnalysisResultRepository analysisRepo = mock(AnalysisResultRepository.class);
+        VibrationWindowMonitorService monitor = mock(VibrationWindowMonitorService.class);
+        RealtimeEquipmentService realtimeEquipmentService = mock(RealtimeEquipmentService.class);
+
+        when(lineRepo.findByFactoryId("FACTORY-01")).thenReturn(List.of(line));
+        when(equipmentRepo.findAll()).thenReturn(List.of(equipment));
+        when(statusRepo.findAll()).thenReturn(List.of());
+        when(analysisRepo.findLatestForEquipmentCodes(any())).thenReturn(List.of());
+        when(monitor.latestRealtime(anyString())).thenReturn(VibrationRealtimeResponse.empty("any"));
+        when(realtimeEquipmentService.statusOverride("LINE-01_CNC-01")).thenReturn("WARNING");
+
+        LineAggregationService service = new LineAggregationService(
+                lineRepo, equipmentRepo, statusRepo, analysisRepo, monitor, realtimeEquipmentService
+        );
+
+        var result = service.getLines("FACTORY-01");
+
+        assertThat(result.get(0).equipmentAlarm()).isEqualTo(1);   // WARNING → alarm 버킷
+        assertThat(result.get(0).lineStatus()).isEqualTo("ALARM"); // 알람 있으면 라인도 ALARM
+        assertThat(result.get(0).equipmentRunning()).isZero();
+    }
+
+    @Test
+    void getLines_ERRORStatusCountsAsAlarm() throws Exception {
+        ProductionLine line = lineOf("LINE-01", "FACTORY-01", "1라인", "RUNNING");
+
+        Equipment equipment = new Equipment();
+        equipment.setEquipmentCode("LINE-01_CNC-01");
+        equipment.setLocation("LINE-01");
+
+        ProductionLineRepository lineRepo = mock(ProductionLineRepository.class);
+        EquipmentRepository equipmentRepo = mock(EquipmentRepository.class);
+        EquipmentStatusRepository statusRepo = mock(EquipmentStatusRepository.class);
+        AnalysisResultRepository analysisRepo = mock(AnalysisResultRepository.class);
+        VibrationWindowMonitorService monitor = mock(VibrationWindowMonitorService.class);
+        RealtimeEquipmentService realtimeEquipmentService = mock(RealtimeEquipmentService.class);
+
+        when(lineRepo.findByFactoryId("FACTORY-01")).thenReturn(List.of(line));
+        when(equipmentRepo.findAll()).thenReturn(List.of(equipment));
+        when(statusRepo.findAll()).thenReturn(List.of());
+        when(analysisRepo.findLatestForEquipmentCodes(any())).thenReturn(List.of());
+        when(monitor.latestRealtime(anyString())).thenReturn(VibrationRealtimeResponse.empty("any"));
+        when(realtimeEquipmentService.statusOverride("LINE-01_CNC-01")).thenReturn("ERROR");
+
+        LineAggregationService service = new LineAggregationService(
+                lineRepo, equipmentRepo, statusRepo, analysisRepo, monitor, realtimeEquipmentService
+        );
+
+        var result = service.getLines("FACTORY-01");
+
+        assertThat(result.get(0).equipmentAlarm()).isEqualTo(1);   // ERROR → alarm 버킷
+        assertThat(result.get(0).lineStatus()).isEqualTo("ALARM");
+    }
+
+    @Test
+    void getLines_MAINTENANCEStatusCountedSeparately() throws Exception {
+        ProductionLine line = lineOf("LINE-01", "FACTORY-01", "1라인", "RUNNING");
+
+        Equipment equipment = new Equipment();
+        equipment.setEquipmentCode("LINE-01_CNC-01");
+        equipment.setLocation("LINE-01");
+
+        ProductionLineRepository lineRepo = mock(ProductionLineRepository.class);
+        EquipmentRepository equipmentRepo = mock(EquipmentRepository.class);
+        EquipmentStatusRepository statusRepo = mock(EquipmentStatusRepository.class);
+        AnalysisResultRepository analysisRepo = mock(AnalysisResultRepository.class);
+        VibrationWindowMonitorService monitor = mock(VibrationWindowMonitorService.class);
+        RealtimeEquipmentService realtimeEquipmentService = mock(RealtimeEquipmentService.class);
+
+        when(lineRepo.findByFactoryId("FACTORY-01")).thenReturn(List.of(line));
+        when(equipmentRepo.findAll()).thenReturn(List.of(equipment));
+        when(statusRepo.findAll()).thenReturn(List.of());
+        when(analysisRepo.findLatestForEquipmentCodes(any())).thenReturn(List.of());
+        when(monitor.latestRealtime(anyString())).thenReturn(VibrationRealtimeResponse.empty("any"));
+        when(realtimeEquipmentService.statusOverride("LINE-01_CNC-01")).thenReturn("MAINTENANCE");
+
+        LineAggregationService service = new LineAggregationService(
+                lineRepo, equipmentRepo, statusRepo, analysisRepo, monitor, realtimeEquipmentService
+        );
+
+        var result = service.getLines("FACTORY-01");
+
+        assertThat(result.get(0).equipmentMaintenance()).isEqualTo(1); // MAINTENANCE → 별도 버킷
+        assertThat(result.get(0).equipmentAlarm()).isZero();
+        assertThat(result.get(0).equipmentStandby()).isZero();
+        assertThat(result.get(0).lineStatus()).isEqualTo("RUNNING");   // 알람 없으면 원래 라인 상태
+    }
+
     private ProductionLine lineOf(String id, String factory, String name, String status) throws Exception {
         ProductionLine line = ProductionLine.class.getDeclaredConstructor().newInstance();
         for (var field : ProductionLine.class.getDeclaredFields()) {

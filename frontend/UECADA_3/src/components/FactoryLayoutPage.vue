@@ -116,26 +116,26 @@ const COMMON_METRICS: readonly FactoryRealtimeMetric[] = [
 ]
 
 function lineStatusToLabel(status: LineStatusCode | undefined): StatusLabel {
-  if (status === 'ALARM') return '경고'
+  if (status === 'ALARM' || status === 'ERROR' || status === 'WARNING') return '경고'
   if (status === 'MAINTENANCE') return '주의'
   return '정상'
 }
 
 function lineStatusToKind(status: LineStatusCode | undefined): StatusKind {
-  if (status === 'ALARM') return 'alert'
+  if (status === 'ALARM' || status === 'ERROR' || status === 'WARNING') return 'alert'
   if (status === 'MAINTENANCE') return 'warn'
   return 'ok'
 }
 
 function lineStatusToTone(status: LineStatusCode | undefined, fallback: LineTone): LineTone {
-  if (status === 'ALARM') return 'red'
+  if (status === 'ALARM' || status === 'ERROR' || status === 'WARNING') return 'red'
   if (status === 'MAINTENANCE') return 'yellow'
   return fallback
 }
 
 function equipmentStatusToLabel(status: EquipmentStatusCode | undefined): StatusLabel {
-  if (status === 'ALARM') return '경고'
-  if (status === 'MAINTENANCE') return '주의'
+  if (status === 'ALARM' || status === 'ERROR' || status === 'WARNING') return '경고'
+  if (status === 'MAINTENANCE' || status === 'IDLE' || status === 'COMPLETE') return '주의'
   return '정상'
 }
 
@@ -190,7 +190,7 @@ function realtimeReceiveLabel(e: Equipment): string {
 }
 
 function effectiveEquipmentStatus(e: Equipment, dbStatus: EquipmentStatusCode | undefined): StatusLabel {
-  if (dbStatus === 'ALARM') return '경고'
+  if (dbStatus === 'ALARM' || dbStatus === 'ERROR' || dbStatus === 'WARNING') return '경고'
 
   // 현재 센서값 기준: Type Data 전부 0 → 지금 꺼진 상태 (이력보다 우선)
   const processMetrics = processRealtimeMetricConfigs(e.processType)

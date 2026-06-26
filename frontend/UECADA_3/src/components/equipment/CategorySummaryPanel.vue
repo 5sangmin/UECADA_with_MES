@@ -27,7 +27,7 @@ function pct(part: number): string {
       <article>
         <span>운전 상태</span>
         <strong>{{ category.status }}</strong>
-        <p>가동 {{ category.running }} · 정지 {{ category.stopped }} · 대기 {{ category.waiting }}</p>
+        <p>운전 {{ category.running }} · 대기 {{ category.idle }} · 완료 {{ category.complete }} · 경고 {{ category.warning }} · 에러 {{ category.error }}</p>
       </article>
       <article>
         <span>평균 가동률</span>
@@ -43,8 +43,10 @@ function pct(part: number): string {
 
     <div class="category-status-bar">
       <i class="run" :style="{ width: pct(category.running) }"></i>
-      <i class="stop" :style="{ width: pct(category.stopped) }"></i>
-      <i class="wait" :style="{ width: pct(category.waiting) }"></i>
+      <i class="wait" :style="{ width: pct(category.idle) }"></i>
+      <i class="complete" :style="{ width: pct(category.complete) }"></i>
+      <i class="warn" :style="{ width: pct(category.warning) }"></i>
+      <i class="stop" :style="{ width: pct(category.error) }"></i>
     </div>
   </article>
 </template>

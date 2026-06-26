@@ -42,9 +42,11 @@ public class RealtimeEquipmentService {
             return null;
         }
         return switch (statusCode) {
-            case 1 -> "RUNNING";       // RUNNING
-            case 2, 3 -> "ALARM";      // WARNING / ERROR
-            case 0, 4 -> "STANDBY";    // IDLE / COMPLETE
+            case 0 -> "IDLE";
+            case 1 -> "RUNNING";
+            case 2 -> "COMPLETE";
+            case 3 -> "WARNING";
+            case 4 -> "ERROR";
             default -> null;
         };
     }

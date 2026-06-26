@@ -90,8 +90,10 @@ const EMPTY_CATEGORY = Object.freeze({
   status: '-',
   count: 0,
   running: 0,
-  stopped: 0,
-  waiting: 0,
+  idle: 0,
+  complete: 0,
+  warning: 0,
+  error: 0,
   avgRate: 0,
   defectCount: 0,
   description: '데이터 로딩 중',
@@ -893,11 +895,11 @@ onUnmounted(disposeEquipmentCharts)
               <h3>제어명령</h3>
             </div>
             <div class="equipment-popup-command-row">
-              <button :class="{ active: selectedEquipment.state === '정지' }" type="button">
+              <button :class="{ active: selectedEquipment.state !== '운전' }" type="button">
                 <Square :size="16" />
                 <span>정지</span>
               </button>
-              <button :class="{ active: selectedEquipment.state !== '정지' }" type="button">
+              <button :class="{ active: selectedEquipment.state === '운전' }" type="button">
                 <Play :size="16" />
                 <span>운전</span>
               </button>
@@ -1062,8 +1064,10 @@ onUnmounted(disposeEquipmentCharts)
                     <th scope="col" class="num">대수</th>
                     <th scope="col">상태</th>
                     <th scope="col" class="num">운전</th>
-                    <th scope="col" class="num">정지</th>
                     <th scope="col" class="num">대기</th>
+                    <th scope="col" class="num">완료</th>
+                    <th scope="col" class="num">경고</th>
+                    <th scope="col" class="num">에러</th>
                     <th scope="col" class="num">평균 가동률</th>
                     <th scope="col" class="num">불량(NG)</th>
                   </tr>
@@ -1074,8 +1078,10 @@ onUnmounted(disposeEquipmentCharts)
                     <td class="num">{{ cat.count }}</td>
                     <td :class="['equipment-print-status', printCategoryStatusClass(cat.status)]">{{ cat.status }}</td>
                     <td class="num">{{ cat.running }}</td>
-                    <td class="num">{{ cat.stopped }}</td>
-                    <td class="num">{{ cat.waiting }}</td>
+                    <td class="num">{{ cat.idle }}</td>
+                    <td class="num">{{ cat.complete }}</td>
+                    <td class="num">{{ cat.warning }}</td>
+                    <td class="num">{{ cat.error }}</td>
                     <td class="num">{{ cat.avgRate }}%</td>
                     <td class="num">{{ cat.defectCount }}</td>
                   </tr>

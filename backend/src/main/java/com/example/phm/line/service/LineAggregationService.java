@@ -90,8 +90,12 @@ public class LineAggregationService {
                 .toList();
         long total = lineEquipments.size();
         long running = countStatus(lineEquipments, statusByEquipment, latestAlarmLevelByEquipment, "RUNNING");
-        long alarm = countStatus(lineEquipments, statusByEquipment, latestAlarmLevelByEquipment, "ALARM");
-        long standby = countStatus(lineEquipments, statusByEquipment, latestAlarmLevelByEquipment, "STANDBY");
+        long alarm = countStatus(lineEquipments, statusByEquipment, latestAlarmLevelByEquipment, "WARNING")
+                + countStatus(lineEquipments, statusByEquipment, latestAlarmLevelByEquipment, "ERROR")
+                + countStatus(lineEquipments, statusByEquipment, latestAlarmLevelByEquipment, "ALARM");
+        long standby = countStatus(lineEquipments, statusByEquipment, latestAlarmLevelByEquipment, "IDLE")
+                + countStatus(lineEquipments, statusByEquipment, latestAlarmLevelByEquipment, "COMPLETE")
+                + countStatus(lineEquipments, statusByEquipment, latestAlarmLevelByEquipment, "STANDBY");
         long maintenance = countStatus(lineEquipments, statusByEquipment, latestAlarmLevelByEquipment, "MAINTENANCE");
         long openAlarmCount = alarm;
         String lineStatus = alarm > 0 ? "ALARM" : line.getLineStatus();
@@ -132,10 +136,13 @@ public class LineAggregationService {
                 ? "RUNNING"
                 : status.getStatusCode().toUpperCase(Locale.ROOT);
         String realtimeAlarmLevel = realtimeAlarmLevel(equipment.getEquipmentCode());
-        if ("danger".equals(realtimeAlarmLevel) || "warning".equals(realtimeAlarmLevel)) {
-            return "ALARM";
+        if ("danger".equals(realtimeAlarmLevel)) {
+            return "ERROR";
         }
-        if ("normal".equals(realtimeAlarmLevel) && "ALARM".equals(baseStatus)) {
+        if ("warning".equals(realtimeAlarmLevel)) {
+            return "WARNING";
+        }
+        if ("normal".equals(realtimeAlarmLevel) && ("ALARM".equals(baseStatus) || "ERROR".equals(baseStatus) || "WARNING".equals(baseStatus))) {
             return "RUNNING";
         }
 
@@ -146,10 +153,13 @@ public class LineAggregationService {
 
         String latestAlarmLevel = latestAlarmLevelByEquipment.get(equipment.getEquipmentCode());
 
-        if ("danger".equals(latestAlarmLevel) || "warning".equals(latestAlarmLevel)) {
-            return "ALARM";
+        if ("danger".equals(latestAlarmLevel)) {
+            return "ERROR";
         }
-        if ("normal".equals(latestAlarmLevel) && "ALARM".equals(baseStatus)) {
+        if ("warning".equals(latestAlarmLevel)) {
+            return "WARNING";
+        }
+        if ("normal".equals(latestAlarmLevel) && ("ALARM".equals(baseStatus) || "ERROR".equals(baseStatus) || "WARNING".equals(baseStatus))) {
             return "RUNNING";
         }
         return baseStatus;

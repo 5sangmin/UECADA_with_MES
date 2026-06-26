@@ -81,10 +81,13 @@ public class EquipmentStatusController {
                 ? "RUNNING"
                 : baseStatus.toUpperCase(Locale.ROOT);
         String realtimeAlarmLevel = realtimeAlarmLevel(equipId);
-        if ("danger".equals(realtimeAlarmLevel) || "warning".equals(realtimeAlarmLevel)) {
-            return "ALARM";
+        if ("danger".equals(realtimeAlarmLevel)) {
+            return "ERROR";
         }
-        if ("normal".equals(realtimeAlarmLevel) && "ALARM".equals(normalizedBase)) {
+        if ("warning".equals(realtimeAlarmLevel)) {
+            return "WARNING";
+        }
+        if ("normal".equals(realtimeAlarmLevel) && ("ALARM".equals(normalizedBase) || "ERROR".equals(normalizedBase) || "WARNING".equals(normalizedBase))) {
             return "RUNNING";
         }
 
@@ -98,10 +101,13 @@ public class EquipmentStatusController {
                 .map(AnalysisResult::getAlarmLevel)
                 .map(level -> level.toLowerCase(Locale.ROOT))
                 .orElse(null);
-        if ("danger".equals(latestAlarmLevel) || "warning".equals(latestAlarmLevel)) {
-            return "ALARM";
+        if ("danger".equals(latestAlarmLevel)) {
+            return "ERROR";
         }
-        if ("normal".equals(latestAlarmLevel) && "ALARM".equals(normalizedBase)) {
+        if ("warning".equals(latestAlarmLevel)) {
+            return "WARNING";
+        }
+        if ("normal".equals(latestAlarmLevel) && ("ALARM".equals(normalizedBase) || "ERROR".equals(normalizedBase) || "WARNING".equals(normalizedBase))) {
             return "RUNNING";
         }
         return normalizedBase;

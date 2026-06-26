@@ -8170,6 +8170,14 @@ button.factory-webscada-open-btn:disabled {
 }
 
 .category-status-bar i.wait {
+  background: #a0aec0;
+}
+
+.category-status-bar i.complete {
+  background: #4299e1;
+}
+
+.category-status-bar i.warn {
   background: var(--control-yellow);
 }
 

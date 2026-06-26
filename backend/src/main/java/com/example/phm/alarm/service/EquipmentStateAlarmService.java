@@ -22,9 +22,9 @@ import org.springframework.stereotype.Service;
  * <p>전환 규칙:
  * <ul>
  *   <li>power true → false: severity=DANGER ({@code EQUIP_POWER_OFF})</li>
- *   <li>status_code 정상(0/1/4) → 2(WARNING): severity=WARNING ({@code EQUIP_STATUS_WARNING})</li>
- *   <li>status_code 정상(0/1/4) → 3(ERROR): severity=DANGER ({@code EQUIP_STATUS_ERROR})</li>
- *   <li>status_code 2(WARNING) → 3(ERROR): severity=DANGER (escalation)</li>
+ *   <li>status_code 정상(0/1/2) → 3(WARNING): severity=WARNING ({@code EQUIP_STATUS_WARNING})</li>
+ *   <li>status_code 정상(0/1/2) → 4(ERROR): severity=DANGER ({@code EQUIP_STATUS_ERROR})</li>
+ *   <li>status_code 3(WARNING) → 4(ERROR): severity=DANGER (escalation)</li>
  * </ul>
  * 전원이 꺼진 상태(power=false)에서는 status_code 전환 알람을 생성하지 않는다(전원 알람으로 충분).
  */
@@ -33,9 +33,9 @@ public class EquipmentStateAlarmService {
 
     private static final Logger log = LoggerFactory.getLogger(EquipmentStateAlarmService.class);
 
-    private static final int STATUS_WARNING = 2;
-    private static final int STATUS_ERROR = 3;
-    private static final Set<Integer> NORMAL_STATUS = Set.of(0, 1, 4);
+    private static final int STATUS_WARNING = 3;
+    private static final int STATUS_ERROR = 4;
+    private static final Set<Integer> NORMAL_STATUS = Set.of(0, 1, 2);
 
     private final AlarmRepository alarmRepository;
 
@@ -107,10 +107,10 @@ public class EquipmentStateAlarmService {
                 && (prevNormal || prevStatus == STATUS_WARNING)
                 && prevStatus != null && prevStatus != STATUS_ERROR) {
             insert(snapshot, "EQUIP_STATUS_ERROR", "설비 에러", "DANGER",
-                    "[" + equipId + "] 설비 ERROR (status_code=3)");
+                    "[" + equipId + "] 설비 ERROR (status_code=4)");
         } else if (statusCode == STATUS_WARNING && prevNormal && (prevStatus == null || prevStatus != STATUS_WARNING)) {
             insert(snapshot, "EQUIP_STATUS_WARNING", "설비 경고", "WARNING",
-                    "[" + equipId + "] 설비 WARNING (status_code=2)");
+                    "[" + equipId + "] 설비 WARNING (status_code=3)");
         }
     }
 

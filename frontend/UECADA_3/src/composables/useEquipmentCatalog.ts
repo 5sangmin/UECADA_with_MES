@@ -13,7 +13,7 @@ import {
   type RealtimeMetricConfig,
 } from '@/utils/realtimeBuffers'
 
-export type EquipmentState = '운전' | '정지' | '대기' | '점검'
+export type EquipmentState = '운전' | '대기' | '완료' | '경고' | '에러' | '점검'
 
 export interface EquipmentCommonMetric {
   label: string
@@ -46,8 +46,10 @@ export interface EquipmentCategory {
   status: string
   count: number
   running: number
-  stopped: number
-  waiting: number
+  idle: number
+  complete: number
+  warning: number
+  error: number
   avgRate: number
   defectCount: number
   description: string
@@ -76,14 +78,18 @@ export const CATEGORY_DEFINITIONS: readonly CategoryDefinition[] = [
 ] as const
 
 function statusCodeToState(code: EquipmentStatusCode | undefined): EquipmentState {
-  if (code === 'ALARM') return '정지'
+  if (code === 'RUNNING') return '운전'
+  if (code === 'IDLE' || code === 'STANDBY') return '대기'
+  if (code === 'COMPLETE') return '완료'
+  if (code === 'WARNING') return '경고'
+  if (code === 'ERROR' || code === 'ALARM') return '에러'
   if (code === 'MAINTENANCE') return '점검'
-  if (code === 'STANDBY') return '대기'
   return '운전'
 }
 
-function categoryStatusLabel(running: number, stopped: number): string {
-  if (stopped > 0) return '이상'
+function categoryStatusLabel(running: number, error: number, warning: number): string {
+  if (error > 0) return '이상'
+  if (warning > 0) return '경고'
   if (running === 0) return '대기'
   return '정상'
 }
@@ -265,8 +271,10 @@ export function useEquipmentCatalog() {
       })
 
       const running = items.filter((it) => it.state === '운전').length
-      const stopped = items.filter((it) => it.state === '정지').length
-      const waiting = items.filter((it) => it.state === '대기' || it.state === '점검').length
+      const idle = items.filter((it) => it.state === '대기' || it.state === '점검').length
+      const complete = items.filter((it) => it.state === '완료').length
+      const warning = items.filter((it) => it.state === '경고').length
+      const error = items.filter((it) => it.state === '에러').length
       const avgRate = items.length
         ? Math.round(items.reduce((sum, item) => sum + item.rate, 0) / items.length)
         : 0
@@ -275,11 +283,13 @@ export function useEquipmentCatalog() {
         id: def.id,
         name: def.name,
         icon: null,
-        status: categoryStatusLabel(running, stopped),
+        status: categoryStatusLabel(running, error, warning),
         count: items.length,
         running,
-        stopped,
-        waiting,
+        idle,
+        complete,
+        warning,
+        error,
         avgRate,
         defectCount: items.reduce((sum, item) => sum + item.defects, 0),
         description: def.description,

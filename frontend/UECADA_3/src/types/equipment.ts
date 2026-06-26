@@ -11,7 +11,7 @@ export interface Equipment {
   createdAt: string | null
 }
 
-export type EquipmentStatusCode = 'RUNNING' | 'STANDBY' | 'ALARM' | 'MAINTENANCE' | string
+export type EquipmentStatusCode = 'IDLE' | 'RUNNING' | 'COMPLETE' | 'WARNING' | 'ERROR' | 'MAINTENANCE' | 'STANDBY' | 'ALARM' | string
 
 export interface EquipmentStatusItem {
   equipId: string

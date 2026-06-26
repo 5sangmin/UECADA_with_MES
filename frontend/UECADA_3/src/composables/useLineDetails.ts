@@ -94,8 +94,8 @@ function processKey(equipment: Equipment): LineProcessStage['key'] {
 }
 
 function equipmentState(status: EquipmentStatusCode | undefined): LineEquipmentNode['state'] {
-  if (status === 'ALARM') return 'warn'
-  if (status === 'STANDBY' || status === 'MAINTENANCE') return 'standby'
+  if (status === 'ERROR' || status === 'WARNING' || status === 'ALARM') return 'warn'
+  if (status === 'IDLE' || status === 'COMPLETE' || status === 'STANDBY' || status === 'MAINTENANCE') return 'standby'
   return 'normal'
 }
 
