@@ -693,23 +693,10 @@
         }
     },
     {
-        "id": "ecc23f7306c47b8e",
+        "id": "cmdctr_endpoint_line03",
         "type": "OpcUa-Endpoint",
-        "name": "test_cmd_server:24870",
-        "endpoint": "opc.tcp://localhost:24870/command",
-        "secpol": "None",
-        "secmode": "None",
-        "none": true,
-        "login": false,
-        "usercert": false,
-        "usercertificate": "",
-        "userprivatekey": ""
-    },
-    {
-        "id": "d1a001c0a1111999",
-        "type": "OpcUa-Endpoint",
-        "name": "test_cmd_server:24800",
-        "endpoint": "opc.tcp://localhost:24800/command",
+        "name": "command-center:5160 (LINE-03)",
+        "endpoint": "opc.tcp://command-center:5160/UA/CommandCenter",
         "secpol": "None",
         "secmode": "None",
         "none": true,
@@ -2872,7 +2859,7 @@
         "finalize": "",
         "libs": [],
         "x": 1720,
-        "y": 80,
+        "y": 400,
         "wires": []
     },
     {
@@ -2888,8 +2875,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2120,
-        "y": 140,
+        "x": 2000,
+        "y": 100,
         "wires": []
     },
     {
@@ -2927,7 +2914,7 @@
         "maxMessageSize": "10485760",
         "maxBufferSize": "110485760",
         "maxSessions": "20",
-        "x": 2500,
+        "x": 2440,
         "y": 40,
         "wires": [
             [
@@ -2940,14 +2927,14 @@
         "type": "function",
         "z": "a9bff97af746e296",
         "name": "PUBLISH - OPC UA Server (EquipmentStruct)",
-        "func": "// PUBLISH - OPC UA Server (EquipmentStruct per-equipment JSON string)\n// Receives msg.payload = [{ equipment_name, variable_name, json_string }]\n// Publishes each as a single String variable on the OPC UA Server.\n// Fixed node contract: payload variables must always exist.\n\nconst BOOTSTRAP_MS = 5000;\nconst RETRY_MS = 1200;\n\nconst state = flow.get('opcua_state') || {};\nconst addMsgs = [];\nconst varList = [];\n\nconst startedAt = flow.get('opcua_started_at') || Date.now();\nflow.set('opcua_started_at', startedAt);\n\nfunction ensureMeta(name) {\n  if (!state[name] || typeof state[name] !== 'object') {\n    state[name] = {\n      phase: 'bootstrap',\n      firstSeenAt: Date.now(),\n      lastAddAt: 0\n    };\n  } else {\n    if (!state[name].phase) state[name].phase = 'bootstrap';\n    if (!state[name].firstSeenAt) state[name].firstSeenAt = Date.now();\n    if (!state[name].lastAddAt) state[name].lastAddAt = 0;\n  }\n  return state[name];\n}\n\nfunction queueAddVariable(name, meta) {\n  addMsgs.push({\n    topic: `ns=2;s=${name};datatype=String`,\n    payload: { opcuaCommand: 'addVariable' }\n  });\n  meta.phase = 'pending';\n  meta.lastAddAt = Date.now();\n}\n\nfunction publish(name, value) {\n  const meta = ensureMeta(name);\n  const now = Date.now();\n  const inBootstrapWindow = (now - startedAt) < BOOTSTRAP_MS;\n\n  if (meta.phase === 'bootstrap') {\n    queueAddVariable(name, meta);\n    return;\n  }\n\n  if (meta.phase === 'pending') {\n    if (inBootstrapWindow && (now - meta.lastAddAt >= RETRY_MS)) {\n      queueAddVariable(name, meta);\n      return;\n    }\n\n    if (!inBootstrapWindow) {\n      meta.phase = 'ready';\n    } else {\n      return;\n    }\n  }\n\n  if (meta.phase === 'ready') {\n    varList.push({\n      messageType: 'Variable',\n      namespace: 2,\n      variableName: name,\n      variableValue: String(value),\n      datatype: 'String'\n    });\n    return;\n  }\n\n  queueAddVariable(name, meta);\n}\n\nconst items = msg.payload || [];\nfor (const item of items) {\n  publish(item.variable_name, item.json_string);\n}\n\nflow.set('opcua_state', state);\n\nif (addMsgs.length > 0) {\n  for (const m of addMsgs) node.send(m);\n}\n\nconst delay = addMsgs.length > 0 ? RETRY_MS : 50;\nsetTimeout(() => {\n  if (varList.length > 0) node.send({ payload: varList });\n}, delay);\n\nreturn null;",
+        "func": "// PUBLISH - OPC UA Server (EquipmentStruct per-equipment JSON string)\n// Receives msg.payload = [{ equipment_name, variable_name, json_string }]\n// Publishes each as a single String variable on the OPC UA Server.\n// Fixed node contract: payload variables must always exist.\n\nconst BOOTSTRAP_MS = 10000;\nconst RETRY_MS = 1200;\n\nconst state = flow.get('opcua_state') || {};\nconst addMsgs = [];\nconst varList = [];\n\nconst startedAt = flow.get('opcua_started_at') || Date.now();\nflow.set('opcua_started_at', startedAt);\n\nfunction ensureMeta(name) {\n  if (!state[name] || typeof state[name] !== 'object') {\n    state[name] = {\n      phase: 'bootstrap',\n      firstSeenAt: Date.now(),\n      lastAddAt: 0\n    };\n  } else {\n    if (!state[name].phase) state[name].phase = 'bootstrap';\n    if (!state[name].firstSeenAt) state[name].firstSeenAt = Date.now();\n    if (!state[name].lastAddAt) state[name].lastAddAt = 0;\n  }\n  return state[name];\n}\n\nfunction queueAddVariable(name, meta) {\n  addMsgs.push({\n    topic: `ns=2;s=${name};datatype=String`,\n    payload: { opcuaCommand: 'addVariable' }\n  });\n  meta.phase = 'pending';\n  meta.lastAddAt = Date.now();\n}\n\nfunction publish(name, value) {\n  const meta = ensureMeta(name);\n  const now = Date.now();\n  const inBootstrapWindow = (now - startedAt) < BOOTSTRAP_MS;\n\n  if (meta.phase === 'bootstrap') {\n    queueAddVariable(name, meta);\n    return;\n  }\n\n  if (meta.phase === 'pending') {\n    if (inBootstrapWindow && (now - meta.lastAddAt >= RETRY_MS)) {\n      queueAddVariable(name, meta);\n      return;\n    }\n\n    if (!inBootstrapWindow) {\n      meta.phase = 'ready';\n    } else {\n      return;\n    }\n  }\n\n  if (meta.phase === 'ready') {\n    varList.push({\n      messageType: 'Variable',\n      namespace: 2,\n      variableName: name,\n      variableValue: String(value),\n      datatype: 'String'\n    });\n    return;\n  }\n\n  queueAddVariable(name, meta);\n}\n\nconst items = msg.payload || [];\nfor (const item of items) {\n  publish(item.variable_name, item.json_string);\n}\n\nflow.set('opcua_state', state);\n\nif (addMsgs.length > 0) {\n  for (const m of addMsgs) node.send(m);\n}\n\nconst delay = addMsgs.length > 0 ? RETRY_MS : 50;\nsetTimeout(() => {\n  if (varList.length > 0) node.send({ payload: varList });\n}, delay);\n\nreturn null;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
         "initialize": "flow.set('opcua_state', flow.get('opcua_state') || {});",
         "finalize": "",
         "libs": [],
-        "x": 2180,
+        "x": 2120,
         "y": 40,
         "wires": [
             [
@@ -2967,8 +2954,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1820,
-        "y": 140,
+        "x": 1800,
+        "y": 100,
         "wires": [
             [
                 "a933a7fbf4cd921c",
@@ -2994,7 +2981,7 @@
         "payload": "",
         "payloadType": "date",
         "x": 1600,
-        "y": 140,
+        "y": 100,
         "wires": [
             [
                 "cd6b2f6728f7f33c"
@@ -3014,7 +3001,7 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2700,
+        "x": 2640,
         "y": 40,
         "wires": []
     },
@@ -3160,8 +3147,8 @@
             "79c6453eecf13ee6",
             "cbb579733e50e537"
         ],
-        "x": 1535,
-        "y": 80,
+        "x": 1555,
+        "y": 400,
         "wires": [
             [
                 "2a1483fa414947db"
@@ -3196,11 +3183,12 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1870,
+        "x": 1730,
         "y": 200,
         "wires": [
             [
-                "a21b1e108675552d"
+                "a21b1e108675552d",
+                "ackbuild_line_3"
             ]
         ]
     },
@@ -3216,7 +3204,7 @@
         "complete": "false",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2120,
+        "x": 1980,
         "y": 200,
         "wires": []
     },
@@ -3237,7 +3225,7 @@
         "topic": "",
         "payload": "",
         "payloadType": "str",
-        "x": 200,
+        "x": 1530,
         "y": 40,
         "wires": [
             [
@@ -3257,7 +3245,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 460,
+        "x": 1800,
         "y": 40,
         "wires": [
             [
@@ -3286,8 +3274,8 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 2070,
-        "y": 80,
+        "x": 310,
+        "y": 40,
         "wires": [
             [
                 "09e5f564d1a864bf"
@@ -3306,9 +3294,62 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2260,
-        "y": 80,
+        "x": 500,
+        "y": 40,
         "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ackbuild_line_3",
+        "type": "function",
+        "z": "a9bff97af746e296",
+        "name": "fn_build_ack_payload_LINE-03",
+        "func": "// fn_build_ack_payload_LINE-03\n// 입력:\n//   msg.payload = { equipment_id, cmd_status, cmd_accepted, cmd_id }\n//   * equipment_id 는 설비 '이름' (예: \"CAST-01\") - line-das 내부 캐시 key.\n// 출력:\n//   msg.topic    = 'ns=1;s=Line-03.Ack'\n//   msg.payload  = JSON.stringify(ackPayload)        // raw String value\n//   msg.datatype = 'String'                          // OpcUa-Client write 가 읽는 형식\n//                  (line-das 의 'prepare writer payload' opcua_bool/opcua_float 와 동일 패턴)\n//   cmd_id == 0 또는 (equipment_id) 별 fingerprint unchanged 면 emit skip.\n\nconst FALLBACK_LINE_ID = 3;\nconst LINE_NAME = 'Line-03';\nconst VARIABLE_NAME = `${LINE_NAME}.Ack`;\n\nconst p = msg.payload || {};\nconst eqRef       = p.equipment_id;\nconst cmdId       = Number(p.cmd_id);\nconst cmdAccepted = Number(p.cmd_accepted);\nconst cmdStatus   = Number(p.cmd_status);\n\nif (eqRef === null || eqRef === undefined || eqRef === '') {\n    node.status({ fill: 'grey', shape: 'ring', text: 'no equipment ref' });\n    return null;\n}\nif (!Number.isFinite(cmdId) || cmdId === 0) {\n    // 빈 명령 상태(IDLE) — Ack 채널로 흘릴 의미 없음\n    return null;\n}\n\n// equipment_structs 로부터 정수 line_id / equipment_id 매핑\nconst structs = flow.get('equipment_structs') || {};\nconst struct = structs[eqRef] || null;\n\n// 입력이 이미 숫자(정수) ID 면 그대로 사용 (defensive)\nconst eqRefAsNumber = Number(eqRef);\nconst equipmentIdFromInput = Number.isFinite(eqRefAsNumber) && eqRefAsNumber > 0\n    ? eqRefAsNumber\n    : null;\n\nconst lineId = (struct && Number.isFinite(struct.line_id))\n    ? struct.line_id\n    : FALLBACK_LINE_ID;\nconst equipmentId = (struct && Number.isFinite(struct.equipment_id))\n    ? struct.equipment_id\n    : equipmentIdFromInput;\n\nif (!Number.isFinite(equipmentId) || equipmentId === 0) {\n    node.status({ fill: 'yellow', shape: 'ring', text: `unresolved eq=${eqRef}` });\n    return null;\n}\n\nconst fingerprint = `${cmdId}|${cmdAccepted}|${cmdStatus}`;\nconst cache = flow.get('ack_emit_fingerprint_by_equipment') || {};\nconst prev = cache[equipmentId];\nif (prev === fingerprint) {\n    // 동일 응답 재방출 차단\n    return null;\n}\ncache[equipmentId] = fingerprint;\nflow.set('ack_emit_fingerprint_by_equipment', cache);\n\nconst ackPayload = {\n    line_id: lineId,\n    equipment_id: equipmentId,\n    cmd_id: cmdId,\n    cmd_accepted: cmdAccepted,\n    cmd_status: cmdStatus,\n    observed_at: new Date().toISOString()\n};\n\nconst outMsg = {\n    topic: `ns=1;s=${VARIABLE_NAME}`,\n    payload: JSON.stringify(ackPayload),\n    datatype: 'String'\n};\n\nnode.status({ fill: 'green', shape: 'dot', text: `eq=${equipmentId} cmd=${cmdId} s=${cmdStatus}` });\nreturn outMsg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1770,
+        "y": 260,
+        "wires": [
+            [
+                "ackwrite_line_3"
+            ]
+        ]
+    },
+    {
+        "id": "ackwrite_line_3",
+        "type": "OpcUa-Client",
+        "z": "a9bff97af746e296",
+        "endpoint": "cmdctr_endpoint_line03",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "write Line-03.Ack",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 2010,
+        "y": 260,
+        "wires": [
+            [],
+            [],
             []
         ]
     },
@@ -5568,7 +5609,7 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-01 write tightening_angles_p",
+        "name": "ASSY-01 write tightening_angle_sp",
         "applicationName": "",
         "applicationUri": "",
         "x": 1820,
@@ -5892,7 +5933,7 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-02 write tightening_angles_p",
+        "name": "ASSY-02 write tightening_angle_sp",
         "applicationName": "",
         "applicationUri": "",
         "x": 1820,
@@ -8026,7 +8067,7 @@
         "type": "function",
         "z": "ea1ad26bb0767e1d",
         "name": "prepare upper command subscribe",
-        "func": "flow.set('opcua_sub_started_upper_cmd_line01', Date.now());\nmsg.topic = 'multiple';\nmsg.payload = [\n  {\n    nodeId: 'ns=2;s=LINE-03.command',\n    datatype: 'String',\n    name: 'command'\n  }\n];\nreturn msg;",
+        "func": "// PR16: Subscribe to Command Center variable 'ns=1;s=Line-03.Request'.\nflow.set('opcua_sub_started_upper_cmd_line03', Date.now());\nmsg.topic = 'multiple';\nmsg.payload = [\n  {\n    nodeId: 'ns=1;s=Line-03.Request',\n    datatype: 'String',\n    name: 'command'\n  }\n];\nreturn msg;\n",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -8045,7 +8086,7 @@
         "id": "5f153a0adffb3150",
         "type": "OpcUa-Client",
         "z": "ea1ad26bb0767e1d",
-        "endpoint": "d1a001c0a1111999",
+        "endpoint": "cmdctr_endpoint_line03",
         "action": "subscribe",
         "deadbandtype": "a",
         "deadbandvalue": "1",
@@ -8114,7 +8155,7 @@
         "type": "function",
         "z": "ea1ad26bb0767e1d",
         "name": "decode command json once",
-        "func": "const NODE_ID = 'ns=2;s=LINE-03.command';\nconst rawTopic = String(msg.topic || '');\nif (rawTopic !== NODE_ID) return null;\n\nlet sc = msg.StatusCode;\nif (sc === undefined && msg.payload && typeof msg.payload === 'object' && msg.payload.statusCode) {\n    sc = msg.payload.statusCode.value;\n}\nif (sc !== undefined && sc !== 0) return null;\n\nlet raw = msg.payload;\nif (raw && typeof raw === 'object') {\n    if (raw.value && typeof raw.value === 'object' && raw.value.value !== undefined) {\n        raw = raw.value.value;\n    } else if (raw.value !== undefined && raw.dataType === undefined) {\n        raw = raw.value;\n    }\n}\n\nif (raw === null || raw === undefined) return null;\nif (typeof raw !== 'string') {\n    if (typeof raw === 'object') return null;\n    raw = String(raw);\n}\n\nconst text = raw.trim();\nif (!text || text === '{}' || text === 'null' || text === 'undefined') return null;\nif (!(text.startsWith('{') && text.endsWith('}'))) return null;\n\nlet parsed;\ntry {\n    parsed = JSON.parse(text);\n} catch (e) {\n    node.warn(`invalid command json: ${e.message}`);\n    return null;\n}\n\nconst commandId = String(parsed.command_id || parsed.commandid || '').trim();\nconst equipmentId = String(parsed.equipment_id || parsed.equipmentid || '').trim();\nconst commandType = String(parsed.command_type || parsed.commandtype || '').trim();\nconst timeoutSecRaw = Number(parsed.timeout_sec ?? parsed.timeoutsec ?? 10);\nconst timeoutSec = Number.isFinite(timeoutSecRaw) && timeoutSecRaw > 0 ? timeoutSecRaw : 10;\n\nif (!commandId || !equipmentId || !commandType) {\n    node.warn('command json missing required fields');\n    return null;\n}\n\nconst lastId = flow.get('upper_command_last_id') || '';\nif (commandId === lastId) return null;\n\nflow.set('upper_command_last_id', commandId);\nflow.set('opcua_lastseen_upper_cmd_line01', Date.now());\n\nmsg.payload = {\n    command: {\n        commandid: commandId,\n        equipmentid: equipmentId,\n        commandtype: commandType,\n        value: parsed.value,\n        timeoutsec: timeoutSec\n    }\n};\nmsg.topic = commandId;\nreturn msg;",
+        "func": "// PR16: Subscribe target = ns=1;s=Line-03.Request (Command Center).\n// PR16.5: wire payload 에 underscore-prefixed 메타 필드 (e.g. _retry_epoch) 가\n//   섞여 올 수 있다. 이 함수는 명시적으로 4 필드 (command_id, equipment_id,\n//   command_type, value) + timeout_sec 만 읽으므로 _* 키는 자동 무시된다.\n//   retry 시 _retry_epoch 가 바뀌어도 같은 command_id 면 upper_command_last_id\n//   dedup 으로 한 번만 흘려보낸다 (정상 동작).\n// PR16.5 hot-fix: downstream (normalize + lock inflight) 는 snake_case key\n//   (command_id / equipment_id / command_type / timeout_sec) 를 읽으므로\n//   여기서도 동일 표기로 내보낸다. 이전 commandid(언더스코어 없음) 표기는\n//   normalize 에서 매칭 실패 → msg._msgid 가 BigInt 변환에서 throw 했다.\nconst NODE_ID = 'ns=1;s=Line-03.Request';\nconst rawTopic = String(msg.topic || '');\nif (rawTopic !== NODE_ID) return null;\n\nlet sc = msg.StatusCode;\nif (sc === undefined && msg.payload && typeof msg.payload === 'object' && msg.payload.statusCode) {\n    sc = msg.payload.statusCode.value;\n}\nif (sc !== undefined && sc !== 0) return null;\n\nlet raw = msg.payload;\nif (raw && typeof raw === 'object') {\n    if (raw.value && typeof raw.value === 'object' && raw.value.value !== undefined) {\n        raw = raw.value.value;\n    } else if (raw.value !== undefined && raw.dataType === undefined) {\n        raw = raw.value;\n    }\n}\n\nif (raw === null || raw === undefined) return null;\nif (typeof raw !== 'string') {\n    if (typeof raw === 'object') return null;\n    raw = String(raw);\n}\n\nconst text = raw.trim();\nif (!text || text === '{}' || text === 'null' || text === 'undefined') return null;\nif (!(text.startsWith('{') && text.endsWith('}'))) return null;\n\nlet parsed;\ntry {\n    parsed = JSON.parse(text);\n} catch (e) {\n    node.warn(`invalid command json: ${e.message}`);\n    return null;\n}\n\nconst commandId = String(parsed.command_id || parsed.commandid || '').trim();\nconst equipmentId = String(parsed.equipment_id || parsed.equipmentid || '').trim();\nconst commandType = String(parsed.command_type || parsed.commandtype || '').trim();\nconst timeoutSecRaw = Number(parsed.timeout_sec ?? parsed.timeoutsec ?? 10);\nconst timeoutSec = Number.isFinite(timeoutSecRaw) && timeoutSecRaw > 0 ? timeoutSecRaw : 10;\n\nif (!commandId || !equipmentId || !commandType) {\n    node.warn('command json missing required fields');\n    return null;\n}\n\nconst lastId = flow.get('upper_command_last_id') || '';\nif (commandId === lastId) return null;\n\nflow.set('upper_command_last_id', commandId);\nflow.set('opcua_lastseen_upper_cmd_line03', Date.now());\n\nmsg.payload = {\n    command: {\n        command_id: commandId,\n        equipment_id: equipmentId,\n        command_type: commandType,\n        value: parsed.value,\n        timeout_sec: timeoutSec\n    }\n};\nmsg.topic = commandId;\nreturn msg;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -8172,7 +8213,7 @@
         "type": "function",
         "z": "ea1ad26bb0767e1d",
         "name": "watchdog resub command",
-        "func": "const now = Date.now();\nconst lastSeen = flow.get('opcua_lastseen_upper_cmd_line01') || 0;\nconst cooldown = flow.get('opcua_resub_cooldown_upper_cmd_line01') || 0;\nconst started = flow.get('opcua_sub_started_upper_cmd_line01') || 0;\n\nif (!started) {\n    flow.set('opcua_sub_started_upper_cmd_line01', now);\n    return null;\n}\n\nconst noDataMs = lastSeen ? (now - lastSeen) : (now - started);\nif (noDataMs < 15000) return null;\nif (now - cooldown < 15000) return null;\n\nflow.set('opcua_resub_cooldown_upper_cmd_line01', now);\nmsg.topic = 'multiple';\nmsg.payload = [{\n  nodeId: 'ns=2;s=LINE-03.command',\n  datatype: 'String',\n  name: 'command'\n}];\nreturn msg;",
+        "func": "// PR16: Watchdog — re-subscribe to Command Center 'ns=1;s=Line-03.Request' if quiet.\nconst now = Date.now();\nconst lastSeen = flow.get('opcua_lastseen_upper_cmd_line03') || 0;\nconst cooldown = flow.get('opcua_resub_cooldown_upper_cmd_line03') || 0;\nconst started  = flow.get('opcua_sub_started_upper_cmd_line03') || 0;\n\nif (!started) {\n    flow.set('opcua_sub_started_upper_cmd_line03', now);\n    return null;\n}\n\nconst noDataMs = lastSeen ? (now - lastSeen) : (now - started);\nif (noDataMs < 15000) return null;\nif (now - cooldown < 15000) return null;\n\nflow.set('opcua_resub_cooldown_upper_cmd_line03', now);\nmsg.topic = 'multiple';\nmsg.payload = [{\n  nodeId: 'ns=1;s=Line-03.Request',\n  datatype: 'String',\n  name: 'command'\n}];\nreturn msg;\n",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,

@@ -430,8 +430,8 @@
     "node-red-contrib-postgresql": {
         "name": "node-red-contrib-postgresql",
         "version": "0.15.4",
-        "local": false,
-        "user": false,
+        "local": true,
+        "user": true,
         "nodes": {
             "postgresql": {
                 "name": "postgresql",
@@ -440,10 +440,117 @@
                     "postgresql"
                 ],
                 "enabled": true,
-                "local": false,
+                "local": true,
                 "user": false,
                 "module": "node-red-contrib-postgresql",
-                "file": "/usr/src/node-red/node_modules/node-red-contrib-postgresql/postgresql.js"
+                "file": "/data/node_modules/node-red-contrib-postgresql/postgresql.js"
+            }
+        }
+    },
+    "node-red-contrib-opcua": {
+        "name": "node-red-contrib-opcua",
+        "version": "0.2.352",
+        "local": true,
+        "user": true,
+        "nodes": {
+            "OpcUa-Item": {
+                "name": "OpcUa-Item",
+                "types": [
+                    "OpcUa-Item"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua",
+                "file": "/data/node_modules/node-red-contrib-opcua/opcua/101-opcuaitem.js"
+            },
+            "OpcUa-Client": {
+                "name": "OpcUa-Client",
+                "types": [
+                    "OpcUa-Client"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua",
+                "file": "/data/node_modules/node-red-contrib-opcua/opcua/102-opcuaclient.js"
+            },
+            "OpcUa-Browser": {
+                "name": "OpcUa-Browser",
+                "types": [
+                    "OpcUa-Browser"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua",
+                "file": "/data/node_modules/node-red-contrib-opcua/opcua/103-opcuabrowser.js"
+            },
+            "OpcUa-Server": {
+                "name": "OpcUa-Server",
+                "types": [
+                    "OpcUa-Server"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua",
+                "file": "/data/node_modules/node-red-contrib-opcua/opcua/104-opcuaserver.js"
+            },
+            "OpcUa-Endpoint": {
+                "name": "OpcUa-Endpoint",
+                "types": [
+                    "OpcUa-Endpoint"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua",
+                "file": "/data/node_modules/node-red-contrib-opcua/opcua/105-opcuaendpoint.js"
+            },
+            "OpcUa-Event": {
+                "name": "OpcUa-Event",
+                "types": [
+                    "OpcUa-Event"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua",
+                "file": "/data/node_modules/node-red-contrib-opcua/opcua/106-opcuaevent.js"
+            },
+            "OpcUa-Method": {
+                "name": "OpcUa-Method",
+                "types": [
+                    "OpcUa-Method"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua",
+                "file": "/data/node_modules/node-red-contrib-opcua/opcua/107-opcuamethod.js"
+            },
+            "OpcUa-Rights": {
+                "name": "OpcUa-Rights",
+                "types": [
+                    "OpcUa-Rights"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua",
+                "file": "/data/node_modules/node-red-contrib-opcua/opcua/108-opcuarights.js"
+            },
+            "OpcUa-Discovery": {
+                "name": "OpcUa-Discovery",
+                "types": [
+                    "OpcUa-Discovery"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-opcua",
+                "file": "/data/node_modules/node-red-contrib-opcua/opcua/109-opcuadiscovery.js"
             }
         }
     }

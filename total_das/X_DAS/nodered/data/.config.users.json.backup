@@ -27,7 +27,7 @@
                     "v": 4,
                     "tabs": [],
                     "primary": {
-                        "width": 344,
+                        "width": 343.993,
                         "top": {
                             "tabs": [
                                 "info",
@@ -35,8 +35,9 @@
                                 "config",
                                 "context"
                             ],
-                            "hidden": true,
-                            "height": 290
+                            "hidden": false,
+                            "height": 292.22222,
+                            "active": "config"
                         },
                         "bottom": {
                             "tabs": [
@@ -47,12 +48,12 @@
                         }
                     },
                     "secondary": {
-                        "width": 279,
+                        "width": 278.993,
                         "top": {
                             "tabs": [
                                 "explorer"
                             ],
-                            "height": 312.71833399999997,
+                            "height": 314.93022,
                             "hidden": false,
                             "active": "explorer"
                         },
@@ -65,6 +66,9 @@
                         }
                     }
                 }
+            },
+            "context": {
+                "flowRefresh": false
             }
         },
         "debug": {

@@ -66,6 +66,9 @@
                         }
                     }
                 }
+            },
+            "context": {
+                "flowRefresh": false
             }
         },
         "debug": {
@@ -77,6 +80,6 @@
                 "debug_xdas_live_sample"
             ]
         },
-        "menu-menu-item-sidebar": true
+        "menu-menu-item-sidebar": false
     }
 }

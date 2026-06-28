@@ -693,23 +693,10 @@
         }
     },
     {
-        "id": "ecc23f7306c47b8e",
+        "id": "cmdctr_endpoint_line02",
         "type": "OpcUa-Endpoint",
-        "name": "test_cmd_server:24870",
-        "endpoint": "opc.tcp://localhost:24870/command",
-        "secpol": "None",
-        "secmode": "None",
-        "none": true,
-        "login": false,
-        "usercert": false,
-        "usercertificate": "",
-        "userprivatekey": ""
-    },
-    {
-        "id": "d1a001c0a1111999",
-        "type": "OpcUa-Endpoint",
-        "name": "test_cmd_server:24800",
-        "endpoint": "opc.tcp://localhost:24800/command",
+        "name": "command-center:5160 (LINE-02)",
+        "endpoint": "opc.tcp://command-center:5160/UA/CommandCenter",
         "secpol": "None",
         "secmode": "None",
         "none": true,
@@ -724,7 +711,7 @@
         "z": "124902406a313c19",
         "name": "LINE-02 DAS",
         "info": "라인 LINE-02 9개 설비 폴링 -> 1초마다 통합 페이로드 발행\nOPC UA Server :4960 로 노출 (endpoint=line-das/LINE-02)\n\npayload schema: docs/integration_spec.md §5\nhost_mode: docker\n\nreader -> [AGGREGATE TAGS] -> flow context\npoll 1s -> [EMIT PAYLOAD] -> [DEBUG] + [PUBLISH OPC UA]\n",
-        "x": 130,
+        "x": 90,
         "y": 40,
         "wires": []
     },
@@ -2865,14 +2852,15 @@
         "type": "function",
         "z": "124902406a313c19",
         "name": "UPDATE EQUIPMENT STRUCTS",
-        "func": "\n// UPDATE EQUIPMENT STRUCTS\n// parser sends: msg.payload = { equipment_id, tags }\n// This node maps tags → EquipmentStruct canonical state.\n\nconst EQUIPMENT_META = {\n  \"CAST-01\": { line_id: 2, equipment_id: 101, type: \"CAST\" },\n  \"CNC-01\":  { line_id: 2, equipment_id: 201, type: \"CNC\" },\n  \"CNC-02\":  { line_id: 2, equipment_id: 202, type: \"CNC\" },\n  \"CNC-03\":  { line_id: 2, equipment_id: 203, type: \"CNC\" },\n  \"WASH-01\": { line_id: 2, equipment_id: 301, type: \"WASH\" },\n  \"ASSY-01\": { line_id: 2, equipment_id: 401, type: \"ASSY\" },\n  \"ASSY-02\": { line_id: 2, equipment_id: 402, type: \"ASSY\" },\n  \"TEST-01\": { line_id: 2, equipment_id: 501, type: \"TEST\" },\n  \"TEST-02\": { line_id: 2, equipment_id: 502, type: \"TEST\" }\n};\n\nconst STATUS_MAP = { 0: 0, 1: 1, 2: 4, 3: 3, 4: 2 };\n// legacy: 0=IDLE,1=RUNNING,2=WARNING,3=ERROR,4=COMPLETE\n// new:    0=IDLE,1=RUNNING,2=COMPLETED,3=WARNING,4=ERROR\nconst LEGACY_STR_MAP = { IDLE: 0, RUNNING: 1, WARNING: 3, ERROR: 4, COMPLETE: 2, COMPLETED: 2, UNKNOWN: 0 };\nconst STALE_MS = 3000;\nconst UNCERTAIN_MS = 10000;\n\nfunction toStatusCode(raw) {\n  if (raw === null || raw === undefined) return 0;\n  if (typeof raw === 'number') return STATUS_MAP[raw] !== undefined ? STATUS_MAP[raw] : 0;\n  const s = String(raw).toUpperCase();\n  return LEGACY_STR_MAP[s] !== undefined ? LEGACY_STR_MAP[s] : 0;\n}\n\nfunction deriveQualityCode(lastUpdateMs) {\n  if (!lastUpdateMs) return 0; // BAD\n  const age = Date.now() - lastUpdateMs;\n  if (age > UNCERTAIN_MS) return 0; // BAD\n  if (age > STALE_MS) return 1;     // UNCERTAIN\n  return 2;                          // GOOD\n}\n\nconst p = msg.payload || {};\nconst eqName = p.equipment_id;\nif (!eqName) return null;\n\nconst meta = EQUIPMENT_META[eqName];\nif (!meta) return null;\n\nconst structs = flow.get('equipment_structs') || {};\nconst s = structs[eqName] || {\n  line_id: meta.line_id, equipment_id: meta.equipment_id,\n  ts_epoch_ms: 0, quality_code: 0,\n  progress: NaN, cycle_time: NaN,\n  power: false, status_code: 0,\n  cmd_status: 0, cmd_accepted: 0, cmd_id: 0,\n  heartbeat: 0, part_count: 0,\n  data_1_setpoint: NaN, data_1_sensor: NaN,\n  data_2_setpoint: NaN, data_2_sensor: NaN,\n  data_3_setpoint: NaN, data_3_sensor: NaN\n};\n\nconst tags = p.tags || {};\nconst now = Date.now();\n\n// Common fields\nif ('power' in tags)     s.power      = !!tags.power;\nif ('progress' in tags)  s.progress   = Number(tags.progress);\nif ('cycletime' in tags) s.cycle_time = Number(tags.cycletime);\nif ('cycle_time' in tags) s.cycle_time = Number(tags.cycle_time);\nif ('heartbeat' in tags) s.heartbeat  = Number(tags.heartbeat) | 0;\nif ('partcount' in tags) s.part_count = Number(tags.partcount) | 0;\nif ('part_count' in tags) s.part_count = Number(tags.part_count) | 0;\n\nconst rawStatus = tags.status !== undefined ? tags.status : (tags.status_code !== undefined ? tags.status_code : undefined);\nif (rawStatus !== undefined) s.status_code = toStatusCode(rawStatus);\n\n// data_1~3 by equipment type\nif (meta.type === 'CAST') {\n  // data_1=inject_pressure, data_2=spindle_speed(moldtemp), data_3=cooling_flow\n  if ('inject_pressure_sp' in tags || 'injection_pressure_sp' in tags)\n    s.data_1_setpoint = Number(tags.inject_pressure_sp ?? tags.injection_pressure_sp);\n  if ('inject_pressure' in tags || 'injection_pressure' in tags)\n    s.data_1_sensor   = Number(tags.inject_pressure ?? tags.injection_pressure);\n  if ('mold_temperature_sp' in tags) s.data_2_setpoint = Number(tags.mold_temperature_sp);\n  if ('mold_temperature' in tags)    s.data_2_sensor   = Number(tags.mold_temperature);\n  if ('cooling_flow_sp' in tags)     s.data_3_setpoint = Number(tags.cooling_flow_sp);\n  if ('cooling_flow' in tags)        s.data_3_sensor   = Number(tags.cooling_flow);\n\n} else if (meta.type === 'CNC') {\n  // data_1=spindle_speed, data_2=tool_usage, data_3=coolant_flow\n  if ('spindlespeedsp' in tags || 'spindle_speed_sp' in tags)\n    s.data_1_setpoint = Number(tags.spindlespeedsp ?? tags.spindle_speed_sp);\n  if ('spindlespeed' in tags || 'spindle_speed' in tags)\n    s.data_1_sensor   = Number(tags.spindlespeed ?? tags.spindle_speed);\n  if ('toolusagesp' in tags || 'tool_usage_sp' in tags)\n    s.data_2_setpoint = Number(tags.toolusagesp ?? tags.tool_usage_sp);\n  if ('toolusage' in tags || 'tool_usage' in tags)\n    s.data_2_sensor   = Number(tags.toolusage ?? tags.tool_usage);\n  if ('coolantflowsp' in tags || 'coolant_flow_sp' in tags)\n    s.data_3_setpoint = Number(tags.coolantflowsp ?? tags.coolant_flow_sp);\n  if ('coolantflow' in tags || 'coolant_flow' in tags)\n    s.data_3_sensor   = Number(tags.coolantflow ?? tags.coolant_flow);\n\n} else if (meta.type === 'WASH') {\n  // data_1=cleaning_concentration, data_2=cleaning_temperature, data_3=cleaning_pressure\n  if ('cleaning_concentration_sp' in tags) s.data_1_setpoint = Number(tags.cleaning_concentration_sp);\n  if ('cleaning_concentration' in tags)    s.data_1_sensor   = Number(tags.cleaning_concentration);\n  if ('cleaning_temperature_sp' in tags)   s.data_2_setpoint = Number(tags.cleaning_temperature_sp);\n  if ('cleaning_temperature' in tags)      s.data_2_sensor   = Number(tags.cleaning_temperature);\n  if ('cleaning_pressure_sp' in tags)      s.data_3_setpoint = Number(tags.cleaning_pressure_sp);\n  if ('cleaning_pressure' in tags)         s.data_3_sensor   = Number(tags.cleaning_pressure);\n\n} else if (meta.type === 'ASSY') {\n  // data_1=tightening_torque, data_2=tightening_angle, data_3=press_force\n  if ('tighteningtorquesp' in tags || 'tightening_torque_sp' in tags)\n    s.data_1_setpoint = Number(tags.tighteningtorquesp ?? tags.tightening_torque_sp);\n  if ('tighteningtorque' in tags || 'tightening_torque' in tags)\n    s.data_1_sensor   = Number(tags.tighteningtorque ?? tags.tightening_torque);\n  if ('tighteninganglesp' in tags || 'tightening_angle_sp' in tags)\n    s.data_2_setpoint = Number(tags.tighteninganglesp ?? tags.tightening_angle_sp);\n  if ('tighteningangle' in tags || 'tightening_angle' in tags)\n    s.data_2_sensor   = Number(tags.tighteningangle ?? tags.tightening_angle);\n  if ('pressforcesp' in tags || 'press_force_sp' in tags)\n    s.data_3_setpoint = Number(tags.pressforcesp ?? tags.press_force_sp);\n  if ('pressforce' in tags || 'press_force' in tags)\n    s.data_3_sensor   = Number(tags.pressforce ?? tags.press_force);\n\n} else if (meta.type === 'TEST') {\n  // data_1=bore_dimension, data_2=hole_dimension, data_3=result_ok (computed)\n  if ('boredimensionsp' in tags || 'bore_dimension_sp' in tags)\n    s.data_1_setpoint = Number(tags.boredimensionsp ?? tags.bore_dimension_sp);\n  if ('boredimension' in tags || 'bore_dimension' in tags)\n    s.data_1_sensor   = Number(tags.boredimension ?? tags.bore_dimension);\n  if ('holedimensionsp' in tags || 'hole_dimension_sp' in tags)\n    s.data_2_setpoint = Number(tags.holedimensionsp ?? tags.hole_dimension_sp);\n  if ('holedimension' in tags || 'hole_dimension' in tags)\n    s.data_2_sensor   = Number(tags.holedimension ?? tags.hole_dimension);\n  // data_3_setpoint = NaN (no setpoint for result_ok)\n  s.data_3_setpoint = NaN;\n  // result_ok: computed from bore/hole vs setpoint (±tolerance)\n  // If result_ok is already passed from parser (legacy), use it; otherwise compute.\n  if ('result_ok' in tags) {\n    s.data_3_sensor = tags.result_ok ? 1.0 : 0.0;\n  } else {\n    const bore = s.data_1_sensor;\n    const boreSp = s.data_1_setpoint;\n    const hole = s.data_2_sensor;\n    const holeSp = s.data_2_setpoint;\n    const boreValid = Number.isFinite(bore) && Number.isFinite(boreSp);\n    const holeValid = Number.isFinite(hole) && Number.isFinite(holeSp);\n    if (!boreValid || !holeValid) {\n      // missing sensor data → keep previous result_ok or set 0\n      if (!Number.isFinite(s.data_3_sensor)) s.data_3_sensor = 0.0;\n    } else {\n      // tolerance: bore ±0.025 around 40.0, hole 10.16~10.24\n      const BORE_TOL = 0.025;\n      const HOLE_MIN = 10.16, HOLE_MAX = 10.24;\n      const boreOk = Math.abs(bore - boreSp) <= BORE_TOL;\n      const holeOk = hole >= HOLE_MIN && hole <= HOLE_MAX;\n      s.data_3_sensor = (boreOk && holeOk) ? 1.0 : 0.0;\n    }\n  }\n}\n\n// Merge command state if present\nconst cmdState = (flow.get('equipment_command_state') || {})[eqName];\nif (cmdState) {\n  s.cmd_status   = cmdState.cmd_status;\n  s.cmd_accepted = cmdState.cmd_accepted;\n  s.cmd_id       = cmdState.cmd_id;\n}\n\n// Timestamp & quality\ns.ts_epoch_ms  = now;\ns.quality_code = deriveQualityCode(now);\n\nstructs[eqName] = s;\nflow.set('equipment_structs', structs);\nreturn null;\n",
+        "func": "\n// UPDATE EQUIPMENT STRUCTS\n// parser sends: msg.payload = { equipment_id, tags }\n// This node maps tags → EquipmentStruct canonical state.\n\nconst EQUIPMENT_META = {\n  \"CAST-01\": { line_id: 2, equipment_id: 101, type: \"CAST\" },\n  \"CNC-01\":  { line_id: 2, equipment_id: 201, type: \"CNC\" },\n  \"CNC-02\":  { line_id: 2, equipment_id: 202, type: \"CNC\" },\n  \"CNC-03\":  { line_id: 2, equipment_id: 203, type: \"CNC\" },\n  \"WASH-01\": { line_id: 2, equipment_id: 301, type: \"WASH\" },\n  \"ASSY-01\": { line_id: 2, equipment_id: 401, type: \"ASSY\" },\n  \"ASSY-02\": { line_id: 2, equipment_id: 402, type: \"ASSY\" },\n  \"TEST-01\": { line_id: 2, equipment_id: 501, type: \"TEST\" },\n  \"TEST-02\": { line_id: 2, equipment_id: 502, type: \"TEST\" }\n};\n\nconst STATUS_MAP = { 0: 0, 1: 1, 2: 4, 3: 3, 4: 2 };\n// legacy: 0=IDLE,1=RUNNING,2=WARNING,3=ERROR,4=COMPLETE\n// new:    0=IDLE,1=RUNNING,2=COMPLETED,3=WARNING,4=ERROR\nconst LEGACY_STR_MAP = { IDLE: 0, RUNNING: 1, WARNING: 3, ERROR: 4, COMPLETE: 2, COMPLETED: 2, UNKNOWN: 0 };\nconst STALE_MS = 3000;\nconst UNCERTAIN_MS = 10000;\n\nfunction toStatusCode(raw) {\n  if (raw === null || raw === undefined) return 0;\n  if (typeof raw === 'number') return STATUS_MAP[raw] !== undefined ? STATUS_MAP[raw] : 0;\n  const s = String(raw).toUpperCase();\n  return LEGACY_STR_MAP[s] !== undefined ? LEGACY_STR_MAP[s] : 0;\n}\n\nfunction deriveQualityCode(lastUpdateMs) {\n  if (!lastUpdateMs) return 0; // BAD\n  const age = Date.now() - lastUpdateMs;\n  if (age > UNCERTAIN_MS) return 0; // BAD\n  if (age > STALE_MS) return 1;     // UNCERTAIN\n  return 2;                          // GOOD\n}\n\nconst p = msg.payload || {};\nconst eqName = p.equipment_id;\nif (!eqName) return null;\n\nconst meta = EQUIPMENT_META[eqName];\nif (!meta) return null;\n\nconst structs = flow.get('equipment_structs') || {};\nconst s = structs[eqName] || {\n  line_id: meta.line_id, equipment_id: meta.equipment_id,\n  ts_epoch_ms: 0, quality_code: 0,\n  progress: NaN, cycle_time: NaN,\n  power: false, status_code: 0,\n  cmd_status: 0, cmd_accepted: 0, cmd_id: 0,\n  heartbeat: 0, part_count: 0,\n  data_1_setpoint: NaN, data_1_sensor: NaN,\n  data_2_setpoint: NaN, data_2_sensor: NaN,\n  data_3_setpoint: NaN, data_3_sensor: NaN\n};\n\nconst tags = p.tags || {};\nconst now = Date.now();\n\n// Common fields\nif ('power' in tags)     s.power      = !!tags.power;\nif ('progress' in tags)  s.progress   = Number(tags.progress);\nif ('cycletime' in tags) s.cycle_time = Number(tags.cycletime);\nif ('cycle_time' in tags) s.cycle_time = Number(tags.cycle_time);\nif ('heartbeat' in tags) s.heartbeat  = Number(tags.heartbeat) | 0;\nif ('partcount' in tags) s.part_count = Number(tags.partcount) | 0;\nif ('part_count' in tags) s.part_count = Number(tags.part_count) | 0;\n\nconst rawStatus = tags.status !== undefined ? tags.status : (tags.status_code !== undefined ? tags.status_code : undefined);\nif (rawStatus !== undefined) s.status_code = toStatusCode(rawStatus);\n\n// data_1~3 by equipment type\nif (meta.type === 'CAST') {\n  // data_1=inject_pressure, data_2=spindle_speed(moldtemp), data_3=cooling_flow\n  if ('inject_pressure_sp' in tags || 'injection_pressure_sp' in tags)\n    s.data_1_setpoint = Number(tags.inject_pressure_sp ?? tags.injection_pressure_sp);\n  if ('inject_pressure' in tags || 'injection_pressure' in tags)\n    s.data_1_sensor   = Number(tags.inject_pressure ?? tags.injection_pressure);\n  if ('mold_temperature_sp' in tags) s.data_2_setpoint = Number(tags.mold_temperature_sp);\n  if ('mold_temperature' in tags)    s.data_2_sensor   = Number(tags.mold_temperature);\n  if ('cooling_flow_sp' in tags)     s.data_3_setpoint = Number(tags.cooling_flow_sp);\n  if ('cooling_flow' in tags)        s.data_3_sensor   = Number(tags.cooling_flow);\n\n} else if (meta.type === 'CNC') {\n  // data_1=spindle_speed, data_2=tool_usage, data_3=coolant_flow\n  if ('spindlespeedsp' in tags || 'spindle_speed_sp' in tags)\n    s.data_1_setpoint = Number(tags.spindlespeedsp ?? tags.spindle_speed_sp);\n  if ('spindlespeed' in tags || 'spindle_speed' in tags)\n    s.data_1_sensor   = Number(tags.spindlespeed ?? tags.spindle_speed);\n  if ('toolusagesp' in tags || 'tool_usage_sp' in tags)\n    s.data_2_setpoint = Number(tags.toolusagesp ?? tags.tool_usage_sp);\n  if ('toolusage' in tags || 'tool_usage' in tags)\n    s.data_2_sensor   = Number(tags.toolusage ?? tags.tool_usage);\n  if ('coolantflowsp' in tags || 'coolant_flow_sp' in tags)\n    s.data_3_setpoint = Number(tags.coolantflowsp ?? tags.coolant_flow_sp);\n  if ('coolantflow' in tags || 'coolant_flow' in tags)\n    s.data_3_sensor   = Number(tags.coolantflow ?? tags.coolant_flow);\n\n} else if (meta.type === 'WASH') {\n  // data_1=cleaning_concentration, data_2=cleaning_temperature, data_3=cleaning_pressure\n  if ('cleaning_concentration_sp' in tags) s.data_1_setpoint = Number(tags.cleaning_concentration_sp);\n  if ('cleaning_concentration' in tags)    s.data_1_sensor   = Number(tags.cleaning_concentration);\n  if ('cleaning_temperature_sp' in tags)   s.data_2_setpoint = Number(tags.cleaning_temperature_sp);\n  if ('cleaning_temperature' in tags)      s.data_2_sensor   = Number(tags.cleaning_temperature);\n  if ('cleaning_pressure_sp' in tags)      s.data_3_setpoint = Number(tags.cleaning_pressure_sp);\n  if ('cleaning_pressure' in tags)         s.data_3_sensor   = Number(tags.cleaning_pressure);\n\n} else if (meta.type === 'ASSY') {\n  // data_1=tightening_torque, data_2=tightening_angle, data_3=press_force\n  if ('tighteningtorquesp' in tags || 'tightening_torque_sp' in tags)\n    s.data_1_setpoint = Number(tags.tighteningtorquesp ?? tags.tightening_torque_sp);\n  if ('tighteningtorque' in tags || 'tightening_torque' in tags)\n    s.data_1_sensor   = Number(tags.tighteningtorque ?? tags.tightening_torque);\n  if ('tighteninganglesp' in tags || 'tightening_angle_sp' in tags)\n    s.data_2_setpoint = Number(tags.tighteninganglesp ?? tags.tightening_angle_sp);\n  if ('tighteningangle' in tags || 'tightening_angle' in tags)\n    s.data_2_sensor   = Number(tags.tighteningangle ?? tags.tightening_angle);\n  if ('pressforcesp' in tags || 'press_force_sp' in tags)\n    s.data_3_setpoint = Number(tags.pressforcesp ?? tags.press_force_sp);\n  if ('pressforce' in tags || 'press_force' in tags)\n    s.data_3_sensor   = Number(tags.pressforce ?? tags.press_force);\n\n} else if (meta.type === 'TEST') {\n  // data_1=bore_dimension, data_2=hole_dimension, data_3=result_ok (computed)\n  if ('boredimensionsp' in tags || 'bore_dimension_sp' in tags)\n    s.data_1_setpoint = Number(tags.boredimensionsp ?? tags.bore_dimension_sp);\n  if ('boredimension' in tags || 'bore_dimension' in tags)\n    s.data_1_sensor   = Number(tags.boredimension ?? tags.bore_dimension);\n  if ('holedimensionsp' in tags || 'hole_dimension_sp' in tags)\n    s.data_2_setpoint = Number(tags.holedimensionsp ?? tags.hole_dimension_sp);\n  if ('holedimension' in tags || 'hole_dimension' in tags)\n    s.data_2_sensor   = Number(tags.holedimension ?? tags.hole_dimension);\n  // data_3_setpoint = NaN (no setpoint for result_ok)\n  s.data_3_setpoint = NaN;\n  // result_ok: computed from bore/hole vs setpoint (±tolerance)\n  // If result_ok is already passed from parser (legacy), use it; otherwise compute.\n  if ('result_ok' in tags) {\n    s.data_3_sensor = tags.result_ok ? 1.0 : 0.0;\n  } else {\n    const bore = s.data_1_sensor;\n    const boreSp = s.data_1_setpoint;\n    const hole = s.data_2_sensor;\n    const holeSp = s.data_2_setpoint;\n    const boreValid = Number.isFinite(bore) && Number.isFinite(boreSp);\n    const holeValid = Number.isFinite(hole) && Number.isFinite(holeSp);\n    if (!boreValid || !holeValid) {\n      // missing sensor data → keep previous result_ok or set 0\n      if (!Number.isFinite(s.data_3_sensor)) s.data_3_sensor = 0.0;\n    } else {\n      // tolerance: bore ±0.025 around 40.0, hole 10.16~10.24\n      const BORE_TOL = 0.025;\n      const HOLE_MIN = 10.14, HOLE_MAX = 10.26;\n      const boreOk = Math.abs(bore - boreSp) <= BORE_TOL;\n      const holeOk = hole >= HOLE_MIN && hole <= HOLE_MAX;\n      s.data_3_sensor = (boreOk && holeOk) ? 1.0 : 0.0;\n    }\n  }\n}\n\n// Merge command state if present\nconst cmdState = (flow.get('equipment_command_state') || {})[eqName];\nif (cmdState) {\n  s.cmd_status   = cmdState.cmd_status;\n  s.cmd_accepted = cmdState.cmd_accepted;\n  s.cmd_id       = cmdState.cmd_id;\n}\n\n// Timestamp & quality\ns.ts_epoch_ms  = now;\ns.quality_code = deriveQualityCode(now);\n\nstructs[eqName] = s;\nflow.set('equipment_structs', structs);\nreturn null;\n",
         "outputs": 0,
+        "timeout": "",
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1720,
-        "y": 80,
+        "x": 1700,
+        "y": 400,
         "wires": []
     },
     {
@@ -2888,8 +2876,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2120,
-        "y": 140,
+        "x": 2000,
+        "y": 100,
         "wires": []
     },
     {
@@ -2927,7 +2915,7 @@
         "maxMessageSize": "10485760",
         "maxBufferSize": "110485760",
         "maxSessions": "20",
-        "x": 2500,
+        "x": 2440,
         "y": 40,
         "wires": [
             [
@@ -2940,14 +2928,14 @@
         "type": "function",
         "z": "124902406a313c19",
         "name": "PUBLISH - OPC UA Server (EquipmentStruct)",
-        "func": "// PUBLISH - OPC UA Server (EquipmentStruct per-equipment JSON string)\n// Receives msg.payload = [{ equipment_name, variable_name, json_string }]\n// Publishes each as a single String variable on the OPC UA Server.\n// Fixed node contract: payload variables must always exist.\n\nconst BOOTSTRAP_MS = 5000;\nconst RETRY_MS = 1200;\n\nconst state = flow.get('opcua_state') || {};\nconst addMsgs = [];\nconst varList = [];\n\nconst startedAt = flow.get('opcua_started_at') || Date.now();\nflow.set('opcua_started_at', startedAt);\n\nfunction ensureMeta(name) {\n  if (!state[name] || typeof state[name] !== 'object') {\n    state[name] = {\n      phase: 'bootstrap',\n      firstSeenAt: Date.now(),\n      lastAddAt: 0\n    };\n  } else {\n    if (!state[name].phase) state[name].phase = 'bootstrap';\n    if (!state[name].firstSeenAt) state[name].firstSeenAt = Date.now();\n    if (!state[name].lastAddAt) state[name].lastAddAt = 0;\n  }\n  return state[name];\n}\n\nfunction queueAddVariable(name, meta) {\n  addMsgs.push({\n    topic: `ns=2;s=${name};datatype=String`,\n    payload: { opcuaCommand: 'addVariable' }\n  });\n  meta.phase = 'pending';\n  meta.lastAddAt = Date.now();\n}\n\nfunction publish(name, value) {\n  const meta = ensureMeta(name);\n  const now = Date.now();\n  const inBootstrapWindow = (now - startedAt) < BOOTSTRAP_MS;\n\n  if (meta.phase === 'bootstrap') {\n    queueAddVariable(name, meta);\n    return;\n  }\n\n  if (meta.phase === 'pending') {\n    if (inBootstrapWindow && (now - meta.lastAddAt >= RETRY_MS)) {\n      queueAddVariable(name, meta);\n      return;\n    }\n\n    if (!inBootstrapWindow) {\n      meta.phase = 'ready';\n    } else {\n      return;\n    }\n  }\n\n  if (meta.phase === 'ready') {\n    varList.push({\n      messageType: 'Variable',\n      namespace: 2,\n      variableName: name,\n      variableValue: String(value),\n      datatype: 'String'\n    });\n    return;\n  }\n\n  queueAddVariable(name, meta);\n}\n\nconst items = msg.payload || [];\nfor (const item of items) {\n  publish(item.variable_name, item.json_string);\n}\n\nflow.set('opcua_state', state);\n\nif (addMsgs.length > 0) {\n  for (const m of addMsgs) node.send(m);\n}\n\nconst delay = addMsgs.length > 0 ? RETRY_MS : 50;\nsetTimeout(() => {\n  if (varList.length > 0) node.send({ payload: varList });\n}, delay);\n\nreturn null;",
+        "func": "// PUBLISH - OPC UA Server (EquipmentStruct per-equipment JSON string)\n// Receives msg.payload = [{ equipment_name, variable_name, json_string }]\n// Publishes each as a single String variable on the OPC UA Server.\n// Fixed node contract: payload variables must always exist.\n\nconst BOOTSTRAP_MS = 10000;\nconst RETRY_MS = 1200;\n\nconst state = flow.get('opcua_state') || {};\nconst addMsgs = [];\nconst varList = [];\n\nconst startedAt = flow.get('opcua_started_at') || Date.now();\nflow.set('opcua_started_at', startedAt);\n\nfunction ensureMeta(name) {\n  if (!state[name] || typeof state[name] !== 'object') {\n    state[name] = {\n      phase: 'bootstrap',\n      firstSeenAt: Date.now(),\n      lastAddAt: 0\n    };\n  } else {\n    if (!state[name].phase) state[name].phase = 'bootstrap';\n    if (!state[name].firstSeenAt) state[name].firstSeenAt = Date.now();\n    if (!state[name].lastAddAt) state[name].lastAddAt = 0;\n  }\n  return state[name];\n}\n\nfunction queueAddVariable(name, meta) {\n  addMsgs.push({\n    topic: `ns=2;s=${name};datatype=String`,\n    payload: { opcuaCommand: 'addVariable' }\n  });\n  meta.phase = 'pending';\n  meta.lastAddAt = Date.now();\n}\n\nfunction publish(name, value) {\n  const meta = ensureMeta(name);\n  const now = Date.now();\n  const inBootstrapWindow = (now - startedAt) < BOOTSTRAP_MS;\n\n  if (meta.phase === 'bootstrap') {\n    queueAddVariable(name, meta);\n    return;\n  }\n\n  if (meta.phase === 'pending') {\n    if (inBootstrapWindow && (now - meta.lastAddAt >= RETRY_MS)) {\n      queueAddVariable(name, meta);\n      return;\n    }\n\n    if (!inBootstrapWindow) {\n      meta.phase = 'ready';\n    } else {\n      return;\n    }\n  }\n\n  if (meta.phase === 'ready') {\n    varList.push({\n      messageType: 'Variable',\n      namespace: 2,\n      variableName: name,\n      variableValue: String(value),\n      datatype: 'String'\n    });\n    return;\n  }\n\n  queueAddVariable(name, meta);\n}\n\nconst items = msg.payload || [];\nfor (const item of items) {\n  publish(item.variable_name, item.json_string);\n}\n\nflow.set('opcua_state', state);\n\nif (addMsgs.length > 0) {\n  for (const m of addMsgs) node.send(m);\n}\n\nconst delay = addMsgs.length > 0 ? RETRY_MS : 50;\nsetTimeout(() => {\n  if (varList.length > 0) node.send({ payload: varList });\n}, delay);\n\nreturn null;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
         "initialize": "flow.set('opcua_state', flow.get('opcua_state') || {});",
         "finalize": "",
         "libs": [],
-        "x": 2180,
+        "x": 2120,
         "y": 40,
         "wires": [
             [
@@ -2967,8 +2955,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1820,
-        "y": 140,
+        "x": 1800,
+        "y": 100,
         "wires": [
             [
                 "ec44b80853d62e76",
@@ -2994,7 +2982,7 @@
         "payload": "",
         "payloadType": "date",
         "x": 1600,
-        "y": 140,
+        "y": 100,
         "wires": [
             [
                 "206bed5e670b508b"
@@ -3014,7 +3002,7 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2700,
+        "x": 2640,
         "y": 40,
         "wires": []
     },
@@ -3161,7 +3149,7 @@
             "4f14976178fbf720"
         ],
         "x": 1535,
-        "y": 80,
+        "y": 400,
         "wires": [
             [
                 "20f44fe49fe1cfd4"
@@ -3196,11 +3184,12 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 1870,
+        "x": 1730,
         "y": 200,
         "wires": [
             [
-                "066d7b37d2247fa3"
+                "066d7b37d2247fa3",
+                "ackbuild_line_2"
             ]
         ]
     },
@@ -3216,7 +3205,7 @@
         "complete": "false",
         "statusVal": "",
         "statusType": "auto",
-        "x": 2120,
+        "x": 1980,
         "y": 200,
         "wires": []
     },
@@ -3237,7 +3226,7 @@
         "topic": "",
         "payload": "",
         "payloadType": "str",
-        "x": 200,
+        "x": 1530,
         "y": 40,
         "wires": [
             [
@@ -3257,7 +3246,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 460,
+        "x": 1800,
         "y": 40,
         "wires": [
             [
@@ -3286,8 +3275,8 @@
         "topic": "",
         "payload": "",
         "payloadType": "date",
-        "x": 2070,
-        "y": 80,
+        "x": 270,
+        "y": 40,
         "wires": [
             [
                 "09e5f564d1a864bf"
@@ -3306,9 +3295,62 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 2260,
-        "y": 80,
+        "x": 480,
+        "y": 40,
         "wires": [
+            []
+        ]
+    },
+    {
+        "id": "ackbuild_line_2",
+        "type": "function",
+        "z": "124902406a313c19",
+        "name": "fn_build_ack_payload_LINE-02",
+        "func": "// fn_build_ack_payload_LINE-02\n// 입력:\n//   msg.payload = { equipment_id, cmd_status, cmd_accepted, cmd_id }\n//   * equipment_id 는 설비 '이름' (예: \"CAST-01\") - line-das 내부 캐시 key.\n// 출력:\n//   msg.topic    = 'ns=1;s=Line-02.Ack'\n//   msg.payload  = JSON.stringify(ackPayload)        // raw String value\n//   msg.datatype = 'String'                          // OpcUa-Client write 가 읽는 형식\n//                  (line-das 의 'prepare writer payload' opcua_bool/opcua_float 와 동일 패턴)\n//   cmd_id == 0 또는 (equipment_id) 별 fingerprint unchanged 면 emit skip.\n\nconst FALLBACK_LINE_ID = 2;\nconst LINE_NAME = 'Line-02';\nconst VARIABLE_NAME = `${LINE_NAME}.Ack`;\n\nconst p = msg.payload || {};\nconst eqRef       = p.equipment_id;\nconst cmdId       = Number(p.cmd_id);\nconst cmdAccepted = Number(p.cmd_accepted);\nconst cmdStatus   = Number(p.cmd_status);\n\nif (eqRef === null || eqRef === undefined || eqRef === '') {\n    node.status({ fill: 'grey', shape: 'ring', text: 'no equipment ref' });\n    return null;\n}\nif (!Number.isFinite(cmdId) || cmdId === 0) {\n    // 빈 명령 상태(IDLE) — Ack 채널로 흘릴 의미 없음\n    return null;\n}\n\n// equipment_structs 로부터 정수 line_id / equipment_id 매핑\nconst structs = flow.get('equipment_structs') || {};\nconst struct = structs[eqRef] || null;\n\n// 입력이 이미 숫자(정수) ID 면 그대로 사용 (defensive)\nconst eqRefAsNumber = Number(eqRef);\nconst equipmentIdFromInput = Number.isFinite(eqRefAsNumber) && eqRefAsNumber > 0\n    ? eqRefAsNumber\n    : null;\n\nconst lineId = (struct && Number.isFinite(struct.line_id))\n    ? struct.line_id\n    : FALLBACK_LINE_ID;\nconst equipmentId = (struct && Number.isFinite(struct.equipment_id))\n    ? struct.equipment_id\n    : equipmentIdFromInput;\n\nif (!Number.isFinite(equipmentId) || equipmentId === 0) {\n    node.status({ fill: 'yellow', shape: 'ring', text: `unresolved eq=${eqRef}` });\n    return null;\n}\n\nconst fingerprint = `${cmdId}|${cmdAccepted}|${cmdStatus}`;\nconst cache = flow.get('ack_emit_fingerprint_by_equipment') || {};\nconst prev = cache[equipmentId];\nif (prev === fingerprint) {\n    // 동일 응답 재방출 차단\n    return null;\n}\ncache[equipmentId] = fingerprint;\nflow.set('ack_emit_fingerprint_by_equipment', cache);\n\nconst ackPayload = {\n    line_id: lineId,\n    equipment_id: equipmentId,\n    cmd_id: cmdId,\n    cmd_accepted: cmdAccepted,\n    cmd_status: cmdStatus,\n    observed_at: new Date().toISOString()\n};\n\nconst outMsg = {\n    topic: `ns=1;s=${VARIABLE_NAME}`,\n    payload: JSON.stringify(ackPayload),\n    datatype: 'String'\n};\n\nnode.status({ fill: 'green', shape: 'dot', text: `eq=${equipmentId} cmd=${cmdId} s=${cmdStatus}` });\nreturn outMsg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1770,
+        "y": 260,
+        "wires": [
+            [
+                "ackwrite_line_2"
+            ]
+        ]
+    },
+    {
+        "id": "ackwrite_line_2",
+        "type": "OpcUa-Client",
+        "z": "124902406a313c19",
+        "endpoint": "cmdctr_endpoint_line02",
+        "action": "write",
+        "deadbandtype": "a",
+        "deadbandvalue": "1",
+        "time": "10",
+        "timeUnit": "s",
+        "certificate": "n",
+        "localfile": "",
+        "localkeyfile": "",
+        "securitymode": "None",
+        "securitypolicy": "None",
+        "useTransport": false,
+        "maxChunkCount": "1",
+        "maxMessageSize": "8192",
+        "receiveBufferSize": "8192",
+        "sendBufferSize": "8192",
+        "setstatusandtime": false,
+        "keepsessionalive": false,
+        "name": "write Line-02.Ack",
+        "applicationName": "",
+        "applicationUri": "",
+        "x": 2010,
+        "y": 260,
+        "wires": [
+            [],
+            [],
             []
         ]
     },
@@ -5568,7 +5610,7 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-01 write tightening_angles_p",
+        "name": "ASSY-01 write tightening_angle_sp",
         "applicationName": "",
         "applicationUri": "",
         "x": 1820,
@@ -5892,7 +5934,7 @@
         "sendBufferSize": "8192",
         "setstatusandtime": false,
         "keepsessionalive": false,
-        "name": "ASSY-02 write tightening_angles_p",
+        "name": "ASSY-02 write tightening_angle_sp",
         "applicationName": "",
         "applicationUri": "",
         "x": 1820,
@@ -8026,7 +8068,7 @@
         "type": "function",
         "z": "7841851e0cbfff00",
         "name": "prepare upper command subscribe",
-        "func": "flow.set('opcua_sub_started_upper_cmd_line01', Date.now());\nmsg.topic = 'multiple';\nmsg.payload = [\n  {\n    nodeId: 'ns=2;s=LINE-02.command',\n    datatype: 'String',\n    name: 'command'\n  }\n];\nreturn msg;",
+        "func": "// PR16: Subscribe to Command Center variable 'ns=1;s=Line-02.Request'.\nflow.set('opcua_sub_started_upper_cmd_line02', Date.now());\nmsg.topic = 'multiple';\nmsg.payload = [\n  {\n    nodeId: 'ns=1;s=Line-02.Request',\n    datatype: 'String',\n    name: 'command'\n  }\n];\nreturn msg;\n",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -8045,7 +8087,7 @@
         "id": "4a82b1b55b12ac4e",
         "type": "OpcUa-Client",
         "z": "7841851e0cbfff00",
-        "endpoint": "d1a001c0a1111999",
+        "endpoint": "cmdctr_endpoint_line02",
         "action": "subscribe",
         "deadbandtype": "a",
         "deadbandvalue": "1",
@@ -8114,7 +8156,7 @@
         "type": "function",
         "z": "7841851e0cbfff00",
         "name": "decode command json once",
-        "func": "const NODE_ID = 'ns=2;s=LINE-02.command';\nconst rawTopic = String(msg.topic || '');\nif (rawTopic !== NODE_ID) return null;\n\nlet sc = msg.StatusCode;\nif (sc === undefined && msg.payload && typeof msg.payload === 'object' && msg.payload.statusCode) {\n    sc = msg.payload.statusCode.value;\n}\nif (sc !== undefined && sc !== 0) return null;\n\nlet raw = msg.payload;\nif (raw && typeof raw === 'object') {\n    if (raw.value && typeof raw.value === 'object' && raw.value.value !== undefined) {\n        raw = raw.value.value;\n    } else if (raw.value !== undefined && raw.dataType === undefined) {\n        raw = raw.value;\n    }\n}\n\nif (raw === null || raw === undefined) return null;\nif (typeof raw !== 'string') {\n    if (typeof raw === 'object') return null;\n    raw = String(raw);\n}\n\nconst text = raw.trim();\nif (!text || text === '{}' || text === 'null' || text === 'undefined') return null;\nif (!(text.startsWith('{') && text.endsWith('}'))) return null;\n\nlet parsed;\ntry {\n    parsed = JSON.parse(text);\n} catch (e) {\n    node.warn(`invalid command json: ${e.message}`);\n    return null;\n}\n\nconst commandId = String(parsed.command_id || parsed.commandid || '').trim();\nconst equipmentId = String(parsed.equipment_id || parsed.equipmentid || '').trim();\nconst commandType = String(parsed.command_type || parsed.commandtype || '').trim();\nconst timeoutSecRaw = Number(parsed.timeout_sec ?? parsed.timeoutsec ?? 10);\nconst timeoutSec = Number.isFinite(timeoutSecRaw) && timeoutSecRaw > 0 ? timeoutSecRaw : 10;\n\nif (!commandId || !equipmentId || !commandType) {\n    node.warn('command json missing required fields');\n    return null;\n}\n\nconst lastId = flow.get('upper_command_last_id') || '';\nif (commandId === lastId) return null;\n\nflow.set('upper_command_last_id', commandId);\nflow.set('opcua_lastseen_upper_cmd_line01', Date.now());\n\nmsg.payload = {\n    command: {\n        commandid: commandId,\n        equipmentid: equipmentId,\n        commandtype: commandType,\n        value: parsed.value,\n        timeoutsec: timeoutSec\n    }\n};\nmsg.topic = commandId;\nreturn msg;",
+        "func": "// PR16: Subscribe target = ns=1;s=Line-02.Request (Command Center).\n// PR16.5: wire payload 에 underscore-prefixed 메타 필드 (e.g. _retry_epoch) 가\n//   섞여 올 수 있다. 이 함수는 명시적으로 4 필드 (command_id, equipment_id,\n//   command_type, value) + timeout_sec 만 읽으므로 _* 키는 자동 무시된다.\n//   retry 시 _retry_epoch 가 바뀌어도 같은 command_id 면 upper_command_last_id\n//   dedup 으로 한 번만 흘려보낸다 (정상 동작).\n// PR16.5 hot-fix: downstream (normalize + lock inflight) 는 snake_case key\n//   (command_id / equipment_id / command_type / timeout_sec) 를 읽으므로\n//   여기서도 동일 표기로 내보낸다. 이전 commandid(언더스코어 없음) 표기는\n//   normalize 에서 매칭 실패 → msg._msgid 가 BigInt 변환에서 throw 했다.\nconst NODE_ID = 'ns=1;s=Line-02.Request';\nconst rawTopic = String(msg.topic || '');\nif (rawTopic !== NODE_ID) return null;\n\nlet sc = msg.StatusCode;\nif (sc === undefined && msg.payload && typeof msg.payload === 'object' && msg.payload.statusCode) {\n    sc = msg.payload.statusCode.value;\n}\nif (sc !== undefined && sc !== 0) return null;\n\nlet raw = msg.payload;\nif (raw && typeof raw === 'object') {\n    if (raw.value && typeof raw.value === 'object' && raw.value.value !== undefined) {\n        raw = raw.value.value;\n    } else if (raw.value !== undefined && raw.dataType === undefined) {\n        raw = raw.value;\n    }\n}\n\nif (raw === null || raw === undefined) return null;\nif (typeof raw !== 'string') {\n    if (typeof raw === 'object') return null;\n    raw = String(raw);\n}\n\nconst text = raw.trim();\nif (!text || text === '{}' || text === 'null' || text === 'undefined') return null;\nif (!(text.startsWith('{') && text.endsWith('}'))) return null;\n\nlet parsed;\ntry {\n    parsed = JSON.parse(text);\n} catch (e) {\n    node.warn(`invalid command json: ${e.message}`);\n    return null;\n}\n\nconst commandId = String(parsed.command_id || parsed.commandid || '').trim();\nconst equipmentId = String(parsed.equipment_id || parsed.equipmentid || '').trim();\nconst commandType = String(parsed.command_type || parsed.commandtype || '').trim();\nconst timeoutSecRaw = Number(parsed.timeout_sec ?? parsed.timeoutsec ?? 10);\nconst timeoutSec = Number.isFinite(timeoutSecRaw) && timeoutSecRaw > 0 ? timeoutSecRaw : 10;\n\nif (!commandId || !equipmentId || !commandType) {\n    node.warn('command json missing required fields');\n    return null;\n}\n\nconst lastId = flow.get('upper_command_last_id') || '';\nif (commandId === lastId) return null;\n\nflow.set('upper_command_last_id', commandId);\nflow.set('opcua_lastseen_upper_cmd_line02', Date.now());\n\nmsg.payload = {\n    command: {\n        command_id: commandId,\n        equipment_id: equipmentId,\n        command_type: commandType,\n        value: parsed.value,\n        timeout_sec: timeoutSec\n    }\n};\nmsg.topic = commandId;\nreturn msg;",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
@@ -8172,7 +8214,7 @@
         "type": "function",
         "z": "7841851e0cbfff00",
         "name": "watchdog resub command",
-        "func": "const now = Date.now();\nconst lastSeen = flow.get('opcua_lastseen_upper_cmd_line01') || 0;\nconst cooldown = flow.get('opcua_resub_cooldown_upper_cmd_line01') || 0;\nconst started = flow.get('opcua_sub_started_upper_cmd_line01') || 0;\n\nif (!started) {\n    flow.set('opcua_sub_started_upper_cmd_line01', now);\n    return null;\n}\n\nconst noDataMs = lastSeen ? (now - lastSeen) : (now - started);\nif (noDataMs < 15000) return null;\nif (now - cooldown < 15000) return null;\n\nflow.set('opcua_resub_cooldown_upper_cmd_line01', now);\nmsg.topic = 'multiple';\nmsg.payload = [{\n  nodeId: 'ns=2;s=LINE-02.command',\n  datatype: 'String',\n  name: 'command'\n}];\nreturn msg;",
+        "func": "// PR16: Watchdog — re-subscribe to Command Center 'ns=1;s=Line-02.Request' if quiet.\nconst now = Date.now();\nconst lastSeen = flow.get('opcua_lastseen_upper_cmd_line02') || 0;\nconst cooldown = flow.get('opcua_resub_cooldown_upper_cmd_line02') || 0;\nconst started  = flow.get('opcua_sub_started_upper_cmd_line02') || 0;\n\nif (!started) {\n    flow.set('opcua_sub_started_upper_cmd_line02', now);\n    return null;\n}\n\nconst noDataMs = lastSeen ? (now - lastSeen) : (now - started);\nif (noDataMs < 15000) return null;\nif (now - cooldown < 15000) return null;\n\nflow.set('opcua_resub_cooldown_upper_cmd_line02', now);\nmsg.topic = 'multiple';\nmsg.payload = [{\n  nodeId: 'ns=1;s=Line-02.Request',\n  datatype: 'String',\n  name: 'command'\n}];\nreturn msg;\n",
         "outputs": 1,
         "timeout": "",
         "noerr": 0,
